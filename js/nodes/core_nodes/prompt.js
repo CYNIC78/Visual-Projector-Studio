@@ -316,7 +316,7 @@
         _renderDropzone(body) {
             const existing = body.querySelector('.vp-as-node-dropzone');
             if (existing) existing.remove();
-            if (Array.isArray(this.data.reference) && this.data.reference.length > 0) return;
+            const refs = Array.isArray(this.data.reference) ? this.data.reference : [];
 
             const zone = document.createElement('div');
             zone.className = 'vp-as-node-dropzone';
@@ -329,7 +329,36 @@
                 transition:border-color 0.15s, background 0.15s, color 0.15s;
                 cursor:default; flex-shrink:0;
             `;
-            zone.innerHTML = `<b>Reference Images</b><span>Drop source here or use gallery drag-n-drop</span>`;
+
+            if (refs.length > 0) {
+                zone.style.borderStyle = 'solid';
+                zone.style.borderColor = 'rgba(108,95,166,0.35)';
+                zone.style.background = 'rgba(108,95,166,0.06)';
+                const previews = refs.slice(0, 3).map((ref, i) => {
+                    const isB64 = ref.startsWith('data:image/');
+                    if (isB64) {
+                        return `<img src="${ref}" style="width:24px;height:24px;border-radius:4px;object-fit:cover;border:1px solid rgba(255,255,255,0.15);flex-shrink:0;" title="Ref ${i+1}">`;
+                    }
+                    const name = ref.split('/').pop().split('\\').pop().slice(0, 16);
+                    return `<span style="font-size:9px;padding:2px 5px;background:rgba(0,0,0,0.3);border-radius:4px;">${name}</span>`;
+                }).join('');
+                zone.innerHTML = `<div style="display:flex;align-items:center;gap:6px;width:100%;">
+                    <span style="font-size:10px;font-weight:700;color:var(--accent);white-space:nowrap;">📎 ${refs.length} ref</span>
+                    <div style="display:flex;align-items:center;gap:3px;flex:1;overflow:hidden;">${previews}</div>
+                    <button class="vp-btn vp-btn-sm" id="vp-as-clear-refs" title="Clear references" style="height:20px;padding:0 6px;font-size:10px;flex-shrink:0;">✕</button>
+                </div>`;
+                const clearBtn = zone.querySelector('#vp-as-clear-refs');
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.data.reference = [];
+                        this._renderDropzone(body);
+                        VP_AS.Graph.persist();
+                    });
+                }
+            } else {
+                zone.innerHTML = `<b>Reference Images</b><span>Drop source here or use gallery drag-n-drop</span>`;
+            }
 
             const setState = (active) => zone.classList.toggle('is-active', !!active);
             zone.addEventListener('dragover', (e) => { e.preventDefault(); setState(true); });
