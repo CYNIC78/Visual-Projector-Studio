@@ -284,10 +284,17 @@
         "text": ""
       },
       "projector": {
-        "currentTag": null,
+        "currentTag": "emily_laughting",
         "coverTag": null,
         "preparedTag": null,
-        "history": [],
+        "history": [
+          {
+            "tag": "emily_laughting",
+            "filename": "Emily_laughting.webp",
+            "timestamp": 1783867243754,
+            "source": "model"
+          }
+        ],
         "playbackMessages": [
           {
             "id": "msg_mrd7mqir_cqhn5",
@@ -351,7 +358,7 @@
       },
       "meta": {
         "createdAt": 1782390210125,
-        "updatedAt": 1783845084958,
+        "updatedAt": 1783867243876,
         "lastMessageAt": 1783610575199
       }
     }

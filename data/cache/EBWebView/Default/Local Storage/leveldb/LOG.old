@@ -1,24 +1,12 @@
-2026/07/12-02:18:47.359 1be0 Reusing MANIFEST D:\Visual-Projector-AssetStudio-Towers\data\cache\EBWebView\Default\Local Storage\leveldb/MANIFEST-000001
-2026/07/12-02:18:47.364 1be0 Recovering log #27
-2026/07/12-02:18:47.365 1be0 Reusing old log D:\Visual-Projector-AssetStudio-Towers\data\cache\EBWebView\Default\Local Storage\leveldb/000027.log 
-2026/07/12-02:48:26.664 1be0 Level-0 table #32: started
-2026/07/12-02:48:26.673 1be0 Level-0 table #32: 25909 bytes OK
-2026/07/12-02:48:26.675 1be0 Delete type=0 #27
-2026/07/12-03:14:26.869 1be0 Level-0 table #34: started
-2026/07/12-03:14:26.878 1be0 Level-0 table #34: 25592 bytes OK
-2026/07/12-03:14:26.881 1be0 Delete type=0 #31
-2026/07/12-03:42:36.656 1be0 Level-0 table #36: started
-2026/07/12-03:42:36.659 1be0 Level-0 table #36: 25305 bytes OK
-2026/07/12-03:42:36.661 1be0 Delete type=0 #33
-2026/07/12-04:22:54.249 1be0 Level-0 table #38: started
-2026/07/12-04:22:54.258 1be0 Level-0 table #38: 24565 bytes OK
-2026/07/12-04:22:54.260 1be0 Delete type=0 #35
-2026/07/12-04:22:54.260 1be0 Compacting 4@0 + 1@1 files
-2026/07/12-04:22:54.264 1be0 Generated table #39@0: 12 keys, 3430 bytes
-2026/07/12-04:22:54.264 1be0 Compacted 4@0 + 1@1 files => 3430 bytes
-2026/07/12-04:22:54.266 1be0 compacted to: files[ 0 1 1 0 0 0 0 ]
-2026/07/12-04:22:54.266 1be0 Delete type=2 #29
-2026/07/12-04:22:54.266 1be0 Delete type=2 #32
-2026/07/12-04:22:54.266 1be0 Delete type=2 #34
-2026/07/12-04:22:54.266 1be0 Delete type=2 #36
-2026/07/12-04:22:54.266 1be0 Delete type=2 #38
+2026/07/12-10:37:42.245 14b4 Reusing MANIFEST D:\Visual-Projector-AssetStudio-Towers\data\cache\EBWebView\Default\Local Storage\leveldb/MANIFEST-000001
+2026/07/12-10:37:42.251 14b4 Recovering log #37
+2026/07/12-10:37:42.252 14b4 Reusing old log D:\Visual-Projector-AssetStudio-Towers\data\cache\EBWebView\Default\Local Storage\leveldb/000037.log 
+2026/07/12-10:53:53.369 14b4 Level-0 table #42: started
+2026/07/12-10:53:53.379 14b4 Level-0 table #42: 24546 bytes OK
+2026/07/12-10:53:53.381 14b4 Delete type=0 #37
+2026/07/12-11:17:42.342 14b4 Level-0 table #44: started
+2026/07/12-11:17:42.351 14b4 Level-0 table #44: 24208 bytes OK
+2026/07/12-11:17:42.354 14b4 Delete type=0 #41
+2026/07/12-11:49:06.164 14b4 Level-0 table #46: started
+2026/07/12-11:49:06.173 14b4 Level-0 table #46: 24817 bytes OK
+2026/07/12-11:49:06.176 14b4 Delete type=0 #43

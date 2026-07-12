@@ -487,11 +487,17 @@
           "width": 630,
           "height": 723,
           "data": {
+            "tabs": [
+              {
+                "id": "tab_mrhwhgpa_0t3l",
+                "name": "default",
+                "text": "Make Emily look away and up"
+              }
+            ],
+            "activeTabId": "tab_mrhwhgpa_0t3l",
             "reference": [
               "C:/Users/Dmitry/Desktop/Temp/Characters/emily/Emily.jpg"
-            ],
-            "positive": "Make Emily look away and up",
-            "negative": ""
+            ]
           }
         },
         {
@@ -572,11 +578,11 @@
         "y": 480
       },
       "viewport": {
-        "x": 1144.2573337087274,
-        "y": 280.5431917343104,
+        "x": 199.2573337087274,
+        "y": -84.45680826568957,
         "scale": 0.891399958760628,
-        "canvasW": 1906,
-        "canvasH": 938
+        "canvasW": 398,
+        "canvasH": 401
       }
     },
     "workflows": [],
