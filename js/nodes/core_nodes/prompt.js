@@ -323,7 +323,7 @@
             zone.style.cssText = `
                 margin:4px 8px 6px; border-radius:8px;
                 transition:border-color 0.15s, background 0.15s;
-                cursor:default; overflow:hidden;
+                cursor:default; flex-shrink:0; overflow:hidden;
             `;
 
             const setState = (active) => zone.classList.toggle('is-active', !!active);
@@ -336,7 +336,7 @@
             });
 
             if (refs.length > 0) {
-                zone.style.flex = '1';
+                zone.style.minHeight = '80px';
                 zone.style.display = 'flex';
                 zone.style.flexDirection = 'column';
                 zone.style.overflow = 'hidden';
@@ -346,48 +346,33 @@
                 const shown = refs.slice(0, 3);
                 const extra = refs.length - 3;
 
-                // Image row — fills vertical space via flex
-                let html = '<div style="flex:1; display:flex; gap:6px; align-items:stretch; min-height:0; padding:8px 8px 4px;">';
-                for (let ri = 0; ri < shown.length; ri++) {
-                    const ref = shown[ri];
+                // Image row — fills available vertical space
+                let html = '<div style="display:flex; gap:6px; align-items:stretch; padding:8px 8px 4px; justify-content:space-around;">';
+                shown.forEach((ref, i) => {
                     const canImg = ref.startsWith('data:image/') || ref.startsWith('blob:') || ref.startsWith('http://') || ref.startsWith('https://');
-                    // Each cell: position:relative so the absolute-positioned img fills it
-                    html += '<div style="flex:1; min-width:0; position:relative; border-radius:6px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);">';
                     if (canImg) {
-                        html += `<img src="${ref}" style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain;" alt="ref${ri+1}" title="Reference ${ri+1}">`;
+                        html += `<div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                            <img src="${ref}" style="width:100%; max-height:200px; object-fit:contain; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);"
+                                alt="ref${i+1}" title="Reference ${i+1}"
+                                onerror="this.outerHTML='<span style=\'font-size:11px;color:var(--text-secondary);padding:8px;\'>✗ ref${i+1}</span>'">
+                        </div>`;
                     } else {
                         const name = ref.split('/').pop().split('\\').pop().slice(0, 20);
-                        html += `<span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--text-secondary); text-align:center; padding:4px;">${name}</span>`;
+                        html += `<div style="flex:1; display:flex; align-items:center; justify-content:center; padding:10px; background:rgba(0,0,0,0.15); border-radius:6px; font-size:10px; color:var(--text-secondary,#a6adc8); text-align:center;">${name}</div>`;
                     }
-                    // Close button per ref
-                    html += `<button class="vp-as-ref-del" data-ref-idx="${ri}" style="position:absolute; top:2px; right:2px; width:16px; height:16px; padding:0; font-size:9px; line-height:1; border-radius:8px; border:none; background:rgba(0,0,0,0.6); color:#fff; cursor:pointer; z-index:5; display:flex; align-items:center; justify-content:center;" title="Remove this reference">✕</button>`;
-                    html += '</div>';
-                }
+                });
                 if (extra > 0) {
-                    html += '<div style="flex:0 0 24px; display:flex; align-items:center; justify-content:center;"><span style="font-size:12px; font-weight:700; color:var(--accent);">+'+extra+'</span></div>';
+                    html += '<div style="flex:0 0 28px; display:flex; align-items:center; justify-content:center;"><span style="font-size:12px; font-weight:700; color:var(--accent);">+'+extra+'</span></div>';
                 }
                 html += '</div>';
 
-                // Bottom bar
-                html += '<div style="flex:0 0 auto; display:flex; align-items:center; gap:6px; padding:4px 10px 6px;"><span style="font-size:10px; font-weight:700; color:var(--accent);">📎 '+refs.length+'</span><span style="flex:1;"></span><button class="vp-btn vp-btn-sm" id="vp-as-clear-all-refs" style="height:20px;padding:0 8px;font-size:10px;">✕ All</button></div>';
+                // Bottom bar — fixed height
+                html += '<div style="flex:0 0 auto; display:flex; align-items:center; gap:6px; padding:4px 10px 6px;"><span style="font-size:10px; font-weight:700; color:var(--accent);">📎 '+refs.length+'</span><span style="flex:1;"></span><button class="vp-btn vp-btn-sm" id="vp-as-clear-refs" style="height:20px;padding:0 8px;font-size:10px;">✕ Clear</button></div>';
                 zone.innerHTML = html;
 
-                // Wire individual delete buttons
-                zone.querySelectorAll('.vp-as-ref-del').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const idx = parseInt(btn.dataset.refIdx, 10);
-                        if (!isNaN(idx) && idx >= 0 && idx < refs.length) {
-                            this.data.reference = refs.filter((_, j) => j !== idx);
-                            this._renderDropzone(body);
-                            VP_AS.Graph.persist();
-                        }
-                    });
-                });
-
-                const clearAllBtn = zone.querySelector('#vp-as-clear-all-refs');
-                if (clearAllBtn) {
-                    clearAllBtn.addEventListener('click', (e) => {
+                const clearBtn = zone.querySelector('#vp-as-clear-refs');
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         this.data.reference = [];
                         this._renderDropzone(body);
@@ -408,6 +393,7 @@
                 zone.style.textAlign = 'center';
                 zone.innerHTML = '<b>Reference Images</b><span>Drop source here or use gallery drag-n-drop</span>';
             }
+
             body.appendChild(zone);
         }
 
