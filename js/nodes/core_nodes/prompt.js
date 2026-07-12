@@ -100,7 +100,7 @@
         // ── Рендер ──
         renderBody(body) {
             body.classList.add('vp-as-pill-stack', 'vp-as-prompt-body');
-            body.style.cssText = 'display:flex; flex-direction:column; gap:0; padding:0; overflow:hidden;';
+            body.style.cssText = 'flex:1; display:flex; flex-direction:column; gap:0; padding:0; overflow:hidden;';
             this._migrateIfNeeded();
             this._renderTabBar(body);
             this._renderEditor(body);
@@ -336,20 +336,24 @@
             });
 
             if (refs.length > 0) {
+                zone.style.flex = '1';
+                zone.style.display = 'flex';
+                zone.style.flexDirection = 'column';
+                zone.style.overflow = 'hidden';
                 zone.style.background = 'rgba(108,95,166,0.06)';
                 zone.style.border = '1px solid rgba(108,95,166,0.35)';
 
                 const shown = refs.slice(0, 3);
                 const extra = refs.length - 3;
 
-                // Image row — flexible, fills the node width
-                let html = '<div style="display:flex; gap:6px; align-items:stretch; padding:8px 8px 4px; justify-content:space-around;">';
+                // Image row — fills available vertical space
+                let html = '<div style="flex:1; display:flex; gap:6px; align-items:stretch; min-height:0; padding:8px 8px 4px; justify-content:space-around; overflow:hidden;">';
                 shown.forEach((ref, i) => {
                     const canImg = ref.startsWith('data:image/') || ref.startsWith('blob:') || ref.startsWith('http://') || ref.startsWith('https://');
                     if (canImg) {
-                        html += `<div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:center;">
-                            <img src="${ref}" style="width:100%; height:auto; max-height:90px; object-fit:contain; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);" 
-                                alt="ref${i+1}" title="Reference ${i+1}" 
+                        html += `<div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                            <img src="${ref}" style="width:100%; height:100%; object-fit:contain; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);"
+                                alt="ref${i+1}" title="Reference ${i+1}"
                                 onerror="this.outerHTML='<span style=\'font-size:11px;color:var(--text-secondary);padding:8px;\'>✗ ref${i+1}</span>'">
                         </div>`;
                     } else {
@@ -358,18 +362,12 @@
                     }
                 });
                 if (extra > 0) {
-                    html += `<div style="flex:0 0 28px; display:flex; align-items:center; justify-content:center;">
-                        <span style="font-size:12px; font-weight:700; color:var(--accent);">+${extra}</span>
-                    </div>`;
+                    html += '<div style="flex:0 0 28px; display:flex; align-items:center; justify-content:center;"><span style="font-size:12px; font-weight:700; color:var(--accent);">+'+extra+'</span></div>';
                 }
                 html += '</div>';
 
-                // Bottom bar with count + clear
-                html += `<div style="display:flex; align-items:center; gap:6px; padding:4px 10px 6px;">
-                    <span style="font-size:10px; font-weight:700; color:var(--accent);">📎 ${refs.length}</span>
-                    <span style="flex:1;"></span>
-                    <button class="vp-btn vp-btn-sm" id="vp-as-clear-refs" style="height:20px;padding:0 8px;font-size:10px;">✕ Clear</button>
-                </div>`;
+                // Bottom bar — fixed height
+                html += '<div style="flex:0 0 auto; display:flex; align-items:center; gap:6px; padding:4px 10px 6px;"><span style="font-size:10px; font-weight:700; color:var(--accent);">📎 '+refs.length+'</span><span style="flex:1;"></span><button class="vp-btn vp-btn-sm" id="vp-as-clear-refs" style="height:20px;padding:0 8px;font-size:10px;">✕ Clear</button></div>';
                 zone.innerHTML = html;
 
                 const clearBtn = zone.querySelector('#vp-as-clear-refs');
@@ -381,7 +379,7 @@
                         VP_AS.Graph.persist();
                     });
                 }
-            } else {
+ else {
                 zone.style.display = 'flex';
                 zone.style.flexDirection = 'column';
                 zone.style.alignItems = 'center';

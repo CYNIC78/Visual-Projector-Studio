@@ -937,6 +937,7 @@
                                 <button class="vp-btn vp-btn-ghost" id="vp-as-produce-all" title="Generate all tabs sequentially">▶▶ Produce All</button>
                                 <button class="vp-btn vp-btn-ghost" id="vp-as-stop" style="display:none; color:#ff6b6b; border-color:rgba(255,60,60,0.3);">⏹ Stop</button>
                                 <button class="vp-btn vp-btn-ghost" id="vp-as-copy-cli">📋 Copy CLI</button>
+                                <button class="vp-btn vp-btn-ghost" id="vp-as-gallery-btn" title="Open floating gallery">📚 Gallery</button>
                             </div>
                             <div class="vp-as-progress-bar"><div class="fill" id="vp-as-progress-fill" style="width:0%"></div></div>
                             <div class="vp-as-status" id="vp-as-status">Ready · 0 nodes · CLI</div>
@@ -1223,6 +1224,17 @@
                     .then(() => VP.showToast?.('CLI copied', 'success'))
                     .catch(() => VP.showToast?.('Clipboard unavailable', 'error'));
             });
+
+            const galleryBtn = container.querySelector('#vp-as-gallery-btn');
+            if (galleryBtn) {
+                galleryBtn.addEventListener('click', () => {
+                    if (VP.gallery?.toggleMode) {
+                        VP.gallery.toggleMode();
+                    } else {
+                        VP.showToast?.('Gallery not loaded', 'warn');
+                    }
+                });
+            }
 
             container.querySelectorAll('.vp-as-preset').forEach(btn => {
                 btn.addEventListener('click', () => {
