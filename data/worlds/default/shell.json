@@ -1,0 +1,585 @@
+{
+  "enabled": true,
+  "activeWorkspace": "custom_mqthar3e",
+  "customWorkspaces": {
+    "custom_mqthar3e": {
+      "title": "Chatbot",
+      "icon": "⭐",
+      "builtin": false
+    },
+    "custom_mqtqo1fx": {
+      "title": "Settings",
+      "icon": "⭐",
+      "builtin": false
+    },
+    "custom_mqw34s4e": {
+      "title": "Custom Workspace",
+      "icon": "⭐",
+      "builtin": false
+    }
+  },
+  "layouts": {
+    "performance": {
+      "type": "split",
+      "id": "split_mqtp727l_7rbw",
+      "direction": "row",
+      "ratio": 0.4161425576519916,
+      "a": {
+        "type": "leaf",
+        "id": "area_mqth401d_8u7o",
+        "panel": "stage"
+      },
+      "b": {
+        "type": "split",
+        "id": "split_mqtp7ar6_qvj9",
+        "direction": "column",
+        "ratio": 0.7985611510791367,
+        "a": {
+          "type": "leaf",
+          "id": "area_mqtp727l_ftfm",
+          "panel": "log",
+          "state": {
+            "log": {
+              "bubbleAlign": "full",
+              "marginLeft": 90,
+              "marginRight": 90
+            }
+          }
+        },
+        "b": {
+          "type": "leaf",
+          "id": "area_mqtp7ar5_477x",
+          "panel": "input",
+          "state": {
+            "input": {}
+          }
+        }
+      }
+    },
+    "director": {
+      "type": "split",
+      "id": "split_mqth401d_w8op",
+      "direction": "row",
+      "ratio": 0.7164570230607966,
+      "a": {
+        "type": "split",
+        "id": "split_mqw8vmu5_chxn",
+        "direction": "row",
+        "ratio": 0.4969053934571176,
+        "a": {
+          "type": "split",
+          "id": "split_mqwfuzzq_s4wh",
+          "direction": "column",
+          "ratio": 0.8756423432682425,
+          "a": {
+            "type": "leaf",
+            "id": "area_mqth401d_4deg",
+            "panel": "log",
+            "state": {
+              "log": {
+                "bubbleAlign": "full",
+                "marginLeft": 0,
+                "marginRight": 0
+              }
+            }
+          },
+          "b": {
+            "type": "leaf",
+            "id": "area_mqwfuzzq_8ft7",
+            "panel": "input",
+            "state": {
+              "input": {}
+            }
+          }
+        },
+        "b": {
+          "type": "leaf",
+          "id": "area_mqw8vmu5_zmcn",
+          "panel": "stage",
+          "state": {
+            "log": {}
+          }
+        }
+      },
+      "b": {
+        "type": "split",
+        "id": "split_mqtlka7b_2o7x",
+        "direction": "column",
+        "ratio": 0.2343268242548818,
+        "a": {
+          "type": "leaf",
+          "id": "area_mqth401d_zkv1",
+          "panel": "profiles",
+          "state": {
+            "profiles": {
+              "viewMode": "grid",
+              "cardSize": 120,
+              "sortBy": "name",
+              "avatarShape": "rounded",
+              "showDescriptions": true,
+              "showMeta": false,
+              "showActions": true
+            }
+          }
+        },
+        "b": {
+          "type": "leaf",
+          "id": "area_mqwbhxt1_4tb6",
+          "panel": "game",
+          "state": {
+            "input": {}
+          }
+        }
+      }
+    },
+    "workshop": {
+      "type": "split",
+      "id": "split_mqth401d_kd3i",
+      "direction": "row",
+      "ratio": 0.34014675052410903,
+      "a": {
+        "type": "leaf",
+        "id": "area_mqth401d_tuv5",
+        "panel": "gallery"
+      },
+      "b": {
+        "type": "split",
+        "id": "split_mqth401d_f73a",
+        "direction": "column",
+        "ratio": 0.5,
+        "a": {
+          "type": "leaf",
+          "id": "area_mqth401d_67jh",
+          "panel": "stage"
+        },
+        "b": {
+          "type": "split",
+          "id": "split_mqth401d_7v6x",
+          "direction": "row",
+          "ratio": 0.5436893203883495,
+          "a": {
+            "type": "split",
+            "id": "split_mr6fv3qn_ukza",
+            "direction": "column",
+            "ratio": 0.7166494312306101,
+            "a": {
+              "type": "leaf",
+              "id": "area_mqth401d_oyi4",
+              "panel": "log",
+              "state": {
+                "log": {}
+              }
+            },
+            "b": {
+              "type": "leaf",
+              "id": "area_mr6fv3qn_dby7",
+              "panel": "input",
+              "state": {
+                "input": {}
+              }
+            }
+          },
+          "b": {
+            "type": "leaf",
+            "id": "area_mqth401d_qrnl",
+            "panel": "model"
+          }
+        }
+      }
+    },
+    "custom_mqthar3e": {
+      "type": "split",
+      "id": "split_mr9t2naz_rw46",
+      "direction": "row",
+      "ratio": 0.2809224318658281,
+      "a": {
+        "type": "split",
+        "id": "split_mr9t38sk_wwr7",
+        "direction": "column",
+        "ratio": 0.590955806783145,
+        "a": {
+          "type": "leaf",
+          "id": "area_mqth401d_67jh",
+          "panel": "stage",
+          "state": {
+            "log": {
+              "bubbleAlign": "chat",
+              "bubbleStyle": "cards",
+              "marginLeft": 280,
+              "marginRight": 280
+            }
+          }
+        },
+        "b": {
+          "type": "leaf",
+          "id": "area_mr9t38sk_rmgm",
+          "panel": "model",
+          "state": {
+            "input": {},
+            "empty": {
+              "bgTag": "room",
+              "bgFit": "cover",
+              "bgDim": 0
+            }
+          }
+        }
+      },
+      "b": {
+        "type": "split",
+        "id": "split_mr9thb6f_zm67",
+        "direction": "row",
+        "ratio": 0.5726807888970051,
+        "a": {
+          "type": "split",
+          "id": "split_mr9thigf_965c",
+          "direction": "column",
+          "ratio": 0.8335046248715313,
+          "a": {
+            "type": "leaf",
+            "id": "area_mr9t2naz_f66q",
+            "panel": "log",
+            "state": {
+              "log": {
+                "bubbleAlign": "full",
+                "marginLeft": 90,
+                "marginRight": 0
+              }
+            }
+          },
+          "b": {
+            "type": "leaf",
+            "id": "area_mr9thigf_lpe6",
+            "panel": "input",
+            "state": {
+              "input": {}
+            }
+          }
+        },
+        "b": {
+          "type": "split",
+          "id": "split_mrfgagzs_qclr",
+          "direction": "column",
+          "ratio": 0.5673175745118191,
+          "a": {
+            "type": "leaf",
+            "id": "area_mrf98q43_tpv7",
+            "panel": "asset-studio",
+            "state": {
+              "input": {}
+            }
+          },
+          "b": {
+            "type": "leaf",
+            "id": "area_mrfgagzs_k17r",
+            "panel": "settings",
+            "state": {
+              "log": {},
+              "input": {}
+            }
+          }
+        }
+      }
+    },
+    "custom_mqtqo1fx": {
+      "type": "split",
+      "id": "split_mqthb7r0_bv6o",
+      "direction": "row",
+      "ratio": 0.5733752620545073,
+      "a": {
+        "type": "split",
+        "id": "split_mqthbefg_kmzd",
+        "direction": "column",
+        "ratio": 0.8478931140801644,
+        "a": {
+          "type": "leaf",
+          "id": "area_mqth401d_67jh",
+          "panel": "stage",
+          "state": {
+            "log": {}
+          }
+        },
+        "b": {
+          "type": "leaf",
+          "id": "area_mqthbefg_gjmr",
+          "panel": "input",
+          "state": {
+            "input": {
+              "marginLeft": 0,
+              "marginRight": 0
+            }
+          }
+        }
+      },
+      "b": {
+        "type": "split",
+        "id": "split_mqxio9kv_8cnd",
+        "direction": "column",
+        "ratio": 0.29393627954779034,
+        "a": {
+          "type": "leaf",
+          "id": "area_mqtozc8i_jij7",
+          "panel": "profiles",
+          "state": {
+            "input": {},
+            "profiles": {
+              "viewMode": "grid",
+              "cardSize": 120,
+              "sortBy": "name",
+              "avatarShape": "rounded",
+              "showDescriptions": true,
+              "showMeta": true,
+              "showActions": true
+            }
+          }
+        },
+        "b": {
+          "type": "leaf",
+          "id": "area_mqxio9kv_91qe",
+          "panel": "game",
+          "state": {
+            "input": {}
+          }
+        }
+      }
+    },
+    "custom_mqw34s4e": {
+      "type": "split",
+      "id": "split_mqw35a0n_uzjn",
+      "direction": "column",
+      "ratio": 0.7163412127440905,
+      "a": {
+        "type": "split",
+        "id": "split_mr9ougxu_85pb",
+        "direction": "row",
+        "ratio": 0.4339622641509434,
+        "a": {
+          "type": "leaf",
+          "id": "area_mr9otzbd_my85",
+          "panel": "stage"
+        },
+        "b": {
+          "type": "leaf",
+          "id": "area_mr9ougxu_nn38",
+          "panel": "gallery",
+          "state": {
+            "log": {},
+            "empty": {
+              "bgTag": "room",
+              "bgFit": "contain",
+              "bgDim": 0
+            }
+          }
+        }
+      },
+      "b": {
+        "type": "split",
+        "id": "split_mr9outlu_6f2n",
+        "direction": "row",
+        "ratio": 0.2966457023060797,
+        "a": {
+          "type": "leaf",
+          "id": "area_mqw35a0n_adnc",
+          "panel": "input",
+          "state": {
+            "log": {},
+            "input": {
+              "marginLeft": 0,
+              "marginRight": 10
+            }
+          }
+        },
+        "b": {
+          "type": "split",
+          "id": "split_mr9ovd77_96rt",
+          "direction": "row",
+          "ratio": 0.525024797246047,
+          "a": {
+            "type": "leaf",
+            "id": "area_mr9outlu_goqc",
+            "panel": "profiles",
+            "state": {
+              "profiles": {
+                "viewMode": "grid",
+                "cardSize": 190,
+                "sortBy": "name",
+                "avatarShape": "circle",
+                "showDescriptions": true,
+                "showMeta": true,
+                "showActions": true
+              }
+            }
+          },
+          "b": {
+            "type": "leaf",
+            "id": "area_mr9ovd77_2di3",
+            "panel": "chats"
+          }
+        }
+      }
+    }
+  },
+  "globalSettingsCollapsed": {
+    "theme": false,
+    "storage": false,
+    "project": true,
+    "persona": true
+  },
+  "assetStudio": {
+    "config": {
+      "executablePath": "./bin/sd.cpp/sd-cli.exe",
+      "outputDir": "./output",
+      "engineMode": "cli",
+      "modelLibraries": {
+        "core": {
+          "paths": [
+            "d:/AI_Models/diffusion_models",
+            "d:/AI_Models/unet/"
+          ],
+          "recursive": true
+        },
+        "text": {
+          "paths": [
+            "d:/AI_Models/text_encoders/"
+          ],
+          "recursive": true
+        },
+        "vae": {
+          "paths": [
+            "d:/AI_Models/vae/"
+          ],
+          "recursive": true
+        },
+        "lora": {
+          "paths": [
+            "d:/AI_Models/loras/"
+          ],
+          "recursive": true
+        }
+      }
+    },
+    "graph": {
+      "nodes": [
+        {
+          "type": "loader",
+          "id": "loader_mrgc34xs_96tz",
+          "x": -933.7956093947328,
+          "y": -169.21932181202413,
+          "width": 310,
+          "height": 481,
+          "data": {
+            "coreModel": "d:/AI_Models/unet/qwen/Qwen-Rapid-AIO-NSFW-v19_Q4_0.gguf",
+            "vae": "d:/AI_Models/vae/wan_2.1_vae.safetensors",
+            "clip1": "d:/AI_Models/text_encoders/Qwen2.5-VL-7B-Instruct-abliterated.Q4_K_M.gguf",
+            "offloadToCpu": false,
+            "diffusionFa": true,
+            "modelArgs": "qwen_image_zero_cond_t=true",
+            "threads": 6,
+            "clipOnCpu": true,
+            "vaeOnCpu": false,
+            "paramsBackend": "default"
+          }
+        },
+        {
+          "type": "prompt",
+          "id": "prompt_mrgc34xs_azm4",
+          "x": -357.52330672436557,
+          "y": -161.66266069993313,
+          "width": 630,
+          "height": 723,
+          "data": {
+            "reference": [
+              "C:/Users/Dmitry/Desktop/Temp/Characters/emily/Emily.jpg"
+            ],
+            "positive": "Make Emily look away and up",
+            "negative": ""
+          }
+        },
+        {
+          "type": "sampler",
+          "id": "sampler_mrgc34xt_m5zf",
+          "x": -611.6130806985345,
+          "y": -162.93392242364985,
+          "width": 244,
+          "height": 474,
+          "data": {
+            "cfg": 1,
+            "sampler": "euler_a",
+            "flowShift": 6,
+            "steps": 5,
+            "seed": -1,
+            "scheduler": "default",
+            "width": 768,
+            "height": 768,
+            "strength": 1
+          }
+        },
+        {
+          "type": "output",
+          "id": "output_mrgc34xt_ziwf",
+          "x": 284.986348709282,
+          "y": -154.33618763594774,
+          "width": 588,
+          "height": 714,
+          "data": {
+            "lastImage": "blob:http://127.0.0.1:45710/43ced4a2-a94c-49c8-825e-2d656d76d992"
+          }
+        },
+        {
+          "type": "lora",
+          "id": "lora_mrhjbau1_6mtn",
+          "x": -919.4255500834068,
+          "y": 323.93401258346523,
+          "width": 543,
+          "height": 244,
+          "data": {
+            "items": [
+              {
+                "file": "d:/AI_Models/loras/qwen/Qwen-Image_SmartphoneSnapshot_amateur photo.safetensors",
+                "weight": 0
+              }
+            ]
+          }
+        }
+      ],
+      "links": [
+        {
+          "fromNode": "loader_mrgc34xs_96tz",
+          "fromSocket": "out",
+          "toNode": "lora_mrhjbau1_6mtn",
+          "toSocket": "in"
+        },
+        {
+          "fromNode": "lora_mrhjbau1_6mtn",
+          "fromSocket": "out",
+          "toNode": "prompt_mrgc34xs_azm4",
+          "toSocket": "in"
+        },
+        {
+          "fromNode": "prompt_mrgc34xs_azm4",
+          "fromSocket": "out",
+          "toNode": "sampler_mrgc34xt_m5zf",
+          "toSocket": "in"
+        },
+        {
+          "fromNode": "sampler_mrgc34xt_m5zf",
+          "fromSocket": "out",
+          "toNode": "output_mrgc34xt_ziwf",
+          "toSocket": "in"
+        }
+      ],
+      "nextPos": {
+        "x": 120,
+        "y": 480
+      },
+      "viewport": {
+        "x": 1144.2573337087274,
+        "y": 280.5431917343104,
+        "scale": 0.891399958760628,
+        "canvasW": 1906,
+        "canvasH": 938
+      }
+    },
+    "workflows": [],
+    "selectedWorkflowId": null
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "running": false,
+  "abortController": null,
+  "view": {
+    "compact": true,
+    "showRaw": false,
+    "autoScroll": true,
+    "markdown": true,
+    "fontSize": 14,
+    "fontFamily": "system",
+    "avatarSize": 50,
+    "avatarStyle": "float",
+    "logBackground": "room",
+    "logBackgroundDim": 50,
+    "bubbleBlur": true,
+    "marginLeft": 0,
+    "marginRight": 0,
+    "bubbleAlign": "full",
+    "sceneEventMode": "compact",
+    "sceneEventContextDepth": 4,
+    "syncChatTyping": false,
+    "simpleBubbles": true
+  },
+  "input": {
+    "clearAfterSend": true,
+    "enterToSend": true,
+    "fontSize": 13,
+    "marginLeft": 0,
+    "marginRight": 0
+  },
+  "pendingManifests": []
+}

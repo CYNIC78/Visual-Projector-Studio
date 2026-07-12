@@ -1,0 +1,15 @@
+{
+  "format": "visual-projector-game",
+  "formatVersion": 1,
+  "id": "playful_activities_pack",
+  "title": "Playful Activities Pack",
+  "version": "0.5.0",
+  "entry": "main.js",
+  "style": "style.css",
+  "description": "Universal playful mini-games for roleplay chats: pillow fight, staring contest, hide and seek, playful chase, don’t laugh. Includes overlay sessions, auto-resolve and LLM aftermath hooks.",
+  "trusted": true,
+  "importedAt": 1782618720796,
+  "importedFrom": "C:/Users/Dmitry/Desktop/Visual Projector/zip/playful_activities_pack.vpgame",
+  "sourceGameId": "playful_activities_pack",
+  "updatedAt": 1782618720796
+}

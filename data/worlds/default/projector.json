@@ -1,0 +1,50 @@
+{
+  "currentTag": null,
+  "coverTag": null,
+  "preparedTag": null,
+  "history": [],
+  "playbackMessages": [
+    {
+      "id": "msg_mrd7mqir_cqhn5",
+      "role": "user",
+      "text": "Приветики, Эмили, я тут тестирую проектор. Попробуй вызвать активность!",
+      "timestamp": 1783583611587,
+      "frameTagAtStart": null
+    },
+    {
+      "id": "msg_mrd880zo_v3nku",
+      "role": "assistant",
+      "text": "[IMG:emily_smiling] Ой, привет-привет, Дмитрий! Проектор работает отлично — картинка очень четкая! \n\n[IMG:emily_playful] Раз ты хочешь проверить мои навыки и \"вызвать активность\", то я не могу просто сидеть и смотреть на экран. Давай устроим что-нибудь веселое? \n\nКак насчет того, чтобы проверить твою выдержку? [ACTIVITY_REQUEST:playful_activities_pack/dont_laugh] Давай сыграем в «Не смейся»! Посмотрим, кто из нас первым сорвется и начнет хохотать. Я готова! Ты готов к испытанию?",
+      "timestamp": 1783584604932,
+      "frameTagAtStart": null
+    },
+    {
+      "id": "msg_mrd88dtu_nb57q",
+      "role": "system",
+      "text": "[ Dmitry accepted Emily's Dont Laugh activity proposal. ]",
+      "timestamp": 1783584621570,
+      "frameTagAtStart": null
+    },
+    {
+      "id": "msg_mrd88du0_r9162",
+      "role": "system",
+      "text": "[ The Dont Laugh activity starts. ]",
+      "timestamp": 1783584621576,
+      "frameTagAtStart": null
+    },
+    {
+      "id": "msg_mrd88ft1_kxqwk",
+      "role": "system",
+      "text": "[ npc_laughed_first ]",
+      "timestamp": 1783584624133,
+      "frameTagAtStart": null
+    },
+    {
+      "id": "msg_mrdno23a_urcyg",
+      "role": "assistant",
+      "text": "[IMG:emily_laughting] А-ха-ха! Ну вот, Дмитрий! Я так и знала! \n\n[IMG:emily_smiling] Ты просто монстр выдержки! А я... — *я вытираю выступившие слезы смеха, пытаясь вернуть себе хоть какой-то серьезный вид* — ...я полностью провалилась. Твои брови в конце были просто незаконным оружием! Это было нечестно!\n\n[IMG:emily_playful] Ладно, признаю своё поражение. 1:0 в твою пользу. Но не расслабляйся! У меня ещё есть пара козырей в запасе. Ты так уверенно выстоял, что мне теперь даже немного неловко за свою слабость...\n\n[IMG:emily_skeptical] Хм, а если мы перейдем к чему-то более... соревновательному? Ну, например, проверка твоей реакции? Или ты хочешь просто посидеть и насладиться триумфом?",
+      "timestamp": 1783610547094,
+      "frameTagAtStart": null
+    }
+  ]
+}

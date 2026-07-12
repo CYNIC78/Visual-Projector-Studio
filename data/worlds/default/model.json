@@ -1,0 +1,10 @@
+{
+  "endpoint": "http://127.0.0.1:1234/v1/chat/completions",
+  "apiKey": "",
+  "model": "gemma-4-26b-a4b-it-qat-heretic-ud-k-xl",
+  "temperature": 0.9,
+  "maxTokens": 4096,
+  "stream": true,
+  "toolsMode": "off",
+  "toolLoopLimit": 4
+}

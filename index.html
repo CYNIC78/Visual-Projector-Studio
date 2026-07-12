@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VP Studio — Interactive Roleplay Engine</title>
+    <link rel="stylesheet" href="css/visual-projector.css">
+    <style>
+        html, body { width: 100%; height: 100%; }
+        body::before {
+            content: 'VP Studio · Core Engine';
+            position: fixed;
+            left: 14px;
+            bottom: 10px;
+            z-index: 1;
+            color: rgba(205,214,244,0.22);
+            font: 12px system-ui, sans-serif;
+            pointer-events: none;
+        }
+        #vp-native-boot-marker {
+            position: fixed;
+            right: 12px;
+            bottom: 12px;
+            z-index: 2147483647;
+            padding: 7px 11px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.16);
+            background: rgba(40, 40, 64, .92);
+            color: #cdd6f4;
+            font: 12px system-ui, sans-serif;
+            box-shadow: 0 8px 22px rgba(0,0,0,.35);
+            pointer-events: none;
+        }
+        #vp-native-boot-marker.ok { background: rgba(35, 92, 58, .94); color: #eaffef; }
+        #vp-native-boot-marker.bad { background: rgba(110, 40, 40, .94); color: #ffeaea; }
+    </style>
+</head>
+<body>
+    <div id="vp-native-boot-marker">⏳ Neutralino стартует...</div>
+
+    <!-- IMPORTANT: cache-bust __neutralino_globals.js, otherwise fixed port can reuse an old NL_TOKEN. -->
+    <script>
+        // We use a synchronous XHR to load globals to avoid document.write issues
+        // which can be blocked by Chrome when DevTools (enableInspector) is opened.
+        (function() {
+            try {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '/__neutralino_globals.js?v=' + Date.now(), false);
+                xhr.send(null);
+                if (xhr.status === 200) {
+                    var s = document.createElement('script');
+                    s.textContent = xhr.responseText;
+                    document.head.appendChild(s);
+                } else {
+                    console.warn('[VP] Failed to load globals via XHR. Status: ' + xhr.status);
+                }
+            } catch (e) {
+                console.error('[VP] Error loading __neutralino_globals.js', e);
+            }
+        })();
+    </script>
+    <script src="js/neutralino.js"></script>
+	<script>
+		(function () {
+			const marker = document.getElementById('vp-native-boot-marker');
+			window.VP_SET_NATIVE_MARKER = function (ok, text) {
+				if (!marker) return;
+				marker.classList.remove('ok', 'bad');
+				marker.classList.add(ok ? 'ok' : 'bad');
+				marker.textContent = text;
+			};
+
+			function hideMarker() {
+				if (!marker) return;
+				marker.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+				marker.style.opacity = '0';
+				marker.style.transform = 'translateY(-4px)';
+				setTimeout(() => { if (marker) marker.style.display = 'none'; }, 420);
+			}
+
+			window.VP_NATIVE_READY = new Promise((resolve) => {
+				if (!window.Neutralino) {
+					console.warn('[VP Native] neutralino.js is not loaded. Browser fallback only.');
+					window.VP_SET_NATIVE_MARKER(false, '🔴 Neutralino не подключен');
+					setTimeout(hideMarker, 2500);
+					resolve(false);
+					return;
+				}
+				let done = false;
+				const finish = (ok) => {
+					if (done) return;
+					done = true;
+					if (ok) window.VP_SET_NATIVE_MARKER(true, '🟢 Neutralino FS/Worlds готов · data/');
+					else window.VP_SET_NATIVE_MARKER(false, '🔴 Neutralino bridge не готов');
+					setTimeout(hideMarker, ok ? 2200 : 4000);
+					resolve(!!ok);
+				};
+				window.addEventListener('ready', () => {
+					console.log('[VP Native] Neutralino native API ready');
+					finish(true);
+				}, { once: true });
+				try {
+					Neutralino.init();
+					setTimeout(() => finish(!!(window.NL_TOKEN && window.NL_PORT)), 1500);
+				} catch (err) {
+					console.error('[VP Native] Neutralino.init failed:', err);
+					finish(false);
+				}
+			});
+		})();
+	</script>
+    <script src="js/vendor/jszip.min.js"></script>
+    <script src="js/fx-core.js"></script>
+    <script src="js/vp-storage.js"></script>
+    <script src="js/vp-storage-native.js"></script>
+    <script src="js/visual-projector.js"></script>
+    <script src="js/vp-subtitles.js"></script>
+    <script src="js/vp-tools.js"></script>
+    <script src="js/projector-chats.js"></script>
+    <script src="js/projector-gallery.js"></script>
+    <script src="js/projector-tagger.js"></script>
+    <script src="js/nodes/as-core.js"></script>
+    <script src="js/nodes/core_nodes/loader.js"></script>
+    <script src="js/nodes/core_nodes/lora.js"></script>
+    <script src="js/nodes/core_nodes/prompt.js"></script>
+    <script src="js/nodes/core_nodes/sampler.js"></script>
+    <script src="js/nodes/core_nodes/output.js"></script>
+    <script src="js/nodes/as-graph.js"></script>
+    <script src="js/projector-asset-studio.js"></script>
+    <script src="js/vp-core-tools.js"></script>
+    <script src="js/projector-games.js"></script>
+    <script src="js/projector-shell.js"></script>
+    <script src="js/projector-session.js"></script>
+</body>
+</html>

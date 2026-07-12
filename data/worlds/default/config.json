@@ -1,0 +1,31 @@
+{
+  "contextDepth": 3,
+  "maxHistory": 20,
+  "enabled": true,
+  "debugTags": false,
+  "maxLongSide": 1024,
+  "jpegQuality": 0.92,
+  "manifestDescriptions": true,
+  "persistGallery": false,
+  "autoTagOnLoad": "ask",
+  "fadeDuration": 0.3,
+  "transitionType": "random",
+  "assetCornerRadius": 32,
+  "frameLabelMode": "title",
+  "subtitleWPM": 160,
+  "subtitleSpeed": 2,
+  "maxPlaybackMessages": 50,
+  "effectsEnabled": false,
+  "showUserInPlayback": true,
+  "allowUserCommands": false,
+  "allowDirectoryCommands": false,
+  "mergeUserDrafts": true,
+  "userDraftMergeWindowMs": 3000,
+  "prompts": {
+    "manifest": null,
+    "frameContext": null
+  },
+  "screenCornerRadius": 0,
+  "userName": "Dmitry",
+  "stylePreset": "paper"
+}

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "playful_activities_pack",
+      "title": "Playful Activities Pack",
+      "version": "0.5.0",
+      "updatedAt": 1782618720796,
+      "importedAt": 1782618720796
+    }
+  ],
+  "updatedAt": 1783583641652,
+  "activeGameId": "playful_activities_pack"
+}

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "createdAt": 1782393997156,
+      "updatedAt": 1782393997156,
+      "description": "Migrated/default world",
+      "id": "default",
+      "title": "Default"
+    }
+  ],
+  "updatedAt": 1782407318899
+}

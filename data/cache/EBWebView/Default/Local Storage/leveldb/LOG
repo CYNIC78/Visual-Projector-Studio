@@ -1,0 +1,12 @@
+2026/07/12-10:37:42.245 14b4 Reusing MANIFEST D:\Visual-Projector-AssetStudio-Towers\data\cache\EBWebView\Default\Local Storage\leveldb/MANIFEST-000001
+2026/07/12-10:37:42.251 14b4 Recovering log #37
+2026/07/12-10:37:42.252 14b4 Reusing old log D:\Visual-Projector-AssetStudio-Towers\data\cache\EBWebView\Default\Local Storage\leveldb/000037.log 
+2026/07/12-10:53:53.369 14b4 Level-0 table #42: started
+2026/07/12-10:53:53.379 14b4 Level-0 table #42: 24546 bytes OK
+2026/07/12-10:53:53.381 14b4 Delete type=0 #37
+2026/07/12-11:17:42.342 14b4 Level-0 table #44: started
+2026/07/12-11:17:42.351 14b4 Level-0 table #44: 24208 bytes OK
+2026/07/12-11:17:42.354 14b4 Delete type=0 #41
+2026/07/12-11:49:06.164 14b4 Level-0 table #46: started
+2026/07/12-11:49:06.173 14b4 Level-0 table #46: 24817 bytes OK
+2026/07/12-11:49:06.176 14b4 Delete type=0 #43
