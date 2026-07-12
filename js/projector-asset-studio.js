@@ -1228,11 +1228,16 @@
             const galleryBtn = container.querySelector('#vp-as-gallery-btn');
             if (galleryBtn) {
                 galleryBtn.addEventListener('click', () => {
-                    if (VP.gallery?.toggleMode) {
-                        VP.gallery.toggleMode();
-                    } else {
+                    if (!VP.gallery?.toggleMode) {
                         VP.showToast?.('Gallery not loaded', 'warn');
+                        return;
                     }
+                    // Force floating gallery even if it's docked in shell
+                    const panel = S.ui?.galleryPanel;
+                    if (panel && VP.gallery.isGalleryPanelDocked?.(panel)) {
+                        VP.gallery.undockGalleryPanelForFloating(panel, { position: true });
+                    }
+                    VP.gallery.toggleMode();
                 });
             }
 
