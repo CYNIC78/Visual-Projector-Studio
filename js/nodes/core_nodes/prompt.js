@@ -323,7 +323,7 @@
             zone.style.cssText = `
                 margin:4px 8px 6px; border-radius:8px;
                 transition:border-color 0.15s, background 0.15s;
-                cursor:default; flex-shrink:0; overflow:hidden;
+                cursor:default; overflow:hidden;
             `;
 
             const setState = (active) => zone.classList.toggle('is-active', !!active);
@@ -336,7 +336,7 @@
             });
 
             if (refs.length > 0) {
-                zone.style.minHeight = '80px';
+                zone.style.flex = '1';
                 zone.style.display = 'flex';
                 zone.style.flexDirection = 'column';
                 zone.style.overflow = 'hidden';
@@ -347,12 +347,12 @@
                 const extra = refs.length - 3;
 
                 // Image row — fills available vertical space
-                let html = '<div style="display:flex; gap:6px; align-items:stretch; padding:8px 8px 4px; justify-content:space-around;">';
+                let html = '<div style="flex:1; display:flex; gap:6px; align-items:stretch; min-height:0; padding:8px 8px 4px; justify-content:space-around; overflow:hidden;">';
                 shown.forEach((ref, i) => {
                     const canImg = ref.startsWith('data:image/') || ref.startsWith('blob:') || ref.startsWith('http://') || ref.startsWith('https://');
                     if (canImg) {
                         html += `<div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                            <img src="${ref}" style="width:100%; max-height:120px; object-fit:contain; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);"
+                            <img src="${ref}" style="width:100%; height:100%; object-fit:contain; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);"
                                 alt="ref${i+1}" title="Reference ${i+1}"
                                 onerror="this.outerHTML='<span style=\'font-size:11px;color:var(--text-secondary);padding:8px;\'>✗ ref${i+1}</span>'">
                         </div>`;
