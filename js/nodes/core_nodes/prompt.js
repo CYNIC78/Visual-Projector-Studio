@@ -379,7 +379,7 @@
                         VP_AS.Graph.persist();
                     });
                 }
- else {
+            } else {
                 zone.style.display = 'flex';
                 zone.style.flexDirection = 'column';
                 zone.style.alignItems = 'center';
