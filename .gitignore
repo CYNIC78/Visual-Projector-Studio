@@ -1,4 +1,5 @@
 data/cache/
 .tmp/
+.output/
 neutralinojs.log
 data/worlds/
