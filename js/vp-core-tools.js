@@ -44,6 +44,7 @@
         },
         lifecycle: 'ephemeral',
         source: 'core',
+        group: 'core',
         summarize(res) {
             return `Dice: ${res.total} (${res.formula})`;
         },
@@ -99,6 +100,7 @@
         },
         lifecycle: 'ephemeral',
         source: 'core',
+        group: 'core',
         summarize(res) {
             return `Search: Found ${res.total} assets for "${res.query}"`;
         },
@@ -154,6 +156,7 @@
         },
         lifecycle: { manifest: 3 },
         source: 'core',
+        group: 'core',
         summarize(res) {
             return `Recall: Found ${res.total} past messages matching query.`;
         },
@@ -198,6 +201,7 @@
         },
         lifecycle: 'ephemeral',
         source: 'core',
+        group: 'core',
         handler() {
             const messages = VP.chats?.getActiveChatMessages?.() || [];
             const now = Date.now();
@@ -240,6 +244,7 @@
         },
         lifecycle: { manifest: 4 },
         source: 'core',
+        group: 'core',
         handler(args) {
             const chats = VP.chats;
             if (!chats) return { ok: false, error: 'Chats module not available.' };
@@ -312,6 +317,7 @@
         },
         lifecycle: 'ephemeral',
         source: 'core',
+        group: 'core',
         handler(args) {
             const mood = String(args.mood || '').trim().toLowerCase();
             const who = String(args.who || '').trim().toLowerCase();
@@ -372,6 +378,7 @@
         },
         lifecycle: 'ephemeral',
         source: 'core',
+        group: 'core',
         handler() {
             const chats = VP.chats;
             const speaker = chats?.getActiveSpeaker?.();

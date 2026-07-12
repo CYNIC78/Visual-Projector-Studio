@@ -42,7 +42,7 @@
     // into two areas at once: moving the same DOM node would leave the first
     // area visually empty. During a render pass, the first occurrence wins and
     // duplicates show a friendly placeholder instead.
-    const SINGLETON_PANELS = new Set(['stage', 'gallery', 'asset-studio']);
+    const SINGLETON_PANELS = new Set(['stage', 'asset-studio']);
     let _renderedSingletonPanels = new Set();
 
     function leaf(panel) {
@@ -61,13 +61,13 @@
             title: 'Director', icon: '🎬',
             layout: split('row', 0.62,
                 split('column', 0.72, leaf('stage'), leaf('log')),
-                split('column', 0.58, leaf('gallery'), leaf('model'))
+                split('column', 0.58, leaf('asset-studio'), leaf('model'))
             ),
         },
         workshop: {
             title: 'Workshop', icon: '🛠',
             layout: split('row', 0.52,
-                leaf('gallery'),
+                leaf('asset-studio'),
                 split('column', 0.50, leaf('stage'), split('row', 0.5, leaf('log'), leaf('model')))
             ),
         },
@@ -1204,25 +1204,8 @@
             },
         });
 
-        VP.registerPanel({
-            id: 'gallery', title: 'Gallery', icon: '📚', order: 20,
-            create(container) {
-                const G = VP.gallery;
-                if (!G) return makePlaceholder(container, 'Gallery', 'projector-gallery.js is not loaded.');
-                let panel = S.ui.galleryPanel;
-                if (!panel && typeof G.createGalleryPanel === 'function') panel = G.createGalleryPanel();
-                if (!panel) return makePlaceholder(container, 'Gallery', 'Gallery panel could not be created.');
-                dockElement(container, panel, 'vp-shell-docked-gallery');
-                S.ui.panelOpen = true;
-                G.activatePanelSection?.('gallery');
-                G.renderGalleryGrid?.();
-                G.updateGalleryFooter?.();
-            },
-            settings: {
-                title: 'Gallery Settings', icon: '📚', mode: 'auto', minWidth: 380, minHeight: 300, width: 440,
-                create: renderGallerySettings,
-            },
-        });
+        // Gallery is floating-only — opened from projector toolbar or Asset Studio.
+        // Not available as a shell panel.
 
         registerIfAbsent({
             id: 'log', title: 'Log', icon: '💬', order: 30,

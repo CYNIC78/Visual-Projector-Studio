@@ -933,9 +933,11 @@
                         </div>
                         <div class="vp-as-canvas-controls">
                             <div class="vp-as-primary-actions">
-                                <button class="vp-btn vp-btn-primary" id="vp-as-produce">🎨 Produce Asset</button>
+                                <button class="vp-btn vp-btn-primary" id="vp-as-produce">🎨 Produce Active</button>
+                                <button class="vp-btn vp-btn-ghost" id="vp-as-produce-all" title="Generate all tabs sequentially">▶▶ Produce All</button>
                                 <button class="vp-btn vp-btn-ghost" id="vp-as-stop" style="display:none; color:#ff6b6b; border-color:rgba(255,60,60,0.3);">⏹ Stop</button>
                                 <button class="vp-btn vp-btn-ghost" id="vp-as-copy-cli">📋 Copy CLI</button>
+                                <button class="vp-btn vp-btn-ghost" id="vp-as-gallery-btn" title="Open floating gallery">📚 Gallery</button>
                             </div>
                             <div class="vp-as-progress-bar"><div class="fill" id="vp-as-progress-fill" style="width:0%"></div></div>
                             <div class="vp-as-status" id="vp-as-status">Ready · 0 nodes · CLI</div>
@@ -1159,8 +1161,48 @@
                     return;
                 }
 
-                await this.runCLI(bag, log, preview, progress, stopBtn, container);
+                const assetName = bag.meta.get('assetName') || null;
+                await this.runCLI(bag, log, preview, progress, stopBtn, container, assetName);
             });
+
+            const produceAllBtn = container.querySelector('#vp-as-produce-all');
+            if (produceAllBtn) {
+                produceAllBtn.addEventListener('click', async () => {
+                    if (this.running) return;
+                    // Find the prompt node and iterate its tabs
+                    const promptNode = Array.from(Graph.nodes.values()).find(n => n.type === 'prompt');
+                    if (!promptNode || !Array.isArray(promptNode.data.tabs) || promptNode.data.tabs.length === 0) {
+                        VP.showToast?.('No prompt tabs found', 'warn');
+                        return;
+                    }
+                    const tabs = promptNode.data.tabs;
+                    let success = 0, fail = 0;
+                    const mode = this.config.engineMode || 'cli';
+                    if (mode === 'server') {
+                        VP.showToast?.('Server mode is a stub', 'info');
+                        return;
+                    }
+                    for (let i = 0; i < tabs.length; i++) {
+                        if (this.running) break;
+                        promptNode.data.activeTabId = tabs[i].id;
+                        const bag = Graph.produce();
+                        if (!bag) { fail++; continue; }
+                        const assetName = bag.meta.get('assetName') || null;
+                        log.innerHTML += `<div><b>▶ [${i+1}/${tabs.length}]</b> ${tabs[i].name}${assetName ? ' → ' + assetName : ''}</div>`;
+                        log.scrollTop = log.scrollHeight;
+                        this.updateStudioStatus(container, `Generating ${i+1}/${tabs.length}: ${tabs[i].name}`);
+                        try {
+                            await this.runCLI(bag, log, preview, progress, stopBtn, container, assetName);
+                            success++;
+                        } catch (err) {
+                            fail++;
+                            log.innerHTML += `<div style="color:var(--error)"><b>✗</b> ${tabs[i].name}: ${err.message || err}</div>`;
+                        }
+                    }
+                    VP.showToast?.(`Done: ${success} generated, ${fail} failed`, fail > 0 ? 'info' : 'success');
+                    this.updateStudioStatus(container, success > 0 ? `Generated ${success} assets` : '');
+                });
+            }
 
             const toggleChrome = (target) => {
                 target.classList.toggle('collapsed');
@@ -1182,6 +1224,22 @@
                     .then(() => VP.showToast?.('CLI copied', 'success'))
                     .catch(() => VP.showToast?.('Clipboard unavailable', 'error'));
             });
+
+            const galleryBtn = container.querySelector('#vp-as-gallery-btn');
+            if (galleryBtn) {
+                galleryBtn.addEventListener('click', () => {
+                    if (!VP.gallery?.toggleMode) {
+                        VP.showToast?.('Gallery not loaded', 'warn');
+                        return;
+                    }
+                    // Force floating gallery even if it's docked in shell
+                    const panel = S.ui?.galleryPanel;
+                    if (panel && VP.gallery.isGalleryPanelDocked?.(panel)) {
+                        VP.gallery.undockGalleryPanelForFloating(panel, { position: true });
+                    }
+                    VP.gallery.toggleMode();
+                });
+            }
 
             container.querySelectorAll('.vp-as-preset').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -1260,7 +1318,7 @@
             return p.replace(/\//g, '\\');
         },
 
-        async runCLI(bag, log, preview, progress, stopBtn, container) {
+        async runCLI(bag, log, preview, progress, stopBtn, container, assetName) {
             const isWin = (window.NL_OS || '').toLowerCase().includes('windows');
             const fileKeys = new Set(['-m', '--diffusion-model', '--llm', '--clip2', '--vae', '--lora', '-o']);
             if (isWin) {
@@ -1381,7 +1439,7 @@
 
                     const imageData = await this.loadOutputImage(outputPath);
                     if (imageData) {
-                        this.displayResult(imageData, outputPath, preview);
+                        this.displayResult(imageData, outputPath, preview, assetName);
                         log.innerHTML += `<div><b>✓</b> Output: ${outputPath}</div>`;
                         VP.showToast?.('Asset generated', 'success');
                     } else if (preview) {
@@ -1421,7 +1479,7 @@
 
                     const imageData = await this.loadOutputImage(outputPath);
                     if (imageData) {
-                        this.displayResult(imageData, outputPath, preview);
+                        this.displayResult(imageData, outputPath, preview, assetName);
                         log.innerHTML += `<div><b>✓</b> Output: ${outputPath}</div>`;
                         VP.showToast?.('Asset generated', 'success');
                     } else if (preview) {
@@ -1477,7 +1535,7 @@
             return map[ext] || 'image/png';
         },
 
-        displayResult(imageData, outputPath, preview) {
+        displayResult(imageData, outputPath, preview, assetName) {
             if (preview) {
                 preview.innerHTML = '';
                 const img = document.createElement('img');
@@ -1493,10 +1551,10 @@
             if (outputNode) outputNode.setPreview(imageData.url);
 
             if (VP.gallery?.addImageFromBlob) {
-                const tagBase = outputPath.split('/').pop().replace(/\.[^.]+$/, '');
+                let tagName = assetName || outputPath.split('/').pop().replace(/\.[^.]+$/, '');
                 VP.gallery.addImageFromBlob(imageData.blob, {
                     source: 'generated',
-                    suggestedName: `${tagBase}.png`,
+                    suggestedName: `${tagName}.png`,
                     setAsCurrent: false,
                 }).then(tag => {
                     if (tag) VP.showToast?.(`Added to gallery: ${tag}`, 'success');

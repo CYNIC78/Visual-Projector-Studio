@@ -3822,6 +3822,7 @@
         refreshGalleryPanelUI, clearSelection,
         // panel lifecycle
         createGalleryPanel, togglePanel, toggleMode, toggleSettings, activatePanelSection,
+        isGalleryPanelDocked, undockGalleryPanelForFloating,
         syncSettingsUI,
         // domain objects
         TabsManager, Tagger: null,
