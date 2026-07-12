@@ -1221,12 +1221,18 @@
     // ════════════════════════════════════════════════════════════════
     //  EXPORT TO GLOBAL NAMESPACE
     // ════════════════════════════════════════════════════════════════
+
+function dataTransferHasType(dt, type) {
+    try { return Array.from(dt?.types || []).includes(type); }
+    catch { return false; }
+}
+
     window.VP_AS = window.VP_AS || {};
     window.VP_AS.ARG = { ArgumentBag };
     window.VP_AS.Viewport = Viewport;
     window.VP_AS.NodeBase = NodeBase;
     window.VP_AS.NodeRegistry = NodeRegistry;
-    window.VP_AS.utils = { uid, clamp, normPath, pickFile, detectModelType, normalizeDroppedImageRef, extractDroppedImageRefs };
+    window.VP_AS.utils = { uid, clamp, normPath, pickFile, detectModelType, normalizeDroppedImageRef, extractDroppedImageRefs, dataTransferHasType };
     window.VP_AS.Pill = { categories: PILL_CATEGORIES, create: createPill, formatValue: formatPillValue };
     window.VP_AS.Arg = { catalog: ARG_CATALOG, getDef: getArgDef, getTowerArgs, renderPillControl, buildAddMenu, getMissingTowerArgs, isExpandableArg, showAddMenu, closeArgMenu };
     window.VP_AS.ContextMenu = ContextMenu;
