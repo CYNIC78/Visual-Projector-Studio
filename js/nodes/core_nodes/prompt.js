@@ -321,32 +321,57 @@
             const zone = document.createElement('div');
             zone.className = 'vp-as-node-dropzone';
             zone.style.cssText = `
-                display:flex; flex-direction:column; gap:3px; align-items:center;
-                justify-content:center; min-height:40px; margin:4px 8px 6px;
-                padding:8px 10px; border:1px dashed rgba(255,255,255,0.12);
-                border-radius:8px; background:rgba(255,255,255,0.03);
-                color:var(--text-secondary,#a6adc8); font-size:11px; text-align:center;
-                transition:border-color 0.15s, background 0.15s, color 0.15s;
-                cursor:default; flex-shrink:0;
+                margin:4px 8px 6px; border-radius:8px;
+                transition:border-color 0.15s, background 0.15s;
+                cursor:default; flex-shrink:0; overflow:hidden;
             `;
 
+            const setState = (active) => zone.classList.toggle('is-active', !!active);
+            zone.addEventListener('dragover', (e) => { e.preventDefault(); setState(true); });
+            zone.addEventListener('dragleave', (e) => { if (!zone.contains(e.relatedTarget)) setState(false); });
+            zone.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                setState(false);
+                await this._handleDrop(e.dataTransfer);
+            });
+
             if (refs.length > 0) {
-                zone.style.borderStyle = 'solid';
-                zone.style.borderColor = 'rgba(108,95,166,0.35)';
                 zone.style.background = 'rgba(108,95,166,0.06)';
-                const previews = refs.slice(0, 5).map((ref, i) => {
+                zone.style.border = '1px solid rgba(108,95,166,0.35)';
+
+                const shown = refs.slice(0, 3);
+                const extra = refs.length - 3;
+
+                // Image row — flexible, fills the node width
+                let html = '<div style="display:flex; gap:6px; align-items:stretch; padding:8px 8px 4px; justify-content:space-around;">';
+                shown.forEach((ref, i) => {
                     const canImg = ref.startsWith('data:image/') || ref.startsWith('blob:') || ref.startsWith('http://') || ref.startsWith('https://');
                     if (canImg) {
-                        return `<img src="${ref}" style="width:28px;height:28px;border-radius:4px;object-fit:cover;border:1px solid rgba(255,255,255,0.15);flex-shrink:0;" alt="${ref.slice(0,20)}" title="Ref ${i+1}" onerror="this.outerHTML='<span style=\'font-size:9px;padding:2px 4px;background:rgba(0,0,0,0.3);border-radius:4px;\'>'+this.alt.slice(0,8)+'</span>'">`;
+                        html += `<div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:center;">
+                            <img src="${ref}" style="width:100%; height:auto; max-height:90px; object-fit:contain; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);" 
+                                alt="ref${i+1}" title="Reference ${i+1}" 
+                                onerror="this.outerHTML='<span style=\'font-size:11px;color:var(--text-secondary);padding:8px;\'>✗ ref${i+1}</span>'">
+                        </div>`;
+                    } else {
+                        const name = ref.split('/').pop().split('\\').pop().slice(0, 20);
+                        html += `<div style="flex:1; display:flex; align-items:center; justify-content:center; padding:10px; background:rgba(0,0,0,0.15); border-radius:6px; font-size:10px; color:var(--text-secondary,#a6adc8); text-align:center;">${name}</div>`;
                     }
-                    const name = ref.split('/').pop().split('\\').pop().slice(0, 8);
-                    return `<span style="font-size:9px;padding:2px 5px;background:rgba(0,0,0,0.3);border-radius:4px;">${name}</span>`;
-                }).join('');
-                zone.innerHTML = `<div style="display:flex;align-items:center;gap:6px;width:100%;">
-                    <span style="font-size:10px;font-weight:700;color:var(--accent);white-space:nowrap;">📎 ${refs.length} ref</span>
-                    <div style="display:flex;align-items:center;gap:3px;flex:1;overflow:hidden;">${previews}</div>
-                    <button class="vp-btn vp-btn-sm" id="vp-as-clear-refs" title="Clear references" style="height:20px;padding:0 6px;font-size:10px;flex-shrink:0;">✕</button>
+                });
+                if (extra > 0) {
+                    html += `<div style="flex:0 0 28px; display:flex; align-items:center; justify-content:center;">
+                        <span style="font-size:12px; font-weight:700; color:var(--accent);">+${extra}</span>
+                    </div>`;
+                }
+                html += '</div>';
+
+                // Bottom bar with count + clear
+                html += `<div style="display:flex; align-items:center; gap:6px; padding:4px 10px 6px;">
+                    <span style="font-size:10px; font-weight:700; color:var(--accent);">📎 ${refs.length}</span>
+                    <span style="flex:1;"></span>
+                    <button class="vp-btn vp-btn-sm" id="vp-as-clear-refs" style="height:20px;padding:0 8px;font-size:10px;">✕ Clear</button>
                 </div>`;
+                zone.innerHTML = html;
+
                 const clearBtn = zone.querySelector('#vp-as-clear-refs');
                 if (clearBtn) {
                     clearBtn.addEventListener('click', (e) => {
@@ -357,19 +382,23 @@
                     });
                 }
             } else {
-                zone.innerHTML = `<b>Reference Images</b><span>Drop source here or use gallery drag-n-drop</span>`;
+                zone.style.display = 'flex';
+                zone.style.flexDirection = 'column';
+                zone.style.alignItems = 'center';
+                zone.style.justifyContent = 'center';
+                zone.style.minHeight = '50px';
+                zone.style.padding = '10px 12px';
+                zone.style.border = '1px dashed rgba(255,255,255,0.12)';
+                zone.style.background = 'rgba(255,255,255,0.03)';
+                zone.style.color = 'var(--text-secondary,#a6adc8)';
+                zone.style.fontSize = '11px';
+                zone.style.textAlign = 'center';
+                zone.innerHTML = '<b>Reference Images</b><span>Drop source here or use gallery drag-n-drop</span>';
             }
 
-            const setState = (active) => zone.classList.toggle('is-active', !!active);
-            zone.addEventListener('dragover', (e) => { e.preventDefault(); setState(true); });
-            zone.addEventListener('dragleave', (e) => { if (!zone.contains(e.relatedTarget)) setState(false); });
-            zone.addEventListener('drop', async (e) => {
-                e.preventDefault();
-                setState(false);
-                await this._handleDrop(e.dataTransfer);
-            });
             body.appendChild(zone);
         }
+
 
         async _handleDrop(dataTransfer) {
             // Try gallery assets first (vp/asset-move-batch)
