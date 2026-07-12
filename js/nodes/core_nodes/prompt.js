@@ -346,26 +346,25 @@
                 const shown = refs.slice(0, 3);
                 const extra = refs.length - 3;
 
-                // Image row — fills vertical space
-                let html = '<div style="flex:1; display:flex; gap:6px; align-items:stretch; min-height:0; padding:8px 8px 4px; justify-content:space-around;">';
+                // Image row — fills vertical space via flex
+                let html = '<div style="flex:1; display:flex; gap:6px; align-items:stretch; min-height:0; padding:8px 8px 4px;">';
                 for (let ri = 0; ri < shown.length; ri++) {
                     const ref = shown[ri];
                     const canImg = ref.startsWith('data:image/') || ref.startsWith('blob:') || ref.startsWith('http://') || ref.startsWith('https://');
-                    html += `<div style="flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; position:relative;">
-                        <div style="flex:1; width:100%; display:flex; align-items:center; justify-content:center; min-height:0; overflow:hidden;">`;
+                    // Each cell: position:relative so the absolute-positioned img fills it
+                    html += '<div style="flex:1; min-width:0; position:relative; border-radius:6px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);">';
                     if (canImg) {
-                        html += `<img src="${ref}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);" alt="ref${ri+1}" title="Reference ${ri+1}">`;
+                        html += `<img src="${ref}" style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain;" alt="ref${ri+1}" title="Reference ${ri+1}">`;
                     } else {
                         const name = ref.split('/').pop().split('\\').pop().slice(0, 20);
-                        html += `<span style="font-size:10px; color:var(--text-secondary); text-align:center; padding:8px;">${name}</span>`;
+                        html += `<span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--text-secondary); text-align:center; padding:4px;">${name}</span>`;
                     }
-                    html += `</div>`;
-                    // Individual close button
-                    html += `<button class="vp-btn vp-btn-sm vp-as-ref-del" data-ref-idx="${ri}" style="position:absolute; top:2px; right:2px; height:18px; width:18px; padding:0; font-size:10px; line-height:1; border-radius:9px; background:rgba(0,0,0,0.5); color:#fff; border:1px solid rgba(255,255,255,0.15); cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:2;" title="Remove">✕</button>`;
-                    html += `</div>`;
+                    // Close button per ref
+                    html += `<button class="vp-as-ref-del" data-ref-idx="${ri}" style="position:absolute; top:2px; right:2px; width:16px; height:16px; padding:0; font-size:9px; line-height:1; border-radius:8px; border:none; background:rgba(0,0,0,0.6); color:#fff; cursor:pointer; z-index:5; display:flex; align-items:center; justify-content:center;" title="Remove this reference">✕</button>`;
+                    html += '</div>';
                 }
                 if (extra > 0) {
-                    html += '<div style="flex:0 0 28px; display:flex; align-items:center; justify-content:center;"><span style="font-size:12px; font-weight:700; color:var(--accent);">+'+extra+'</span></div>';
+                    html += '<div style="flex:0 0 24px; display:flex; align-items:center; justify-content:center;"><span style="font-size:12px; font-weight:700; color:var(--accent);">+'+extra+'</span></div>';
                 }
                 html += '</div>';
 
@@ -386,7 +385,6 @@
                     });
                 });
 
-                // Wire clear all
                 const clearAllBtn = zone.querySelector('#vp-as-clear-all-refs');
                 if (clearAllBtn) {
                     clearAllBtn.addEventListener('click', (e) => {
@@ -410,7 +408,6 @@
                 zone.style.textAlign = 'center';
                 zone.innerHTML = '<b>Reference Images</b><span>Drop source here or use gallery drag-n-drop</span>';
             }
-
             body.appendChild(zone);
         }
 
