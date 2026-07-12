@@ -334,12 +334,12 @@
                 zone.style.borderStyle = 'solid';
                 zone.style.borderColor = 'rgba(108,95,166,0.35)';
                 zone.style.background = 'rgba(108,95,166,0.06)';
-                const previews = refs.slice(0, 3).map((ref, i) => {
-                    const isB64 = ref.startsWith('data:image/');
-                    if (isB64) {
-                        return `<img src="${ref}" style="width:24px;height:24px;border-radius:4px;object-fit:cover;border:1px solid rgba(255,255,255,0.15);flex-shrink:0;" title="Ref ${i+1}">`;
+                const previews = refs.slice(0, 5).map((ref, i) => {
+                    const canImg = ref.startsWith('data:image/') || ref.startsWith('blob:') || ref.startsWith('http://') || ref.startsWith('https://');
+                    if (canImg) {
+                        return `<img src="${ref}" style="width:28px;height:28px;border-radius:4px;object-fit:cover;border:1px solid rgba(255,255,255,0.15);flex-shrink:0;" alt="${ref.slice(0,20)}" title="Ref ${i+1}" onerror="this.outerHTML='<span style=\'font-size:9px;padding:2px 4px;background:rgba(0,0,0,0.3);border-radius:4px;\'>'+this.alt.slice(0,8)+'</span>'">`;
                     }
-                    const name = ref.split('/').pop().split('\\').pop().slice(0, 16);
+                    const name = ref.split('/').pop().split('\\').pop().slice(0, 8);
                     return `<span style="font-size:9px;padding:2px 5px;background:rgba(0,0,0,0.3);border-radius:4px;">${name}</span>`;
                 }).join('');
                 zone.innerHTML = `<div style="display:flex;align-items:center;gap:6px;width:100%;">
