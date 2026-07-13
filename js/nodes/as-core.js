@@ -378,13 +378,21 @@
             const current = this._measureCanvas();
             const savedW = Number(state.canvasW) || 0;
             const savedH = Number(state.canvasH) || 0;
-            if (savedW > 0 && savedH > 0 && current.width > 0 && current.height > 0 && (Math.abs(savedW - current.width) >= 0.5 || Math.abs(savedH - current.height) >= 0.5)) {
-                const worldCenterX = (savedW / 2 - this.x) / this.scale;
-                const worldCenterY = (savedH / 2 - this.y) / this.scale;
-                this.x = current.width / 2 - worldCenterX * this.scale;
-                this.y = current.height / 2 - worldCenterY * this.scale;
+
+            if (current.width > 0 && current.height > 0) {
+                // Canvas is laid out — adjust if size changed since save
+                if (savedW > 0 && savedH > 0 && (Math.abs(savedW - current.width) >= 0.5 || Math.abs(savedH - current.height) >= 0.5)) {
+                    const worldCenterX = (savedW / 2 - this.x) / this.scale;
+                    const worldCenterY = (savedH / 2 - this.y) / this.scale;
+                    this.x = current.width / 2 - worldCenterX * this.scale;
+                    this.y = current.height / 2 - worldCenterY * this.scale;
+                }
+                this._lastCanvasSize = current;
+            } else {
+                // Canvas not laid out yet — use saved canvas size as stand-in
+                // so handleResize can properly adjust when the real size arrives
+                this._lastCanvasSize = { width: savedW, height: savedH };
             }
-            this._lastCanvasSize = current;
             this._apply();
         }
     }
@@ -564,7 +572,11 @@
         }
 
         dispose() {
-            if (this.element) this.element.remove();
+            if (this.element) {
+                this.element.remove();
+                this.element = null;
+            }
+            this.rendered = false;
         }
     }
 

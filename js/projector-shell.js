@@ -1645,6 +1645,42 @@
                 color: var(--accent, #6c5fa6) !important;
                 background: rgba(108,95,166,0.08) !important;
             }
+
+            /* ── Вариант A: оптимизация перетаскивания сплиттеров ── */
+            /* Класс вешается на body во время drag для изоляции тяжелого контента */
+            body.vp-shell-resizing {
+                user-select: none !important;
+                -webkit-user-select: none !important;
+            }
+            body.vp-shell-resizing .vp-shell-panel-host {
+                contain: layout style paint;
+                pointer-events: none;
+                content-visibility: auto;
+            }
+            body.vp-shell-resizing .vp-shell-area-body {
+                contain: layout style paint;
+            }
+            body.vp-shell-resizing .vp-shell-pane-wrap {
+                contain: layout size style;
+            }
+            /* Тяжелые панели — дополнительная изоляция */
+            body.vp-shell-resizing .vp-session-log-list,
+            body.vp-shell-resizing .vp-gallery-grid,
+            body.vp-shell-resizing .vp-as-canvas,
+            body.vp-shell-resizing .vp-as-graph,
+            body.vp-shell-resizing #vp-screen,
+            body.vp-shell-resizing .vp-screen {
+                contain: layout style paint;
+                pointer-events: none;
+                content-visibility: auto;
+            }
+            body.vp-shell-resizing .vp-shell-gutter.dragging {
+                pointer-events: auto;
+            }
+            /* Убираем дорогие эффекты во время resize */
+            body.vp-shell-resizing .vp-shell-area {
+                will-change: flex-basis;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -2016,25 +2052,70 @@
             gutter.addEventListener('pointerdown', (e) => {
                 e.preventDefault();
                 gutter.classList.add('dragging');
+                document.body.classList.add('vp-shell-resizing');
                 gutter.setPointerCapture?.(e.pointerId);
                 const rect = wrap.getBoundingClientRect();
-                const onMove = (ev) => {
+                let rafId = null;
+                let lastEv = null;
+                let pendingRatio = node.ratio || 0.5;
+
+                // Отложенное применение через rAF — ограничиваем до 60fps, убираем thrashing
+                const applyRatio = () => {
+                    rafId = null;
+                    if (!lastEv) return;
                     const raw = node.direction === 'row'
-                        ? (ev.clientX - rect.left) / rect.width
-                        : (ev.clientY - rect.top) / rect.height;
+                        ? (lastEv.clientX - rect.left) / rect.width
+                        : (lastEv.clientY - rect.top) / rect.height;
                     const next = Math.max(0.10, Math.min(0.90, raw));
-                    const current = getCurrentLayout();
-                    setCurrentLayout(setSplitRatio(current, node.id, next));
+                    // Дедупликация — не трогаем DOM если изменение мизерное
+                    if (Math.abs(next - pendingRatio) < 0.001) return;
+                    pendingRatio = next;
                     const pct = next * 100;
+                    // Live-preview: только визуальное обновление flex, без записи на диск и без клонирования дерева
+                    // Сохраняем calc(-3px) для компенсации ширины гаттера (6px), как и в оригинале
                     aWrap.style.flex = `0 0 calc(${pct}% - 3px)`;
                     bWrap.style.flex = `0 0 calc(${100 - pct}% - 3px)`;
+                    // Прямая мутация ratio в текущем объекте для консистентности, без тяжелого setSplitRatio
+                    try { node.ratio = next; } catch {}
                 };
+
+                const onMove = (ev) => {
+                    lastEv = ev;
+                    if (rafId !== null) return;
+                    rafId = requestAnimationFrame(applyRatio);
+                };
+
                 const onUp = () => {
+                    if (rafId !== null) {
+                        cancelAnimationFrame(rafId);
+                        rafId = null;
+                        // Применяем последний pending кадр синхронно, если rAF еще не успел
+                        if (lastEv) {
+                            const raw = node.direction === 'row'
+                                ? (lastEv.clientX - rect.left) / rect.width
+                                : (lastEv.clientY - rect.top) / rect.height;
+                            const finalRatio = Math.max(0.10, Math.min(0.90, raw));
+                            pendingRatio = finalRatio;
+                            const pct = finalRatio * 100;
+                            aWrap.style.flex = `0 0 calc(${pct}% - 3px)`;
+                            bWrap.style.flex = `0 0 calc(${100 - pct}% - 3px)`;
+                        }
+                    }
+                    // Финальное сохранение: один раз на mouseup, бережно к диску
+                    // Обновляем layout через setSplitRatio (клонирование дерева только один раз) и сохраняем на диск
+                    try {
+                        const current = getCurrentLayout();
+                        const updated = setSplitRatio(current, node.id, pendingRatio);
+                        S.shell.layouts[S.shell.activeWorkspace] = updated;
+                    } catch {}
+                    saveShellState();
+
                     gutter.classList.remove('dragging');
+                    document.body.classList.remove('vp-shell-resizing');
                     document.removeEventListener('pointermove', onMove);
                     document.removeEventListener('pointerup', onUp);
-                    saveShellState();
                 };
+
                 document.addEventListener('pointermove', onMove);
                 document.addEventListener('pointerup', onUp);
             });

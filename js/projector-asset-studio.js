@@ -34,6 +34,7 @@
         _activeCanvas: null,
         _activeContainer: null,
         _boundKeyHandler: null,
+        _userStopped: false,
 
         updateStudioStatus(container, extra = '') {
             const host = container || this._activeContainer;
@@ -52,8 +53,8 @@
             const sidebarBtn = host.querySelector('#vp-as-toggle-sidebar');
             const inspectorBtn = host.querySelector('#vp-as-toggle-inspector');
             const hideInspectorBtn = host.querySelector('#vp-as-hide-inspector');
-            if (sidebarBtn && sidebar) sidebarBtn.textContent = sidebar.classList.contains('collapsed') ? '☰ Nodes' : '✕ Nodes';
-            if (inspectorBtn && inspector) inspectorBtn.textContent = inspector.classList.contains('collapsed') ? 'Log ☰' : 'Log ✕';
+            if (sidebarBtn && sidebar) sidebarBtn.style.opacity = sidebar.classList.contains('collapsed') ? '0.5' : '1';
+            if (inspectorBtn && inspector) inspectorBtn.style.opacity = inspector.classList.contains('collapsed') ? '0.5' : '1';
             if (hideInspectorBtn) hideInspectorBtn.style.display = inspector?.classList.contains('collapsed') ? 'none' : '';
         },
 
@@ -237,7 +238,41 @@
             this.saveStudioState();
             this.renderWorkflowLibrary();
             this.updateStudioStatus(this._activeContainer, `Loaded: ${workflow.title}`);
+            // Restore output node preview from gallery if available
+            this._restoreOutputPreview();
             VP.showToast?.(`Workflow loaded: ${workflow.title}`, 'success');
+        },
+
+        _restoreOutputPreview() {
+            const outputNode = Array.from(Graph.nodes.values()).find(n => n.type === 'output');
+            if (!outputNode || !outputNode.data.lastAssetTag) return;
+            let tag = outputNode.data.lastAssetTag;
+            // Follow rename aliases in case the asset was renamed in gallery
+            const visited = new Set();
+            while (!S.gallery?.has(tag) && S.galleryData?.tagAliases?.[tag]?.to && !visited.has(tag)) {
+                visited.add(tag);
+                tag = S.galleryData.tagAliases[tag].to;
+            }
+            if (!S.gallery?.has(tag)) return;
+            // Save resolved tag back so next restore is direct
+            outputNode.data.lastAssetTag = tag;
+            const asset = S.gallery.get(tag);
+            const src = asset.url || asset.thumbUrl || null;
+            if (!src) return;
+            outputNode.setPreview(src);
+            // Also restore inspector preview
+            const container = this._activeContainer;
+            const preview = container?.querySelector('#vp-as-preview-box');
+            if (preview) {
+                preview.innerHTML = '';
+                const img = document.createElement('img');
+                img.src = src;
+                img.style.maxWidth = '100%';
+                img.style.maxHeight = '220px';
+                img.style.objectFit = 'contain';
+                img.alt = tag;
+                preview.appendChild(img);
+            }
         },
 
         async renameWorkflowInteractive(id) {
@@ -915,31 +950,39 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="vp-as-canvas-overlay vp-as-canvas-overlay-left">
-                            <button class="vp-btn vp-btn-sm" id="vp-as-toggle-sidebar" title="Toggle Sidebar">✕ Nodes</button>
-                        </div>
                         <div class="vp-as-canvas-overlay vp-as-canvas-overlay-tools">
-                            <button class="vp-btn vp-btn-sm" id="vp-as-zoom-out" title="Zoom out">−</button>
-                            <span id="vp-as-zoom-label">100%</span>
-                            <button class="vp-btn vp-btn-sm" id="vp-as-zoom-in" title="Zoom in">+</button>
-                            <button class="vp-btn vp-btn-sm" id="vp-as-frame-all" title="Frame all">⊡</button>
-                            <div class="vp-as-mode-sep"></div>
-                            <button class="vp-btn vp-btn-sm" id="vp-as-toggle-inspector" title="Toggle Inspector">Log ☰</button>
-                            <button class="vp-btn vp-btn-sm" id="vp-as-import-cli" title="Import CLI command">CLI+</button>
-                            <select id="vp-as-engine-mode" class="vp-as-engine-mode" title="Generation engine mode">
-                                <option value="cli">CLI</option>
-                                <option value="server">Server — stub</option>
-                            </select>
+                            <span class="vp-as-tool-group vp-as-tool-left">
+                                <button class="vp-btn vp-btn-sm" id="vp-as-toggle-sidebar" title="Toggle Nodes sidebar">☰</button>
+                            </span>
+                            <span class="vp-as-tool-group vp-as-tool-center">
+                                <button class="vp-btn vp-btn-sm" id="vp-as-zoom-out" title="Zoom out">−</button>
+                                <span id="vp-as-zoom-label">100%</span>
+                                <button class="vp-btn vp-btn-sm" id="vp-as-zoom-in" title="Zoom in">+</button>
+                                <button class="vp-btn vp-btn-sm" id="vp-as-frame-all" title="Frame all">⊡</button>
+                                <span class="vp-as-mode-sep"></span>
+                                <button class="vp-btn vp-btn-sm" id="vp-as-import-cli" title="Import CLI command">CLI+</button>
+                                <select id="vp-as-engine-mode" class="vp-as-engine-mode" title="Generation engine mode">
+                                    <option value="cli">CLI</option>
+                                    <option value="server">Server — stub</option>
+                                </select>
+                            </span>
+                            <span class="vp-as-tool-group vp-as-tool-right">
+                                <button class="vp-btn vp-btn-sm" id="vp-as-toggle-inspector" title="Toggle Inspector">📋</button>
+                            </span>
                         </div>
                         <div class="vp-as-canvas-controls">
                             <div class="vp-as-primary-actions">
-                                <button class="vp-btn vp-btn-primary" id="vp-as-produce">🎨 Produce Active</button>
-                                <button class="vp-btn vp-btn-ghost" id="vp-as-produce-all" title="Generate all tabs sequentially">▶▶ Produce All</button>
-                                <button class="vp-btn vp-btn-ghost" id="vp-as-stop" style="display:none; color:#ff6b6b; border-color:rgba(255,60,60,0.3);">⏹ Stop</button>
-                                <button class="vp-btn vp-btn-ghost" id="vp-as-copy-cli">📋 Copy CLI</button>
-                                <button class="vp-btn vp-btn-ghost" id="vp-as-gallery-btn" title="Open floating gallery">📚 Gallery</button>
+                                <button class="vp-btn vp-btn-primary" id="vp-as-produce">🎨 Produce</button>
+                                <button class="vp-btn vp-btn-sm" id="vp-as-produce-all" title="Generate all tabs">▶▶ All</button>
+                                <button class="vp-btn vp-btn-sm" id="vp-as-stop" style="display:none; color:#ff6b6b; border-color:rgba(255,60,60,0.3);">⏹</button>
+                                <span class="vp-as-mode-sep"></span>
+                                <button class="vp-btn vp-btn-sm" id="vp-as-copy-cli" title="Copy CLI">📋</button>
+                                <button class="vp-btn vp-btn-sm" id="vp-as-gallery-btn" title="Open gallery">📚</button>
                             </div>
-                            <div class="vp-as-progress-bar"><div class="fill" id="vp-as-progress-fill" style="width:0%"></div></div>
+                            <div class="vp-as-progress-wrap">
+                                <div class="vp-as-progress-label" id="vp-as-progress-label"></div>
+                                <div class="vp-as-progress-bar"><div class="fill" id="vp-as-progress-fill" style="width:0%"></div></div>
+                            </div>
                             <div class="vp-as-status" id="vp-as-status">Ready · 0 nodes · CLI</div>
                         </div>
                     </div>
@@ -1007,7 +1050,10 @@
             this.syncPanelToggles(container);
             this.renderWorkflowLibrary(container);
             this.updateStudioStatus(container);
-            requestAnimationFrame(() => this.refreshGraphUI(container));
+            requestAnimationFrame(() => {
+                this.refreshGraphUI(container);
+                this._restoreOutputPreview();
+            });
         },
 
         wirePalette(container) {
@@ -1084,6 +1130,7 @@
             const log = container.querySelector('#vp-as-cli-log');
             const preview = container.querySelector('#vp-as-preview-box');
             const progress = container.querySelector('#vp-as-progress-fill');
+            const progressLabel = container.querySelector('#vp-as-progress-label');
             const zoomLabel = container.querySelector('#vp-as-zoom-label');
             const engineMode = container.querySelector('#vp-as-engine-mode');
             const toggleSidebarBtn = container.querySelector('#vp-as-toggle-sidebar');
@@ -1136,12 +1183,16 @@
 
             stopBtn.addEventListener('click', async () => {
                 if (!this.running || !this._activeProcessId) return;
+                this._userStopped = true;
                 if (window.Neutralino?.os?.updateSpawnedProcess) {
                     try {
                         await Neutralino.os.updateSpawnedProcess(this._activeProcessId, 'exit');
-                        VP.showToast?.('Kill signal sent', 'info');
+                        log.innerHTML += `<div style="color:var(--text-secondary)">⏹ Stop signal sent</div>`;
+                        log.scrollTop = log.scrollHeight;
+                        if (progressLabel) progressLabel.textContent = '⏹ Stopping…';
                     } catch (e) {
                         console.warn('Failed to kill process:', e);
+                        this._userStopped = false;
                         VP.showToast?.('Failed to stop process', 'error');
                     }
                 }
@@ -1162,7 +1213,7 @@
                 }
 
                 const assetName = bag.meta.get('assetName') || null;
-                await this.runCLI(bag, log, preview, progress, stopBtn, container, assetName);
+                await this.runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
             });
 
             const produceAllBtn = container.querySelector('#vp-as-produce-all');
@@ -1192,7 +1243,7 @@
                         log.scrollTop = log.scrollHeight;
                         this.updateStudioStatus(container, `Generating ${i+1}/${tabs.length}: ${tabs[i].name}`);
                         try {
-                            await this.runCLI(bag, log, preview, progress, stopBtn, container, assetName);
+                            await this.runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
                             success++;
                         } catch (err) {
                             fail++;
@@ -1318,9 +1369,56 @@
             return p.replace(/\//g, '\\');
         },
 
-        async runCLI(bag, log, preview, progress, stopBtn, container, assetName) {
+        /**
+         * Save base64 reference images to temp files before CLI execution.
+         * sd.cpp cannot read data URLs — it needs real file paths.
+         */
+        async _resolveRefsToFiles(bag) {
+            const refs = bag.get('-r');
+            if (!Array.isArray(refs) || !refs.length) return [];
+            const outDir = VP_AS.utils.normPath(this.config.outputDir || './output');
+            const tempFiles = [];
+            const resolved = [];
+            for (const ref of refs) {
+                if (typeof ref === 'string' && ref.startsWith('data:image/')) {
+                    if (!window.Neutralino?.filesystem) {
+                        console.warn('[Asset Studio] Cannot save base64 ref — Neutralino FS unavailable');
+                        resolved.push(ref);
+                        continue;
+                    }
+                    try {
+                        const commaIdx = ref.indexOf(',');
+                        const mime = ref.slice(5, commaIdx).split(';')[0] || 'image/png';
+                        const ext = mime.split('/')[1] || 'png';
+                        const b64 = ref.slice(commaIdx + 1);
+                        const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+                        const name = `_ref_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${ext}`;
+                        const filePath = outDir + '/' + name;
+                        await Neutralino.filesystem.writeBinaryFile(filePath, bin);
+                        const normed = VP_AS.utils.normPath(filePath);
+                        resolved.push(normed);
+                        tempFiles.push(normed);
+                    } catch (err) {
+                        console.warn('[Asset Studio] Failed to save base64 ref:', err);
+                        resolved.push(ref);
+                    }
+                } else {
+                    resolved.push(ref);
+                }
+            }
+            if (tempFiles.length) {
+                bag.map.set('-r', resolved);
+                bag.meta.set('-r', { multi: true });
+            }
+            return tempFiles;
+        },
+
+        async runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName) {
+            this._userStopped = false;
+            const tempFiles = await this._resolveRefsToFiles(bag);
+            const _cliStartTime = Date.now();
             const isWin = (window.NL_OS || '').toLowerCase().includes('windows');
-            const fileKeys = new Set(['-m', '--diffusion-model', '--llm', '--clip2', '--vae', '--lora', '-o']);
+            const fileKeys = new Set(['-m', '--diffusion-model', '--llm', '--clip2', '--vae', '--lora', '-o', '--preview-path']);
             if (isWin) {
                 for (const [key, val] of bag.map) {
                     if (!fileKeys.has(key)) continue;
@@ -1333,6 +1431,15 @@
             }
             let executable = this.config.executablePath;
             if (isWin) executable = this.toWinPath(executable);
+
+            // Inject live preview flags — sd.cpp saves step previews to a temp file
+            const _outDir = VP_AS.utils.normPath(this.config.outputDir || './output');
+            const _previewFileName = '_step_preview_' + Date.now() + '.png';
+            const _previewFilePath = _outDir + '/' + _previewFileName;
+            bag.set('--preview', 'proj');
+            bag.set('--preview-path', _previewFilePath);
+            bag.set('--preview-interval', 1);
+
             const cmd = bag.toCommandString(executable);
             log.innerHTML += `<div><b>$</b> ${cmd}</div>`;
             log.scrollTop = log.scrollHeight;
@@ -1342,6 +1449,30 @@
             progress.style.width = '10%';
             this.running = true;
             this.updateStudioStatus(container, '⏳ Rendering');
+            if (progressLabel) progressLabel.textContent = '';
+
+            // Poll for live step preview updates from sd.cpp
+            let _previewTimer = null;
+            let _lastPreviewMtime = 0;
+            if (window.Neutralino?.filesystem?.getStats) {
+                _previewTimer = setInterval(async () => {
+                    try {
+                        const st = await Neutralino.filesystem.getStats(_previewFilePath);
+                        const mt = st.modifiedAt || st.createdAt || 0;
+                        if (mt && mt !== _lastPreviewMtime) {
+                            _lastPreviewMtime = mt;
+                            const bin = await Neutralino.filesystem.readBinaryFile(_previewFilePath);
+                            const blob = new Blob([bin], { type: 'image/png' });
+                            const url = URL.createObjectURL(blob);
+                            if (preview) {
+                                preview.innerHTML = `<img src="${url}" style="max-width:100%;max-height:220px;object-fit:contain;border-radius:6px;" alt="step preview">`;
+                            }
+                        }
+                    } catch (e) {
+                        // File not ready yet
+                    }
+                }, 300);
+            }
 
             try {
                 await this.ensureOutputDir();
@@ -1354,56 +1485,171 @@
                     let errorOutput = '';
                     let logBuffer = '';
                     
-                    const updateLog = (chunk) => {
-                        logBuffer += chunk;
-                        const lines = logBuffer.split(/[\r\n]+/);
-                        logBuffer = lines.pop() || '';
-                        
-                        let allLines = [...lines];
-                        if (logBuffer) allLines.push(logBuffer);
+                                                                                const updateLog = (chunk) => {
+                        // 1. Strip ANSI escape sequences
+                        let clean = chunk.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+                        // 2. Strip [INFO ], [WARN ] etc. log-level prefixes
+                        clean = clean.replace(/\[[A-Z]+\]\s*/g, '');
+                        logBuffer += clean;
 
-                        for (let line of allLines) {
-                            line = line.trim();
+                        // 3. Split by newlines
+                        const rawLines = logBuffer.split('\n');
+                        logBuffer = rawLines.pop() || '';
+
+                        let phase = null;   // 'model' | 'gen' | null
+                        let progressCurrent = null, progressTotal = null, speedStr = null;
+
+                        for (let rl of rawLines) {
+                            // 4. Split by \r — keep only the LAST chunk
+                            const crParts = rl.split('\r').map(s => s.trim()).filter(Boolean);
+                            const line = crParts.length > 1 ? crParts[crParts.length - 1] : crParts[0];
                             if (!line) continue;
+
                             const esc = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                             const lower = esc.toLowerCase();
-                            
-                            const stepMatch = lower.match(/step[\s:]+(\d+)\/(\d+)/i) || lower.match(/step:\s*\d+%\s*\((\d+)\/(\d+)\)/i);
-                            const timeMatch = lower.match(/([\d.]+)s\/it/i) || lower.match(/([\d.]+)it\/s/i);
-                            
-                            if (stepMatch) {
-                                const current = parseInt(stepMatch[1]);
-                                const total = parseInt(stepMatch[2]);
-                                if (total > 0) {
-                                    const percent = Math.min(100, Math.round((current / total) * 100));
-                                    progress.style.width = `${percent}%`;
-                                    let statusHtml = `Running: step ${current}/${total}`;
-                                    if (timeMatch) statusHtml += ` (${timeMatch[0]})`;
-                                    if (preview) preview.innerHTML = `<div class="vp-as-preview-placeholder">${statusHtml}</div>`;
+                            const isCarriageLine = rl.includes('\r');
+
+                            // 5. Progress bar detection — any N/M pattern is a progress indicator
+                            const progressMatch = lower.match(/(\d+)\s*\/\s*(\d+)/);
+                            // Speed: MB/s (model loading) or s/it, it/s (generation steps)
+                            const loadSpeed = lower.match(/([\d.]+)\s*(mb|gb|kb)\/s/);
+                            const genSpeed  = lower.match(/([\d.]+)\s*(s\/it|it\/s)/);
+                            const isProgress = !!progressMatch;
+
+                            // 6. Phase detection — prioritize "step N/M" over everything
+                            if (progressMatch) {
+                                const cur = parseInt(progressMatch[1]);
+                                const tot = parseInt(progressMatch[2]);
+                                
+                                // Skip irrelevant 1/1 patterns (VAE, LoRA sub-tasks)
+                                const isStep = lower.includes('step');
+                                
+                                if (isStep) {
+                                    // Definitely generation steps
+                                    progressCurrent = cur;
+                                    progressTotal = tot;
+                                    phase = 'gen';
+                                } else if (loadSpeed) {
+                                    // Model/VAE loading with speed
+                                    progressCurrent = cur;
+                                    progressTotal = tot;
+                                    if (loadSpeed) speedStr = loadSpeed[0];
+                                    phase = 'model';
+                                } else if (genSpeed) {
+                                    // Steps with s/it but no "step" keyword
+                                    progressCurrent = cur;
+                                    progressTotal = tot;
+                                    if (genSpeed) speedStr = genSpeed[0];
+                                    phase = 'gen';
+                                } else if (tot > 2 || cur > 1) {
+                                    // Generic progress (not 1/1 noise)
+                                    progressCurrent = cur;
+                                    progressTotal = tot;
+                                    speedStr = null;
+                                    phase = 'gen';
                                 }
+                                // else: ignore 1/1 noise
                             }
-                        }
 
-                        for (let line of lines) {
-                            line = line.trim();
-                            if (!line) continue;
-                            const esc = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                            const lower = esc.toLowerCase();
+                            if (isProgress) {
+                                // For multi-snapshot chunks: animate progress smoothly
+                                // Collect all unique progress snapshots
+                                const snapshots = [];
+                                if (crParts.length > 1) {
+                                    for (const snap of crParts) {
+                                        const snapLower = snap.toLowerCase();
+                                        const snapP = snapLower.match(/(\d+)\s*\/\s*(\d+)/);
+                                        if (!snapP) continue;
+                                        const c = parseInt(snapP[1]), t = parseInt(snapP[2]);
+                                        if (t > 0 && !snapshots.some(s => s[0] === c && s[1] === t)) {
+                                            snapshots.push([c, t]);
+                                        }
+                                    }
+                                }
+                                
+                                // Animate multiple snapshots via setTimeout to spread across event loop ticks
+                                // Skip synchronous progress update below (would overwrite animation to final value)
+                                if (snapshots.length > 1) {
+                                    const elapsed = Math.floor((Date.now() - _cliStartTime) / 1000);
+                                    const lastTot = snapshots[snapshots.length - 1][1];
+                                    const phaseLabel = phase === 'gen' ? '🎨 Step' : '⏳ Loading';
+                                    const totalProgress = snapshots.length;
+                                    const intervalMs = Math.max(30, Math.min(200, 2000 / totalProgress));
+                                    const stepPerSecond = totalProgress > 1 ? Math.round(totalProgress / Math.max(1, elapsed)) : 1;
+                                    
+                                    for (let idx = 0; idx < snapshots.length; idx++) {
+                                        const delay = idx * intervalMs;
+                                        const [c, t] = snapshots[idx];
+                                        const pct = Math.min(100, Math.round((c / t) * 100));
+                                        setTimeout(() => {
+                                            progress.style.transition = 'width 0.1s linear';
+                                            progress.style.width = `${pct}%`;
+                                        }, delay);
+                                    }
+                                    
+                                    // Update label on the LAST snapshot (with ETA)
+                                    const lastIdx = snapshots.length - 1;
+                                    const [lastC, lastT] = snapshots[lastIdx];
+                                    if (progressLabel && lastT > 0) {
+                                        const remaining = Math.round((snapshots.length - 1 - lastIdx) * (snapshots.length > 1 ? elapsed / snapshots.length : 1));
+                                        const rm = String(Math.floor(remaining / 60)).padStart(2, '0');
+                                        const rs = String(remaining % 60).padStart(2, '0');
+                                        progressLabel.textContent = `${phaseLabel} ${lastC}/${lastT} · ⏱ ${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+                                    }
+                                } else if (snapshots.length === 1) {
+                                    const [c, t] = snapshots[0];
+                                    if (t > 0) {
+                                        progress.style.transition = t > 10 ? 'width 0.5s ease' : 'width 0.15s ease';
+                                        progress.style.width = `${Math.min(100, Math.round((c / t) * 100))}%`;
+                                    }
+                                }
 
-                            if (lower.includes('error') || lower.includes('fatal')) {
-                                log.innerHTML += `<div style="color:var(--error)"><b>err:</b> ${esc}</div>`;
-                            } else if (lower.includes('warn')) {
-                                log.innerHTML += `<div style="color:#e5c07b"><b>warn:</b> ${esc}</div>`;
-                            } else if (lower.match(/step[\s:]+(\d+)\/(\d+)/i) || lower.match(/step:\s*\d+%\s*\((\d+)\/(\d+)\)/i) || lower.match(/([\d.]+)it\/s/i)) {
-                                log.innerHTML += `<div style="opacity:0.6">${esc}</div>`;
+                                const lastEntry = log.lastElementChild;
+                                if (lastEntry && isCarriageLine) {
+                                    lastEntry.innerHTML = `<span>${esc}</span>`;
+                                } else {
+                                    log.innerHTML += `<div>${esc}</div>`;
+                                }
+
+                                if (progressCurrent != null && progressTotal > 0 && snapshots.length <= 1) {
+                                    const percent = Math.min(100, Math.round((progressCurrent / progressTotal) * 100));
+                                    progress.style.width = `${percent}%`;
+
+                                    // Elapsed time
+                                    const elapsed = Math.floor((Date.now() - _cliStartTime) / 1000);
+                                    const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                                    const ss = String(elapsed % 60).padStart(2, '0');
+                                    const timeStr = `⏱ ${mm}:${ss}`;
+
+                                    // Build status label
+                                    let statusMsg = '';
+                                    if (phase === 'model') {
+                                        statusMsg = `⏳ Model ${progressCurrent}/${progressTotal}`;
+                                        if (speedStr) statusMsg += ` (${speedStr})`;
+                                        statusMsg += ` · ${timeStr}`;
+                                    } else if (phase === 'gen') {
+                                        statusMsg = `🎨 Step ${progressCurrent}/${progressTotal}`;
+                                        if (speedStr) statusMsg += ` (${speedStr})`;
+                                        statusMsg += ` · ${timeStr}`;
+                                    }
+                                    if (progressLabel) progressLabel.textContent = statusMsg;
+
+                                    if (preview) {
+                                        const prevSpeed = speedStr ? ` · ${speedStr}` : '';
+                                        preview.innerHTML = `<div class="vp-as-preview-placeholder">${progressCurrent}/${progressTotal}${prevSpeed}<br><small>${timeStr}</small></div>`;
+                                    }
+                                }
+                            } else if (lower.includes('error') || lower.includes('fatal')) {
+                                log.innerHTML += `<div style="color:var(--error)">${esc}</div>`;
+                            } else if (lower.includes('model_loader.cpp') || lower.includes('model_loader') || lower.includes('llm.hpp') || lower.includes('.cpp:') && lower.includes('completed, taking')) {
+                                // Filter: show as muted text, not full info lines
+                                log.innerHTML += `<div style="opacity:0.35;font-size:10px">${esc}</div>`;
                             } else {
-                                log.innerHTML += `<div><b>info:</b> ${esc}</div>`;
+                                log.innerHTML += `<div>${esc}</div>`;
                             }
                         }
-                        
-                        if (lines.length > 0) {
-                            log.scrollTop = log.scrollHeight;
-                        }
+
+                        log.scrollTop = log.scrollHeight;
                     };
 
                     const processInfo = await Neutralino.os.spawnProcess(cmd, { cwd });
@@ -1426,16 +1672,31 @@
                                     }
                                     this._activeProcessId = null;
                                     if (stopBtn) stopBtn.style.display = 'none';
+                                    if (_previewTimer) clearInterval(_previewTimer);
                                     const exitCode = e.detail.data;
-                                    if (exitCode === 0 || exitCode == null) resolve();
+                                    if (exitCode === 0 || exitCode == null || this._userStopped) resolve();
                                     else reject(new Error(`sd.cpp exited with code ${exitCode}`));
                                 }
                             }
                         };
-                        Neutralino.events.on('spawnedProcess', onSpawnedProcess);
-                    });
+                            Neutralino.events.on('spawnedProcess', onSpawnedProcess);
+                        });
+
+                    if (this._userStopped) {
+                        if (progressLabel) progressLabel.textContent = '⏹ Stopped';
+                        progress.style.width = '0%';
+                        log.innerHTML += `<div style="color:var(--text-secondary)">⏹ Stopped after ${Math.floor((Date.now() - _cliStartTime)/1000)}s</div>`;
+                        log.scrollTop = log.scrollHeight;
+                        if (_previewTimer) { clearInterval(_previewTimer); _previewTimer = null; }
+                        if (window.Neutralino?.filesystem?.deleteFile) { Neutralino.filesystem.deleteFile(_previewFilePath).catch(() => {}); }
+                        return;
+                    }
 
                     progress.style.width = '100%';
+                    const _doneElapsed = Math.floor((Date.now() - _cliStartTime) / 1000);
+                    const _doneMM = String(Math.floor(_doneElapsed / 60)).padStart(2, '0');
+                    const _doneSS = String(_doneElapsed % 60).padStart(2, '0');
+                    if (progressLabel) progressLabel.textContent = `✅ Done in ${_doneMM}:${_doneSS}`;
 
                     const imageData = await this.loadOutputImage(outputPath);
                     if (imageData) {
@@ -1476,6 +1737,10 @@
                         throw new Error(`sd.cpp exited with code ${exitCode}. Check the log for details.`);
                     }
                     progress.style.width = '100%';
+                    const _doneElapsed = Math.floor((Date.now() - _cliStartTime) / 1000);
+                    const _doneMM = String(Math.floor(_doneElapsed / 60)).padStart(2, '0');
+                    const _doneSS = String(_doneElapsed % 60).padStart(2, '0');
+                    if (progressLabel) progressLabel.textContent = `✅ Done in ${_doneMM}:${_doneSS}`;
 
                     const imageData = await this.loadOutputImage(outputPath);
                     if (imageData) {
@@ -1500,8 +1765,17 @@
                 this.running = false;
                 this._activeProcessId = null;
                 if (stopBtn) stopBtn.style.display = 'none';
+                if (_previewTimer) { clearInterval(_previewTimer); _previewTimer = null; }
+                if (window.Neutralino?.filesystem?.deleteFile) { Neutralino.filesystem.deleteFile(_previewFilePath).catch(() => {}); }
                 this.updateStudioStatus(container);
+                if (progressLabel) progressLabel.textContent = '';
                 setTimeout(() => { progress.style.width = '0%'; }, 600);
+                // Clean up temporary reference files
+                if (tempFiles.length && window.Neutralino?.filesystem?.deleteFile) {
+                    for (const f of tempFiles) {
+                        Neutralino.filesystem.deleteFile(f).catch(() => {});
+                    }
+                }
             }
         },
 
@@ -1556,8 +1830,13 @@
                     source: 'generated',
                     suggestedName: `${tagName}.png`,
                     setAsCurrent: false,
+                    instantPersist: false,
                 }).then(tag => {
-                    if (tag) VP.showToast?.(`Added to gallery: ${tag}`, 'success');
+                    if (tag) {
+                        // Save the gallery tag in the output node so it survives workflow reloads
+                        if (outputNode) outputNode.data.lastAssetTag = tag;
+                        VP.showToast?.(`Added to gallery: ${tag}`, 'success');
+                    }
                 }).catch(() => {});
             }
         },
@@ -1630,8 +1909,8 @@
             style.id = 'vp-as-styles';
             style.textContent = `
                 .vp-as-layout { position:relative; overflow:hidden; display:flex; height:100%; min-height:0; min-width:0; background:var(--bg-primary); }
-                .vp-as-sidebar { width:182px; border-right:1px solid var(--border); padding:10px; display:flex; flex-direction:column; gap:8px; flex-shrink:0; overflow:auto; background:linear-gradient(180deg, rgba(255,255,255,0.025), rgba(0,0,0,0.06)); transition: width 0.3s ease, padding 0.3s ease; }
-                .vp-as-sidebar.collapsed { width: 0; padding-left: 0; padding-right: 0; border-right: none; overflow: hidden; }
+                .vp-as-sidebar { position:absolute; left:0; top:42px; bottom:46px; width:182px; z-index:50; padding:10px; display:flex; flex-direction:column; gap:8px; overflow:auto; background:rgba(28,28,36,0.97); backdrop-filter:blur(8px); border-right:1px solid rgba(255,255,255,0.12); border-bottom:1px solid rgba(255,255,255,0.08); border-bottom-right-radius:8px; box-shadow:0 12px 32px rgba(0,0,0,0.5); transform:translateX(0); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; }
+                .vp-as-sidebar.collapsed { transform: translateX(-120%); opacity:0; pointer-events:none; }
                 .vp-as-section-title { font-size:11px; font-weight:800; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px; }
                 .vp-as-node-palette { display:flex; flex-direction:column; gap:6px; }
                 .vp-as-side-actions { display:flex; flex-direction:column; gap:6px; }
@@ -1667,19 +1946,25 @@
                 .vp-as-world { position:absolute; left:0; top:0; transform-origin:0 0; }
                 .vp-as-links { position:absolute; inset:0; pointer-events:none; z-index:1; width:100%; height:100%; }
                 .vp-as-links path { pointer-events:auto; }
-                .vp-as-canvas-overlay { position:absolute; top:6px; right:6px; z-index:10; display:flex; align-items:center; gap:3px; row-gap:3px; max-width:calc(100% - 12px); background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:2px 4px; backdrop-filter:blur(4px); }
-                .vp-as-canvas-overlay-left { left:8px; right:auto; top:48px; z-index:12; }
-                .vp-as-canvas-overlay-tools { flex-wrap:wrap; justify-content:flex-end; }
-                .vp-as-canvas-overlay .vp-btn { min-width:22px; height:24px; padding:1px 5px; font-size:11px; line-height:1; }
+                .vp-as-canvas-overlay { position:absolute; top:6px; left:6px; right:6px; z-index:10; display:flex; align-items:center; gap:3px; row-gap:3px; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:2px 6px; backdrop-filter:blur(4px); }
+                .vp-as-canvas-overlay .vp-btn { min-width:24px; height:22px; padding:0 5px; font-size:12px; line-height:1; }
+                .vp-as-canvas-overlay-tools { display:flex; justify-content:space-between; align-items:center; flex-wrap:nowrap; }
+                .vp-as-tool-group { display:flex; align-items:center; gap:2px; flex-wrap:nowrap; }
+                .vp-as-tool-left { flex:0 0 auto; }
+                .vp-as-tool-center { flex:1 1 auto; justify-content:center; }
+                .vp-as-tool-right { flex:0 0 auto; }
                 #vp-as-zoom-label { font-size:10px; min-width:28px; text-align:center; color:var(--text-primary); }
                 .vp-as-mode-sep { width:1px; height:14px; background:rgba(255,255,255,0.15); margin:0 1px; }
                 .vp-as-engine-mode { min-width:70px; max-width:92px; height:24px; background:var(--bg-tertiary); color:var(--text-primary); border:1px solid rgba(255,255,255,0.12); border-radius:4px; padding:1px 5px; font-size:10px; }
-                .vp-as-canvas-controls { min-height:44px; border-top:1px solid var(--border); background:var(--bg-secondary); display:flex; align-items:center; flex-wrap:wrap; padding:8px 12px; gap:10px; flex-shrink:0; }
-                .vp-as-primary-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-                .vp-as-progress-bar { flex:1 1 180px; height:6px; background:rgba(0,0,0,0.3); border-radius:3px; overflow:hidden; }
+                .vp-as-canvas-controls { min-height:36px; border-top:1px solid var(--border); background:var(--bg-secondary); display:flex; align-items:center; padding:4px 10px; gap:8px; flex-shrink:0; flex-wrap:nowrap; overflow:hidden; }
+                .vp-as-primary-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+                .vp-as-primary-actions .vp-btn { height:24px; padding:1px 8px; font-size:11px; }
+                .vp-as-progress-wrap { flex:1 1 auto; min-width:60px; display:flex; flex-direction:column; gap:1px; align-items:center; }
+                .vp-as-progress-label { font-size:10px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; min-height:13px; line-height:1.2; text-align:center; }
+                .vp-as-progress-bar { width:100%; height:6px; background:rgba(0,0,0,0.3); border-radius:3px; overflow:hidden; }
                 .vp-as-progress-bar .fill { height:100%; background:var(--accent); transition:width .25s ease; }
-                .vp-as-status { flex:0 0 auto; padding:4px 8px; border-radius:999px; border:1px solid rgba(255,255,255,0.10); background:rgba(255,255,255,0.04); color:var(--text-secondary); font-size:11px; white-space:nowrap; }
-                .vp-as-inspector { position:absolute; top:44px; bottom:60px; right:8px; width:min(340px, calc(100% - 16px)); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:8px; display:flex; flex-direction:column; flex-shrink:0; min-height:0; overflow:auto; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; background:rgba(30,30,36,0.95); backdrop-filter:blur(8px); box-shadow:0 12px 32px rgba(0,0,0,0.5); z-index:200; }
+                .vp-as-status { flex:0 0 auto; padding:3px 8px; border-radius:999px; border:1px solid rgba(255,255,255,0.10); background:rgba(255,255,255,0.04); color:var(--text-secondary); font-size:10px; white-space:nowrap; line-height:1.4; }
+                .vp-as-inspector { position:absolute; top:44px; bottom:48px; right:8px; width:min(340px, calc(100% - 16px)); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:8px; display:flex; flex-direction:column; flex-shrink:0; min-height:0; overflow:auto; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; background:rgba(30,30,36,0.95); backdrop-filter:blur(8px); box-shadow:0 12px 32px rgba(0,0,0,0.5); z-index:200; }
                 .vp-as-inspector.collapsed { transform: translateX(120%); opacity:0; pointer-events:none; }
                 .vp-as-inspector-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:8px; }
                 .vp-as-inspector-sub { font-size:10px; line-height:1.35; color:var(--text-secondary); opacity:0.85; }
@@ -1689,15 +1974,13 @@
                 .vp-as-cli-log { flex:1; min-height:120px; border-radius:6px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.06); padding:6px; font:11px/1.4 ui-monospace,Consolas,monospace; overflow:auto; color:var(--text-secondary); }
                 .vp-as-cli-log div { margin-bottom:4px; word-break:break-word; }
                 @media (max-width: 980px) {
-                    .vp-as-sidebar { width:154px; }
+                    .vp-as-sidebar { width:182px; }
                     .vp-as-inspector { width:min(300px, calc(100% - 16px)); }
                 }
                 @media (max-width: 760px) {
-                    .vp-as-canvas-overlay-tools { left:6px; right:6px; justify-content:flex-start; }
-                    .vp-as-canvas-overlay-left { top:54px; }
-                    .vp-as-inspector { left:8px; right:8px; top:auto; bottom:60px; width:auto; max-height:42%; }
+                    .vp-as-canvas-overlay-tools { flex-wrap:wrap; gap:2px; }
+                    .vp-as-inspector { left:8px; right:8px; top:auto; bottom:48px; width:auto; max-height:42%; }
                     .vp-as-preview-box { min-height:96px; }
-                    .vp-as-status { width:100%; text-align:center; }
                 }
 
                 .vp-as-library-picker-backdrop { position:fixed; inset:0; z-index:50040; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(0,0,0,0.58); }
