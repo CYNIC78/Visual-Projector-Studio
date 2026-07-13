@@ -225,6 +225,27 @@
         PM.init();
         setTimeout(() => {
             wrapDB();
+            // Force old web storage mode to persistent — new RAM-first manager is now the main
+            try {
+                const db = DB();
+                if (db?.getMode && db?.setMode) {
+                    const cur = db.getMode();
+                    if (cur !== 'persistent') {
+                        console.log(`[VP Persist] Old storage mode was ${cur} → forcing persistent (new Save System is main manager)`);
+                        try {
+                            // Use original if available to ensure write happens
+                            const origSetMode = db._vpOriginal?.setMode || db.setMode.bind(db);
+                            origSetMode('persistent');
+                            // Also try native storage direct if exists
+                            if (window.VP_NATIVE_STORAGE?.setMode) {
+                                window.VP_NATIVE_STORAGE.setMode('persistent');
+                            }
+                        } catch (e) {
+                            console.warn('[VP Persist] Failed to force persistent mode', e);
+                        }
+                    }
+                }
+            } catch {}
             const iv = setInterval(() => {
                 const db = DB();
                 if (db && !db._vpWrapped) wrapDB();
