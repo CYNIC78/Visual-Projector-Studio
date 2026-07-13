@@ -1476,6 +1476,35 @@
 
             try {
                 await this.ensureOutputDir();
+
+                // ── Preflight checks — раньше sd.cpp падал с кодом 1 без пояснений ──
+                // Проверяем бинарь и модель до спавна, чтобы дать понятную ошибку
+                if (window.Neutralino?.filesystem?.getStats) {
+                    const exePath = VP_AS.utils.normPath(executable);
+                    const exeExists = await Neutralino.filesystem.getStats(exePath).then(()=>true).catch(()=>false);
+                    if (!exeExists) {
+                        throw new Error(`Executable not found: ${exePath}. Check Studio Config → Executable Path. Current: ${this.config.executablePath}`);
+                    }
+                    // Проверяем модель из bag: -m или --diffusion-model
+                    const modelPath = bag.get('-m') || bag.get('--diffusion-model') || bag.get('--model');
+                    if (modelPath) {
+                        const modelNorm = VP_AS.utils.normPath(modelPath);
+                        // Пропускаем проверку если путь выглядит как URL/data
+                        if (!modelNorm.startsWith('data:') && !modelNorm.startsWith('http')) {
+                            const modelExists = await Neutralino.filesystem.getStats(modelNorm).then(()=>true).catch(()=>false);
+                            if (!modelExists) {
+                                throw new Error(`Model not found: ${modelNorm}. Pick existing file in Loader node.`);
+                            }
+                        }
+                    } else {
+                        console.warn('[Asset Studio] No model path in bag — sd.cpp will likely exit 1');
+                    }
+                    const prompt = bag.get('-p');
+                    if (!prompt || !String(prompt).trim()) {
+                        throw new Error('Prompt is empty. Write something in Prompt node active tab.');
+                    }
+                }
+
                 let outputPath = bag.get('-o');
                 if (outputPath) outputPath = VP_AS.utils.normPath(outputPath);
 
@@ -1675,7 +1704,16 @@
                                     if (_previewTimer) clearInterval(_previewTimer);
                                     const exitCode = e.detail.data;
                                     if (exitCode === 0 || exitCode == null || this._userStopped) resolve();
-                                    else reject(new Error(`sd.cpp exited with code ${exitCode}`));
+                                    else {
+                                        // Собираем последние логи для диагностики — раньше терялись
+                                        const lastErr = (errorOutput || '').slice(-2000);
+                                        const lastOut = (fullOutput || '').slice(-2000);
+                                        const combined = (lastErr + "\n" + lastOut).slice(-3000).trim();
+                                        const msg = combined
+                                            ? `sd.cpp exited with code ${exitCode}. Last logs:\n${combined}`
+                                            : `sd.cpp exited with code ${exitCode} (no output)`;
+                                        reject(new Error(msg));
+                                    }
                                 }
                             }
                         };
@@ -1759,8 +1797,16 @@
                 }
             } catch (err) {
                 console.error('[Asset Studio] exec failed:', err);
-                if (preview) preview.innerHTML = `<div class="vp-as-preview-placeholder" style="color:var(--error)">Error: ${err.message || err}</div>`;
-                VP.showToast?.(`Render failed: ${err.message || err}`, 'error');
+                // Дублируем детали в лог панели, чтобы пользователь видел причину exit 1
+                try {
+                    if (log) {
+                        const escMsg = String(err.message || err).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                        log.innerHTML += `<div style="color:var(--error); white-space:pre-wrap; word-break:break-word;"><b>✗ exec failed:</b> ${escMsg}</div>`;
+                        log.scrollTop = log.scrollHeight;
+                    }
+                } catch {}
+                if (preview) preview.innerHTML = `<div class="vp-as-preview-placeholder" style="color:var(--error)">Error: ${String(err.message || err).slice(0,800)}</div>`;
+                VP.showToast?.(`Render failed: ${String(err.message || err).slice(0,200)}`, 'error');
             } finally {
                 this.running = false;
                 this._activeProcessId = null;
