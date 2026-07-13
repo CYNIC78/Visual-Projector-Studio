@@ -6,8 +6,8 @@
 (function () {
     'use strict';
 
-    const VP = window.VisualProjector;
-    const DB = () => window.VP_DB || window.VP_STORAGE;
+    const getVP = () => window.VisualProjector || null;
+    const DB = () => window.VP_DB || window.VP_STORAGE || null;
 
     const VALID_MODES = new Set(['blender', 'auto', 'ephemeral']);
 
@@ -23,14 +23,12 @@
             try { return localStorage.getItem('vp-save-mode') || 'blender'; } catch { return 'blender'; }
         })()),
 
-        _dirty: new Map(), // scope -> { data, ts }
+        _dirty: new Map(),
         _timer: null,
         _debounceMs: 1200,
 
         init() {
             console.log(`[VP Persist] Mode: ${this.mode} (blender=explicit Save, auto=debounced, ephemeral=RAM only)`);
-            // Load quicksave interval from storage if needed
-            this._bindStorageModeUI();
         },
 
         setMode(newMode) {
@@ -38,37 +36,29 @@
             this.mode = m;
             try { localStorage.setItem('vp-save-mode', m); } catch {}
             console.log(`[VP Persist] Mode set to ${m}`);
-            VP.showToast?.(`Save mode: ${m}`, 'info');
+            getVP()?.showToast?.(`Save mode: ${m}`, 'info');
             return m;
         },
 
         getMode() { return this.mode; },
 
-        // ── Mark dirty — called instead of direct DB.setX ──
         mark(scope, data) {
             if (this.mode === 'ephemeral') {
-                // RAM only, no FS ever — your RAM-disk workaround becomes official
                 this._dirty.set(scope, { data, ts: Date.now() });
                 window.VP_WORLD?.markDirty(scope);
                 return Promise.resolve(data);
             }
-
             if (this.mode === 'blender') {
-                // Blender-like: only mark dirty, no FS write until explicit Save
                 this._dirty.set(scope, { data, ts: Date.now() });
                 window.VP_WORLD?.markDirty(scope);
-                // Still schedule quicksave (RAM/sessionStorage, cheap)
                 return Promise.resolve(data);
             }
-
             if (this.mode === 'auto') {
-                // Old behavior but debounced: write after 1.2s of silence
                 this._dirty.set(scope, { data, ts: Date.now() });
                 window.VP_WORLD?.markDirty(scope);
                 this._scheduleFlush();
                 return Promise.resolve(data);
             }
-
             return Promise.resolve(data);
         },
 
@@ -127,7 +117,6 @@
                             if (db.setWinGeom) await db.setWinGeom(data);
                             break;
                         default:
-                            // Generic fallback
                             if (db.setCustomCss && scope === 'customCss') await db.setCustomCss(data);
                             break;
                     }
@@ -137,23 +126,16 @@
             }
         },
 
-        // ── Explicit Save — writes all dirty + optionally full ──
         async saveAll(opts = {}) {
             const world = window.VP_WORLD;
             if (!world) return false;
-            // Flush any pending debounced first
             await this.flush();
             return world.save(opts);
         },
 
-        // ── QuickSave / AutoSave helpers ──
-        _bindStorageModeUI() {
-            // Hook into existing storage mode selector if present
-            // We have our own save-mode, separate from old storage mode
-        }
+        _bindStorageModeUI() {}
     };
 
-    // ── Wrap DB methods to enforce RAM-first (intercept old direct calls) ──
     function wrapDB() {
         const db = DB();
         if (!db || db._vpWrapped) return;
@@ -165,14 +147,11 @@
             const orig = db[method].bind(db);
             db._vpOriginal[method] = orig;
             db[method] = (data) => {
-                // Always mark dirty
                 window.VP_WORLD?.markDirty(scope);
-                // In blender mode, don't write immediately
                 if (PM.mode === 'blender' || PM.mode === 'ephemeral') {
                     PM._dirty.set(scope, { data, ts: Date.now() });
                     return Promise.resolve(data);
                 }
-                // In auto mode, debounced
                 PM.mark(scope, data);
                 return Promise.resolve(data);
             };
@@ -190,14 +169,11 @@
         wrap('setPanelGeom', 'panel');
         wrap('setCustomCss', 'customCss');
 
-        // putAsset / deleteAsset are special — blobs should still be written immediately (user expects file)
-        // but we mark dirty for metadata
         const origPut = db.putAsset?.bind(db);
         if (origPut) {
             db._vpOriginal.putAsset = origPut;
             db.putAsset = (asset) => {
                 window.VP_WORLD?.markDirty('assets');
-                // To respect philosophy: if asset is _draft, don't write
                 if (asset?._draft) {
                     return Promise.resolve(asset);
                 }
@@ -226,19 +202,29 @@
         return null;
     }
 
-    // Expose for World.save to bypass wrapper
     PM._getOriginalDBMethod = getOriginalDBMethod;
 
     window.VP_PERSIST = PM;
-    window.VisualProjector.persist = PM;
+    // Safe attach — don't crash if VisualProjector not yet loaded
+    if (window.VisualProjector) {
+        window.VisualProjector.persist = PM;
+    } else {
+        try {
+            Object.defineProperty(window, '_vp_persist_pending', { value: PM, writable: true });
+            const iv = setInterval(() => {
+                if (window.VisualProjector && !window.VisualProjector.persist) {
+                    window.VisualProjector.persist = PM;
+                    clearInterval(iv);
+                }
+            }, 300);
+            setTimeout(() => clearInterval(iv), 10000);
+        } catch {}
+    }
 
-    // Init
     function boot() {
         PM.init();
-        // Wrap DB after a short delay to ensure native storage ready
         setTimeout(() => {
             wrapDB();
-            // Also re-wrap when DB becomes available later (native storage loads async)
             const iv = setInterval(() => {
                 const db = DB();
                 if (db && !db._vpWrapped) wrapDB();

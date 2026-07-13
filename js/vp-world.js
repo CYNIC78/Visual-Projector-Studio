@@ -7,14 +7,9 @@
 (function () {
     'use strict';
 
-    const VP = window.VisualProjector;
-    if (!VP || !VP.state) {
-        console.error('[VP World] VP.state not found');
-        return;
-    }
-
-    const S = VP.state;
-    const DB = () => window.VP_DB || window.VP_STORAGE;
+    const getVP = () => window.VisualProjector || null;
+    const getS = () => window.VisualProjector?.state || null;
+    const DB = () => window.VP_DB || window.VP_STORAGE || null;
 
     const World = {
         isDirty: false,
@@ -25,8 +20,18 @@
         _titleBase: null,
         _saveInProgress: false,
 
+        _getS() { return getS(); },
+        _getVP() { return getVP(); },
+
         init() {
-            // Capture base title without *
+            const vp = getVP();
+            const s = getS();
+            if (!vp || !s) {
+                // Core not ready yet — retry
+                console.log('[VP World] VP.state not yet ready, retrying...');
+                setTimeout(() => this.init(), 500);
+                return;
+            }
             this._titleBase = document.title.replace(/\*$/, '').trim() || 'Visual Projector';
             this._bindShortcuts();
             this._bindBeforeUnload();
@@ -38,19 +43,19 @@
             this.isDirty = true;
             this.dirtyScopes.add(scope);
 
-            // * indicator like Blender
-            if (!document.title.endsWith('*')) {
-                document.title = this._titleBase + ' *';
+            // * indicator like Blender — safe if _titleBase not yet set
+            if (this._titleBase) {
+                if (!document.title.endsWith('*')) {
+                    document.title = this._titleBase + ' *';
+                }
             }
 
-            // Update Save button UI if exists
             const saveBtn = document.getElementById('vp-world-save');
             if (saveBtn) {
                 saveBtn.classList.add('is-dirty');
                 saveBtn.title = `Save World — unsaved changes in: ${Array.from(this.dirtyScopes).join(', ')} (Ctrl+S)`;
             }
 
-            // QuickSave to sessionStorage every 5s (debounced)
             this._scheduleQuickSave();
 
             if (wasClean) {
@@ -61,7 +66,7 @@
         clearDirty() {
             this.isDirty = false;
             this.dirtyScopes.clear();
-            document.title = this._titleBase;
+            if (this._titleBase) document.title = this._titleBase;
             const saveBtn = document.getElementById('vp-world-save');
             if (saveBtn) {
                 saveBtn.classList.remove('is-dirty');
@@ -73,17 +78,17 @@
             return Array.from(this.dirtyScopes);
         },
 
-        // ── QuickSave: cheap, no FS, only sessionStorage/memory ──
         _quickSaveTimer: null,
         _scheduleQuickSave() {
             clearTimeout(this._quickSaveTimer);
-            this._quickSaveTimer = setTimeout(() => this.quickSave(), 3000); // 3s debounce
+            this._quickSaveTimer = setTimeout(() => this.quickSave(), 3000);
         },
 
         quickSave() {
             if (!this.isDirty) return;
+            const S = getS();
+            if (!S) return;
             try {
-                // Lightweight snapshot without blobs (just metadata and shell)
                 const snap = {
                     ts: Date.now(),
                     shell: S.shell ? JSON.parse(JSON.stringify(S.shell)) : null,
@@ -94,7 +99,6 @@
                 };
                 sessionStorage.setItem('vp-quicksave', JSON.stringify(snap));
                 this.lastQuickSavedAt = Date.now();
-                // console.log('[VP World] QuickSave to sessionStorage');
             } catch (e) {
                 console.warn('[VP World] QuickSave failed', e);
             }
@@ -106,7 +110,6 @@
                 if (!raw) return null;
                 const snap = JSON.parse(raw);
                 if (!snap || !snap.ts) return null;
-                // If quicksave is newer than last explicit save, offer recovery
                 if (!this.lastSavedAt || snap.ts > this.lastSavedAt) {
                     return snap;
                 }
@@ -116,8 +119,9 @@
             }
         },
 
-        // ── Explicit Save: writes all dirty scopes to FS atomically ──
         async save(opts = {}) {
+            const VP = getVP();
+            const S = getS();
             const reason = opts.reason || 'user';
             if (this._saveInProgress) {
                 console.log('[VP World] Save already in progress, skipping');
@@ -128,13 +132,16 @@
                 console.warn('[VP World] No DB backend for save');
                 return false;
             }
+            if (!S) {
+                console.warn('[VP World] No S state for save');
+                return false;
+            }
 
             this._saveInProgress = true;
             const start = Date.now();
             try {
                 console.log(`[VP World] Saving world (${reason}) — scopes: ${Array.from(this.dirtyScopes).join(', ')}`);
 
-                // Use original unwrapped DB methods to bypass the RAM-first wrapper
                 const getOrig = (m) => {
                     const pm = window.VP_PERSIST;
                     if (pm?._getOriginalDBMethod) {
@@ -164,7 +171,7 @@
                     const fnChat = getOrig('setChatStore');
                     const fnSess = getOrig('setSessionState');
                     if (fnChat) {
-                        const chatsApi = VP.chats;
+                        const chatsApi = VP?.chats;
                         if (chatsApi?.getChatStoreSnapshot) {
                             const snap = chatsApi.getChatStoreSnapshot();
                             if (snap) tasks.push(fnChat(snap).catch(() => {}));
@@ -178,24 +185,22 @@
                 }
                 if (this.dirtyScopes.has('projector') || reason === 'full') {
                     const fn = getOrig('setProjectorState');
-                    if (VP.getProjectorSnapshot && fn) {
+                    if (VP?.getProjectorSnapshot && fn) {
                         const snap = VP.getProjectorSnapshot();
                         tasks.push(fn(snap).catch(() => {}));
                     }
                 }
                 if (this.dirtyScopes.has('profiles') || reason === 'full') {
                     const fn = getOrig('setProfiles');
-                    const profiles = S.profiles || VP.chats?.getProfilesSnapshot?.();
+                    const profiles = S.profiles || VP?.chats?.getProfilesSnapshot?.();
                     if (profiles && fn) tasks.push(fn(profiles).catch(() => {}));
                 }
-                // Custom CSS
                 if (this.dirtyScopes.has('customCss') || reason === 'full') {
                     const fn = getOrig('setCustomCss');
                     const css = document.getElementById('vp-world-custom-style')?.textContent || '';
                     if (fn && css) tasks.push(fn(css).catch(() => {}));
                 }
 
-                // Fallback: if nothing specific, save at least shell and config
                 if (!tasks.length) {
                     const fnShell = getOrig('setShellState');
                     if (S.shell && fnShell) tasks.push(fnShell(S.shell).catch(() => {}));
@@ -209,14 +214,12 @@
                 this.saveVersion++;
                 this.clearDirty();
 
-                // Clear quicksave after successful explicit save
                 try { sessionStorage.removeItem('vp-quicksave'); } catch {}
 
                 const elapsed = Date.now() - start;
                 console.log(`[VP World] Saved in ${elapsed}ms (v${this.saveVersion}, reason: ${reason})`);
-                VP.showToast?.(`💾 World saved (${reason}, ${elapsed}ms)`, 'success');
+                VP?.showToast?.(`💾 World saved (${reason}, ${elapsed}ms)`, 'success');
 
-                // Update UI
                 const saveBtn = document.getElementById('vp-world-save');
                 if (saveBtn) {
                     saveBtn.textContent = '💾 ✓';
@@ -226,16 +229,15 @@
                 return true;
             } catch (err) {
                 console.error('[VP World] Save failed', err);
-                VP.showToast?.(`Save failed: ${err.message || err}`, 'error');
+                getVP()?.showToast?.(`Save failed: ${err.message || err}`, 'error');
                 return false;
             } finally {
                 this._saveInProgress = false;
             }
         },
 
-        // ── AutoSave Timer → backups/autosave/ (NOT main file) ──
         _autoSaveTimer: null,
-        _autoSaveInterval: 60 * 1000, // 60s default
+        _autoSaveInterval: 60 * 1000,
 
         startAutoSave(intervalMs = 60 * 1000) {
             this._autoSaveInterval = intervalMs;
@@ -256,36 +258,27 @@
             if (!this.isDirty) return;
             const db = DB();
             if (!db?.backupWorld && !db?.exportWorld) {
-                console.log('[VP World] AutoSave: backupWorld API not available, skipping');
+                console.log('[VP World] AutoSave: backupWorld API not available, quicksave only');
+                this.quickSave();
                 return;
             }
             try {
-                console.log('[VP World] AutoSave → backups/autosave/');
-                // For now, just trigger quicksave and also save shell to main file as fallback?
-                // In full implementation, this should write to data/backups/autosave/<world>_<ts>.vpworld
-                // For minimal version, we do quicksave + console log, and also save to main file if in auto mode
+                console.log('[VP World] AutoSave → backups/autosave/ (quicksave)');
                 if (window.VP_PERSIST?.mode === 'auto') {
                     await this.save({ reason: 'autosave' });
                 } else {
-                    // Blender-way: autosave to separate location, not main
-                    // We'll use backupWorld with timestamp if available
-                    if (db.backupWorld) {
-                        // Don't use backupWorld for every autosave (too heavy), just quicksave
-                        this.quickSave();
-                    } else {
-                        this.quickSave();
-                    }
+                    this.quickSave();
                 }
-                VP.showToast?.('💾 AutoSave (RAM) — quicksave updated', 'info');
+                getVP()?.showToast?.('💾 AutoSave (RAM) — quicksave updated', 'info');
             } catch (e) {
                 console.warn('[VP World] AutoSave failed', e);
             }
         },
 
-        // ── Dialogs ──
         async confirmUnsavedOnExit() {
             if (!this.isDirty) return true;
-            const ans = await VP.showConfirm?.({
+            const VP = getVP();
+            const ans = await VP?.showConfirm?.({
                 title: 'Save changes?',
                 message: `World has unsaved changes in: ${Array.from(this.dirtyScopes).join(', ')}.\n\nSave before exit?`,
                 buttons: [
@@ -313,26 +306,22 @@
         _bindBeforeUnload() {
             window.addEventListener('beforeunload', (e) => {
                 if (!this.isDirty) return;
-                // QuickSave before unload for recovery
                 this.quickSave();
                 const msg = 'You have unsaved changes — save before exit?';
                 e.preventDefault();
                 e.returnValue = msg;
                 return msg;
             });
-
-            // Also handle Neutralino app close if available
-            if (window.Neutralino?.app) {
-                // Intercept window close via topbar close button? We'll handle in shell window controls
-            }
         },
 
-        // ── Recovery ──
         async offerRecoveryIfNeeded() {
+            const VP = getVP();
+            const S = getS();
+            if (!S) return;
             const snap = this.checkQuickSaveRecovery();
             if (!snap) return;
             const age = Math.round((Date.now() - snap.ts) / 1000);
-            const ans = await VP.showConfirm?.({
+            const ans = await VP?.showConfirm?.({
                 title: 'Recover QuickSave?',
                 message: `Found QuickSave from ${age}s ago with unsaved changes in: ${(snap.dirtyScopes || []).join(', ')}.\n\nRestore it?\n\n(QuickSave is RAM-based, cheap, no disk abuse)`,
                 buttons: [
@@ -344,7 +333,6 @@
                 try { sessionStorage.removeItem('vp-quicksave'); } catch {}
                 return;
             }
-            // Restore shell and other scopes from snap
             try {
                 if (snap.shell && S.shell) {
                     S.shell = { ...S.shell, ...snap.shell };
@@ -357,20 +345,42 @@
                     S.galleryData = { ...S.galleryData, ...snap.galleryData };
                 }
                 this.markDirty('recovered');
-                VP.showToast?.('🔄 QuickSave recovered', 'success');
-                // Re-render shell if possible
-                VP.shell?.render?.();
+                VP?.showToast?.('🔄 QuickSave recovered', 'success');
+                VP?.shell?.render?.();
             } catch (e) {
                 console.warn('[VP World] Recovery failed', e);
             }
         }
     };
 
-    // Expose globally
     window.VP_WORLD = World;
-    window.VisualProjector.world = World;
+    if (window.VisualProjector) {
+        window.VisualProjector.world = World;
+    } else {
+        // Will be attached when VP boots
+        const prev = window.VisualProjector;
+        Object.defineProperty(window, 'VisualProjector', {
+            configurable: true,
+            get() { return prev || window._vp_pending || null; },
+            set(v) {
+                window._vp_pending = v;
+                if (v) v.world = World;
+                // replace own prop
+                Object.defineProperty(window, 'VisualProjector', { value: v, writable: true, configurable: true });
+                window.VisualProjector = v;
+            }
+        });
+        // Fallback: if setter not triggered, interval attach
+        const attachInt = setInterval(() => {
+            if (window.VisualProjector && !window.VisualProjector.world) {
+                window.VisualProjector.world = World;
+                clearInterval(attachInt);
+            }
+            if (window._vp_pending?.state) clearInterval(attachInt);
+        }, 300);
+        setTimeout(() => clearInterval(attachInt), 10000);
+    }
 
-    // Auto-init when core ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => World.init());
     } else {
