@@ -131,6 +131,26 @@
     }
 
     function saveShellState() {
+        // RAM-first philosophy: don't write immediately, mark dirty
+        // Explicit Save (Ctrl+S) will flush via VP_WORLD.save()
+        if (window.VP_WORLD) {
+            window.VP_WORLD.markDirty('shell');
+        }
+        if (window.VP_PERSIST) {
+            // In blender mode, this only marks dirty. In auto mode, debounced flush.
+            window.VP_PERSIST.mark('shell', S.shell);
+            return;
+        }
+        // Fallback for old behavior if persistence manager not loaded yet (boot)
+        if (DB?.setShellState) DB.setShellState(S.shell).catch(err => console.warn('[VP Shell] Failed to save shell state:', err));
+        else {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(S.shell)); }
+            catch (err) { console.warn('[VP Shell] Failed to save shell state:', err); }
+        }
+    }
+
+    // Explicit save that actually writes to disk (used by World.save and splitter mouseup)
+    function saveShellStateImmediate() {
         if (DB?.setShellState) DB.setShellState(S.shell).catch(err => console.warn('[VP Shell] Failed to save shell state:', err));
         else {
             try { localStorage.setItem(STORAGE_KEY, JSON.stringify(S.shell)); }
@@ -1645,6 +1665,19 @@
                 color: var(--accent, #6c5fa6) !important;
                 background: rgba(108,95,166,0.08) !important;
             }
+            .vp-world-save-btn {
+                min-width: 32px; font-weight: 800;
+            }
+            .vp-world-save-btn.is-dirty {
+                background: rgba(240,180,80,0.18) !important;
+                border-color: rgba(240,180,80,0.45) !important;
+                color: #f0b450 !important;
+                animation: vpSaveBlink 1.2s ease-in-out infinite;
+            }
+            @keyframes vpSaveBlink {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.75; }
+            }
 
             /* ── Вариант A: оптимизация перетаскивания сплиттеров ── */
             /* Класс вешается на body во время drag для изоляции тяжелого контента */
@@ -2389,6 +2422,11 @@
 
     async function switchWorldInteractive(worldId) {
         if (!worldId || !DB?.setActiveWorld) return;
+        // Blender-like: check unsaved before switching world
+        if (window.VP_WORLD?.isDirty) {
+            const ok = await window.VP_WORLD.confirmUnsavedOnExit();
+            if (!ok) return;
+        }
         try {
             const current = await DB.getActiveWorld?.();
             if (current?.id === worldId) return;
@@ -2661,6 +2699,7 @@
 		root.innerHTML = `
 			<div class="vp-shell-topbar">
 				<div class="vp-shell-brand">👁 VP Studio</div>
+				<button class="vp-shell-tool-btn vp-world-save-btn" id="vp-world-save" title="Save World (Ctrl+S) — all saved ✓">💾</button>
 				<span class="vp-shell-section-label">Worlds:</span>
 				<div class="vp-shell-worldbar">
 					<span id="vp-world-label" class="vp-shell-world-label">🌍</span>
@@ -2683,17 +2722,28 @@
         root.querySelector('#vp-world-new')?.addEventListener('click', createWorldInteractive);
         root.querySelector('#vp-world-manager')?.addEventListener('click', showWorldManager);
         root.querySelector('#vp-world-folder')?.addEventListener('click', openCurrentWorldFolder);
+        // Save World button — Blender-like explicit save
+        root.querySelector('#vp-world-save')?.addEventListener('click', () => {
+            if (window.VP_WORLD) window.VP_WORLD.save({ reason: 'user-click' });
+        });
         renderWorldControls(root);
 		// Window controls (Neutralino only)
 		if (window.Neutralino?.window) {
 			root.querySelector('#vp-win-minimize')?.addEventListener('click', () => Neutralino.window.minimize());
 			root.querySelector('#vp-win-maximize')?.addEventListener('click', () => Neutralino.window.maximize());
-			root.querySelector('#vp-win-close')?.addEventListener('click', () => Neutralino.app.exit());
+			root.querySelector('#vp-win-close')?.addEventListener('click', async () => {
+				// On close, check for unsaved changes like Blender
+				if (window.VP_WORLD?.isDirty) {
+					const ok = await window.VP_WORLD.confirmUnsavedOnExit();
+					if (!ok) return; // Cancel close
+				}
+				Neutralino.app.exit();
+			});
 		} else {
 			// Hide controls if not running in Neutralino
 			const controls = root.querySelector('.vp-shell-window-controls');
 			if (controls) controls.style.display = 'none';
-		}		
+		}
         return root;
     }
 
@@ -2710,7 +2760,18 @@
         createShellRoot();
         document.body.classList.add('vp-shell-active');
         renderShell();
-        console.log('[VP Shell] ready — Blender-lite workspace shell mounted.');
+
+        // ── Save System: init world dirty tracking + autosave + recovery ──
+        if (window.VP_WORLD) {
+            // Start autosave timer (60s to backups/autosave, cheap quicksave every 3s is inside World)
+            window.VP_WORLD.startAutoSave(60 * 1000);
+            // Offer quicksave recovery if found
+            setTimeout(() => {
+                window.VP_WORLD.offerRecoveryIfNeeded?.();
+            }, 800);
+        }
+
+        console.log('[VP Shell] ready — Blender-lite workspace shell mounted. [Save System: RAM-first, Ctrl+S]');
     }
 
     const Shell = {
