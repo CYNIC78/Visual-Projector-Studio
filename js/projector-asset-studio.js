@@ -1513,8 +1513,41 @@
                     let fullOutput = '';
                     let errorOutput = '';
                     let logBuffer = '';
+
+                    // ── Windows console encoding fix ──
+                    // sd.cpp on RU Windows may output in CP866 / CP1251, Neutralino decodes as UTF-8 → mojibake like ���⠪��
+                    // Try to recover cyrillic if we see replacement chars or Braille/CJK artefacts
+                    const tryFixMojibake = (s) => {
+                        if (!s || typeof s !== 'string') return s;
+                        // Heuristic: if string contains many � or characters from unexpected ranges (Braille U+2800, CJK)
+                        const hasGarbage = /[\uFFFD\u2800-\u28FF\u4E00-\u9FFF\u0E00-\u0E7F]/.test(s) || (s.includes('�') && /[А-Яа-я]/.test(s) === false);
+                        if (!hasGarbage) return s;
+                        // Attempt: recover bytes via latin1 and decode with common Russian codepages
+                        try {
+                            const bytes = new Uint8Array(s.length);
+                            for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i) & 0xFF;
+                            // Try cp1251 and ibm866 if available
+                            const candidates = [];
+                            try { candidates.push(new TextDecoder('windows-1251').decode(bytes)); } catch {}
+                            try { candidates.push(new TextDecoder('ibm866').decode(bytes)); } catch {}
+                            try { candidates.push(new TextDecoder('utf-8', {fatal:false}).decode(bytes)); } catch {}
+                            // Choose best candidate containing cyrillic or readable ascii
+                            for (const cand of candidates) {
+                                if (/[А-Яа-яA-Za-z]/.test(cand) && cand.length) {
+                                    // Prefer one with less �
+                                    const bad = (cand.match(/�/g) || []).length;
+                                    if (bad < (s.match(/�/g) || []).length) return cand;
+                                    // If original had no cyrillic but candidate has, use it
+                                    if (/[А-Яа-я]/.test(cand)) return cand;
+                                }
+                            }
+                        } catch {}
+                        return s;
+                    };
                     
-                                                                                const updateLog = (chunk) => {
+                    const updateLog = (chunk) => {
+                        // Попытка починить кракозябры от RU Windows консоли (CP866/CP1251 → UTF-8 mojibake)
+                        chunk = tryFixMojibake(chunk);
                         // 1. Strip ANSI escape sequences
                         let clean = chunk.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
                         // 2. Strip [INFO ], [WARN ] etc. log-level prefixes
@@ -1681,7 +1714,26 @@
                         log.scrollTop = log.scrollHeight;
                     };
 
-                    const processInfo = await Neutralino.os.spawnProcess(cmd, { cwd });
+                    // Форсируем английскую локаль, чтобы избежать CP866/CP1251 кракозябр на RU Windows
+                    // Neutralino >=6 поддерживает envs в options
+                    const spawnOpts = {
+                        cwd,
+                        envs: {
+                            LANG: 'C',
+                            LC_ALL: 'C',
+                            LC_MESSAGES: 'C',
+                            PYTHONIOENCODING: 'utf-8',
+                            PYTHONUTF8: '1'
+                        }
+                    };
+                    let processInfo;
+                    try {
+                        processInfo = await Neutralino.os.spawnProcess(cmd, spawnOpts);
+                    } catch (e) {
+                        // Fallback для старых Neutralino, где второй параметр — строка cwd
+                        console.warn('[Asset Studio] spawnProcess with envs failed, fallback to cwd string:', e);
+                        processInfo = await Neutralino.os.spawnProcess(cmd, cwd);
+                    }
                     this._activeProcessId = processInfo.id;
                     if (stopBtn) stopBtn.style.display = 'inline-block';
                     
@@ -1748,7 +1800,12 @@
                 } else if (window.Neutralino?.os?.execCommand) {
                     // Fallback to execCommand if spawnProcess is not used/available in older versions
                     const cwd = window.NL_CWD || '.';
-                    const result = await Neutralino.os.execCommand(cmd, { cwd });
+                    let result;
+                    try {
+                        result = await Neutralino.os.execCommand(cmd, { cwd, envs: { LANG: 'C', LC_ALL: 'C' } });
+                    } catch {
+                        result = await Neutralino.os.execCommand(cmd, { cwd });
+                    }
                     console.log('[Asset Studio] exec result:', result);
 
                     const exitCode = result?.exitCode ?? 0;
