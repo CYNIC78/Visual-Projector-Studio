@@ -364,10 +364,76 @@
         return await readJson(paths.projector(), {});
     }
 
+    let _pendingProjector = null;
     async function saveProjectorPatch(patch) {
         if (!shouldPersist('projector-state')) return patch;
-        const cur = await loadProjector();
-        return await writeJson(paths.projector(), { ...cur, ...patch, updatedAt: Date.now() });
+        if (!_pendingProjector) {
+            _pendingProjector = await loadProjector();
+        }
+        Object.assign(_pendingProjector, patch, { updatedAt: Date.now() });
+        if (window.VP_DIRTY_TRACKER) {
+            window.VP_DIRTY_TRACKER.markDirty('projector', _pendingProjector, async (data) => {
+                await writeJson(paths.projector(), clonePlain(data));
+                _pendingProjector = null;
+            });
+        } else {
+            await writeJson(paths.projector(), clonePlain(_pendingProjector));
+            _pendingProjector = null;
+        }
+        return _pendingProjector;
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  ASSET BATCH QUEUE (RAM-first)
+    //  Accumulate put/delete ops in memory; flush to FS every 3 s.
+    // ════════════════════════════════════════════════════════════════
+    const _assetQueue = new Map(); // tag -> { type: 'put'|'delete', asset? }
+    let _assetFlushTimer = null;
+
+    function scheduleAssetFlush() {
+        if (_assetFlushTimer) clearTimeout(_assetFlushTimer);
+        _assetFlushTimer = setTimeout(() => {
+            _assetFlushTimer = null;
+            flushAssetQueue();
+        }, 3000);
+    }
+
+    async function flushAssetQueue() {
+        if (_assetFlushTimer) { clearTimeout(_assetFlushTimer); _assetFlushTimer = null; }
+        const queue = Array.from(_assetQueue.entries());
+        if (!queue.length) return;
+        _assetQueue.clear();
+
+        const puts = queue.filter(([, v]) => v.type === 'put').map(([, v]) => v.asset);
+        const deletes = queue.filter(([, v]) => v.type === 'delete').map(([tag]) => tag);
+
+        if (puts.length) {
+            const meta = await readJson(paths.assetsMeta(), { items: [] });
+            if (!Array.isArray(meta.items)) meta.items = [];
+            for (const record of puts) {
+                if (!record) continue;
+                // Note: the asset blob must be present at queue time; we do not retain blobs in memory.
+                // If the caller already discarded the blob, the write will skip binary.
+                // Gallery module retains blobs on assets, so this is safe for normal use.
+                const idx = meta.items.findIndex(x => x.tag === record.tag);
+                if (idx >= 0) meta.items[idx] = record;
+                else meta.items.push(record);
+            }
+            meta.updatedAt = Date.now();
+            await writeJson(paths.assetsMeta(), meta);
+        }
+
+        if (deletes.length) {
+            const meta = await readJson(paths.assetsMeta(), { items: [] });
+            const items = Array.isArray(meta.items) ? meta.items : [];
+            for (const tag of deletes) {
+                const rec = items.find(x => x.tag === tag);
+                meta.items = items.filter(x => x.tag !== tag);
+                if (rec?.file) await removeFile(join(paths.assetFiles(), rec.file));
+            }
+            meta.updatedAt = Date.now();
+            await writeJson(paths.assetsMeta(), meta);
+        }
     }
 
     async function putAsset(asset) {
@@ -376,18 +442,16 @@
         if (!record) return null;
         if (!shouldPersist('gallery-assets')) return record;
 
+        // Binary is written immediately because we cannot hold Blobs in the
+        // deferred queue safely (callers may mutate/release them). Metadata
+        // is batched.
         if (asset.blob) {
             const buffer = await asset.blob.arrayBuffer();
             await FS.writeBinaryFile(join(paths.assetFiles(), record.file), buffer);
         }
 
-        const meta = await readJson(paths.assetsMeta(), { items: [] });
-        if (!Array.isArray(meta.items)) meta.items = [];
-        const idx = meta.items.findIndex(x => x.tag === record.tag);
-        if (idx >= 0) meta.items[idx] = record;
-        else meta.items.push(record);
-        meta.updatedAt = Date.now();
-        await writeJson(paths.assetsMeta(), meta);
+        _assetQueue.set(record.tag, { type: 'put', asset: record });
+        scheduleAssetFlush();
         return record;
     }
 
@@ -401,6 +465,7 @@
     }
 
     async function getAllAssets() {
+        await flushAssetQueue(); // ensure pending metadata writes are visible
         await ensureDirs();
         const meta = await readJson(paths.assetsMeta(), { items: [] });
         const items = Array.isArray(meta.items) ? meta.items : [];
@@ -420,6 +485,11 @@
 
     async function deleteAsset(tag) {
         await ensureDirs();
+        if (_assetQueue.has(tag)) {
+            _assetQueue.set(tag, { type: 'delete' });
+            scheduleAssetFlush();
+            return;
+        }
         const meta = await readJson(paths.assetsMeta(), { items: [] });
         const items = Array.isArray(meta.items) ? meta.items : [];
         const rec = items.find(x => x.tag === tag);
@@ -430,7 +500,10 @@
     }
 
     async function bulkDeleteAssets(tags) {
-        for (const tag of tags || []) await deleteAsset(tag);
+        for (const tag of tags || []) {
+            _assetQueue.set(tag, { type: 'delete' });
+        }
+        if ((tags || []).length) scheduleAssetFlush();
     }
 
     async function clearScope(scope) {
@@ -465,9 +538,6 @@
         return false;
     }
 
-    let _cssWritePromise = null;
-    let _nextCssToWrite = null;
-
     async function getCustomCss() {
         await ensureDirs();
         return readText(paths.customCss(), '');
@@ -475,27 +545,15 @@
 
     async function setCustomCss(css) {
         applyCustomCss(css); // Apply to DOM synchronously immediately to prevent visual race conditions
-        
-        _nextCssToWrite = css;
-        if (_cssWritePromise) {
-            // A write operation is already in progress, it will pick up the latest value in the loop
-            return css;
+        if (window.VP_DIRTY_TRACKER) {
+            window.VP_DIRTY_TRACKER.markDirty('custom-css', css, async (text) => {
+                try { await writeText(paths.customCss(), text || ''); }
+                catch (err) { console.error('[VP Native Storage] Failed to write custom CSS:', err); }
+            });
+        } else {
+            try { await writeText(paths.customCss(), css || ''); }
+            catch (err) { console.error('[VP Native Storage] Failed to write custom CSS:', err); }
         }
-
-        _cssWritePromise = (async () => {
-            while (_nextCssToWrite !== null) {
-                const text = _nextCssToWrite;
-                _nextCssToWrite = null;
-                try {
-                    await writeText(paths.customCss(), text || '');
-                } catch (err) {
-                    console.error('[VP Native Storage] Failed to write custom CSS:', err);
-                }
-            }
-            _cssWritePromise = null;
-        })();
-
-        await _cssWritePromise;
         return css;
     }
 
@@ -819,7 +877,14 @@
     async function saveGamesIndex(index) {
         index.version = index.version || 1;
         index.updatedAt = Date.now();
-        return writeJson(paths.gamesIndex(), index);
+        if (window.VP_DIRTY_TRACKER) {
+            window.VP_DIRTY_TRACKER.markDirty('games-index', clonePlain(index), async (data) => {
+                await writeJson(paths.gamesIndex(), data);
+            });
+        } else {
+            await writeJson(paths.gamesIndex(), clonePlain(index));
+        }
+        return index;
     }
 
     async function listGames() {
@@ -892,7 +957,15 @@
     async function setGameState(gameId, state) {
         await ensureDirs();
         await ensureDir(paths.gameRoot(gameId));
-        return writeJson(paths.gameState(gameId), clonePlain(state || {}));
+        const scope = `game-state:${gameId}`;
+        if (window.VP_DIRTY_TRACKER) {
+            window.VP_DIRTY_TRACKER.markDirty(scope, clonePlain(state || {}), async (data) => {
+                await writeJson(paths.gameState(gameId), data);
+            });
+        } else {
+            await writeJson(paths.gameState(gameId), clonePlain(state || {}));
+        }
+        return true;
     }
 
     async function openGameFolder(gameId) {
@@ -1351,10 +1424,28 @@
         shouldPersist,
 
         getGalleryData: () => readJson(paths.galleryData(), null),
-        setGalleryData: data => shouldPersist('gallery-meta') ? writeJson(paths.galleryData(), clonePlain(data)) : Promise.resolve(data),
+        setGalleryData: data => {
+            if (!shouldPersist('gallery-meta')) return Promise.resolve(data);
+            if (window.VP_DIRTY_TRACKER) {
+                window.VP_DIRTY_TRACKER.markDirty('gallery-data', clonePlain(data), async (d) => {
+                    await writeJson(paths.galleryData(), d);
+                });
+                return Promise.resolve(data);
+            }
+            return writeJson(paths.galleryData(), clonePlain(data));
+        },
 
         getConfig: () => readJson(paths.config(), null),
-        setConfig: config => shouldPersist('config') ? writeJson(paths.config(), clonePlain(config)) : Promise.resolve(config),
+        setConfig: config => {
+            if (!shouldPersist('config')) return Promise.resolve(config);
+            if (window.VP_DIRTY_TRACKER) {
+                window.VP_DIRTY_TRACKER.markDirty('config', clonePlain(config), async (d) => {
+                    await writeJson(paths.config(), d);
+                });
+                return Promise.resolve(config);
+            }
+            return writeJson(paths.config(), clonePlain(config));
+        },
 
         getCoverTag: async () => (await loadProjector()).coverTag || null,
         setCoverTag: tag => saveProjectorPatch({ coverTag: tag || null }),
@@ -1369,28 +1460,100 @@
         setCurrentTag: tag => saveProjectorPatch({ currentTag: tag || null }),
 
         getProjectorState: () => readJson(paths.projector(), null),
-        setProjectorState: state => shouldPersist('projector-state') ? writeJson(paths.projector(), clonePlain(state)) : Promise.resolve(state),
+        setProjectorState: state => {
+            if (!shouldPersist('projector-state')) return Promise.resolve(state);
+            if (window.VP_DIRTY_TRACKER) {
+                window.VP_DIRTY_TRACKER.markDirty('projector', clonePlain(state), async (d) => {
+                    await writeJson(paths.projector(), d);
+                });
+                return Promise.resolve(state);
+            }
+            return writeJson(paths.projector(), clonePlain(state));
+        },
 
         getWinGeom: () => readJson(paths.windowGeom(), null),
-        setWinGeom: geom => shouldPersist('shell') ? writeJson(paths.windowGeom(), clonePlain(geom)) : Promise.resolve(geom),
+        setWinGeom: geom => {
+            if (!shouldPersist('shell')) return Promise.resolve(geom);
+            if (window.VP_DIRTY_TRACKER) {
+                window.VP_DIRTY_TRACKER.markDirty('window-geom', clonePlain(geom), async (d) => {
+                    await writeJson(paths.windowGeom(), d);
+                });
+                return Promise.resolve(geom);
+            }
+            return writeJson(paths.windowGeom(), clonePlain(geom));
+        },
 
         getPanelGeom: () => readJson(paths.panelGeom(), null),
-        setPanelGeom: geom => shouldPersist('gallery-meta') ? writeJson(paths.panelGeom(), clonePlain(geom)) : Promise.resolve(geom),
+        setPanelGeom: geom => {
+            if (!shouldPersist('gallery-meta')) return Promise.resolve(geom);
+            if (window.VP_DIRTY_TRACKER) {
+                window.VP_DIRTY_TRACKER.markDirty('panel-geom', clonePlain(geom), async (d) => {
+                    await writeJson(paths.panelGeom(), d);
+                });
+                return Promise.resolve(geom);
+            }
+            return writeJson(paths.panelGeom(), clonePlain(geom));
+        },
 
         getShellState: () => readJson(paths.shell(), null),
-        setShellState: state => shouldPersist('shell') ? writeJson(paths.shell(), clonePlain(state)) : Promise.resolve(state),
+        setShellState: state => {
+            if (!shouldPersist('shell')) return Promise.resolve(state);
+            if (window.VP_DIRTY_TRACKER) {
+                window.VP_DIRTY_TRACKER.markDirty('shell', clonePlain(state), async (d) => {
+                    await writeJson(paths.shell(), d);
+                });
+                return Promise.resolve(state);
+            }
+            return writeJson(paths.shell(), clonePlain(state));
+        },
 
         getModelConfig: () => readJson(paths.model(), null),
-        setModelConfig: config => shouldPersist('model') ? writeJson(paths.model(), clonePlain(config)) : Promise.resolve(config),
+        setModelConfig: config => {
+            if (!shouldPersist('model')) return Promise.resolve(config);
+            if (window.VP_DIRTY_TRACKER) {
+                window.VP_DIRTY_TRACKER.markDirty('model', clonePlain(config), async (d) => {
+                    await writeJson(paths.model(), d);
+                });
+                return Promise.resolve(config);
+            }
+            return writeJson(paths.model(), clonePlain(config));
+        },
 
         getSessionState: () => readJson(paths.session(), null),
-        setSessionState: state => shouldPersist('session') ? writeJson(paths.session(), clonePlain(state)) : Promise.resolve(state),
+        setSessionState: state => {
+            if (!shouldPersist('session')) return Promise.resolve(state);
+            if (window.VP_DIRTY_TRACKER) {
+                window.VP_DIRTY_TRACKER.markDirty('session', clonePlain(state), async (d) => {
+                    await writeJson(paths.session(), d);
+                });
+                return Promise.resolve(state);
+            }
+            return writeJson(paths.session(), clonePlain(state));
+        },
 
         getProfiles: () => readJson(paths.profiles(), null),
-        setProfiles: store => shouldPersist('profiles') ? writeJson(paths.profiles(), clonePlain(store)) : Promise.resolve(store),
+        setProfiles: store => {
+            if (!shouldPersist('profiles')) return Promise.resolve(store);
+            if (window.VP_DIRTY_TRACKER) {
+                window.VP_DIRTY_TRACKER.markDirty('profiles', clonePlain(store), async (d) => {
+                    await writeJson(paths.profiles(), d);
+                });
+                return Promise.resolve(store);
+            }
+            return writeJson(paths.profiles(), clonePlain(store));
+        },
 
         getChatStore: () => readJson(paths.chats(), null),
-        setChatStore: store => shouldPersist('chats') ? writeJson(paths.chats(), clonePlain(store)) : Promise.resolve(store),
+        setChatStore: store => {
+            if (!shouldPersist('chats')) return Promise.resolve(store);
+            if (window.VP_DIRTY_TRACKER) {
+                window.VP_DIRTY_TRACKER.markDirty('chats', clonePlain(store), async (d) => {
+                    await writeJson(paths.chats(), d);
+                });
+                return Promise.resolve(store);
+            }
+            return writeJson(paths.chats(), clonePlain(store));
+        },
 
         putAsset,
         bulkPutAssets,

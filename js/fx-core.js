@@ -47,10 +47,14 @@
         },
 
         _savePrefs() {
-            try {
-                localStorage.setItem('vp-fx-hidden', JSON.stringify([...this._hidden]));
-                localStorage.setItem('vp-fx-deleted', JSON.stringify([...this._deleted]));
-            } catch (e) { console.warn('[VP FX] ⚠️ Не удалось сохранить настройки эффектов:', e); }
+            if (this._prefsSaveTimer) clearTimeout(this._prefsSaveTimer);
+            this._prefsSaveTimer = setTimeout(() => {
+                this._prefsSaveTimer = null;
+                try {
+                    localStorage.setItem('vp-fx-hidden', JSON.stringify([...this._hidden]));
+                    localStorage.setItem('vp-fx-deleted', JSON.stringify([...this._deleted]));
+                } catch (e) { console.warn('[VP FX] ⚠️ Не удалось сохранить настройки эффектов:', e); }
+            }, 1000);
         },
 
         isHidden(name)  { this._loadPrefs(); return this._hidden.has(name); },

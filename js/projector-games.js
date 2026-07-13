@@ -395,9 +395,25 @@
         return true;
     }
 
+    const _gameStateCache = new Map();
+    const _gameStateTimers = new Map();
+
     function makeApi(gameId, gameInfo = {}) {
-        const getState = (fallback = {}) => DB?.getGameState?.(gameId, fallback) || Promise.resolve(fallback);
-        const setState = (state) => DB?.setGameState?.(gameId, state);
+        const getState = async (fallback = {}) => {
+            if (_gameStateCache.has(gameId)) return _gameStateCache.get(gameId);
+            const loaded = await (DB?.getGameState?.(gameId, fallback) || Promise.resolve(fallback));
+            _gameStateCache.set(gameId, loaded);
+            return loaded;
+        };
+        const setState = (state) => {
+            _gameStateCache.set(gameId, state);
+            if (_gameStateTimers.has(gameId)) clearTimeout(_gameStateTimers.get(gameId));
+            const timer = setTimeout(() => {
+                _gameStateTimers.delete(gameId);
+                DB?.setGameState?.(gameId, state).catch(err => console.warn('[VP Games] state flush failed:', err));
+            }, 3000);
+            _gameStateTimers.set(gameId, timer);
+        };
         const appendLog = async (type, text, meta = {}) => {
             const state = await getState({});
             if (!Array.isArray(state.log)) state.log = [];
@@ -1147,6 +1163,18 @@
         VP.shell?.render?.();
         console.log('[VP Games] ready — trusted game host registered.');
     }
+
+    // Flush pending game states on page exit
+    window.addEventListener('beforeunload', () => {
+        for (const [gameId, timer] of _gameStateTimers.entries()) {
+            clearTimeout(timer);
+            const state = _gameStateCache.get(gameId);
+            if (state !== undefined) {
+                try { DB?.setGameState?.(gameId, state); } catch {}
+            }
+        }
+        _gameStateTimers.clear();
+    });
 
     window.VP_GAMES = {
         register,

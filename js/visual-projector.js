@@ -740,7 +740,7 @@
                 db.setProjectorState(snapshot).catch(err => console.warn('[VP] Projector state persist failed:', err));
             }
             window.VisualProjector?.chats?.syncProjectorFromRuntime?.();
-        }, 120);
+        }, 3000);
     }
 
     function applyProjectorSnapshot(snapshot) {
@@ -1905,15 +1905,20 @@ Preview cards are grouped by "TAB: <Name>". Use a preview card's [IMG:tag] label
         });
     }
 
+    let _windowStateTimer = null;
     function saveWindowState(vpWindow, storageKey) {
         const key = storageKey || 'vp-state';
         const { css } = getNormalizedElementPlacement(vpWindow);
         const geom = { left: css.left, top: css.top, width: vpWindow.offsetWidth, height: vpWindow.offsetHeight };
         const db = window.VP_DB;
-        if (db?.setWinGeom) db.setWinGeom(geom).catch(() => {});
-        else {
-            try { localStorage.setItem(key, JSON.stringify(geom)); } catch {}
-        }
+        const isNative = db?.getBackendInfo?.().native;
+        clearTimeout(_windowStateTimer);
+        _windowStateTimer = setTimeout(() => {
+            if (db?.setWinGeom) db.setWinGeom(geom).catch(() => {});
+            if (!isNative) {
+                try { localStorage.setItem(key, JSON.stringify(geom)); } catch {}
+            }
+        }, 3000);
     }
 
     function loadWindowState(vpWindow, storageKey) {
@@ -2176,18 +2181,21 @@ Preview cards are grouped by "TAB: <Name>". Use a preview card's [IMG:tag] label
         return v;
     }
 
-	function saveConfig() {
-		const db = window.VP_DB;
-		if (db?.setConfig) {
-			db.setConfig(State.config).catch(err => console.warn('[VP] IDB config save failed:', err));
-		}
-		// Always mirror to localStorage as a safety net
-		try { 
-			localStorage.setItem('vp-config-v3', JSON.stringify(State.config)); 
-		} catch (err) {
-			console.warn('[VP] localStorage config save failed:', err);
-		}
-	}
+    let _saveConfigTimer = null;
+    function saveConfig() {
+        const db = window.VP_DB;
+        const isNative = db?.getBackendInfo?.().native;
+        clearTimeout(_saveConfigTimer);
+        _saveConfigTimer = setTimeout(() => {
+            if (db?.setConfig) {
+                db.setConfig(State.config).catch(err => console.warn('[VP] IDB config save failed:', err));
+            }
+            if (!isNative) {
+                try { localStorage.setItem('vp-config-v3', JSON.stringify(State.config)); }
+                catch (err) { console.warn('[VP] localStorage config save failed:', err); }
+            }
+        }, 3000);
+    }
 
     /**
      * Persist config. Prefer the shared storage layer via the gallery module

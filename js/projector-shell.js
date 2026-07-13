@@ -130,12 +130,17 @@
         if (savedGeom) S.ui.projectorFloatingGeom = savedGeom;
     }
 
+    let _shellStateTimer = null;
     function saveShellState() {
-        if (DB?.setShellState) DB.setShellState(S.shell).catch(err => console.warn('[VP Shell] Failed to save shell state:', err));
-        else {
-            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(S.shell)); }
-            catch (err) { console.warn('[VP Shell] Failed to save shell state:', err); }
-        }
+        const isNative = DB?.getBackendInfo?.().native;
+        clearTimeout(_shellStateTimer);
+        _shellStateTimer = setTimeout(() => {
+            if (DB?.setShellState) DB.setShellState(S.shell).catch(err => console.warn('[VP Shell] Failed to save shell state:', err));
+            if (!isNative) {
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(S.shell)); }
+                catch (err) { console.warn('[VP Shell] Failed to save shell state:', err); }
+            }
+        }, 3000);
     }
 
     function getWorkspaceDefs() {
@@ -842,15 +847,21 @@
         const presetSelect = wrap.querySelector('[data-role="stylePreset"]');
         const getPresetCss = () => STYLE_PRESETS.find(p => p.id === presetSelect?.value)?.css ?? '';
         
+        let _cssSaveTimer = null;
+        const isNativeBackend = DB?.getBackendInfo?.().native;
         const saveCss = (css) => {
-            if (DB?.setCustomCss) {
-                DB.setCustomCss(css).catch(err => VP.showToast?.(`CSS save failed: ${err.message || err}`, 'error'));
-            } else {
-                try { localStorage.setItem('vp-custom-css', css || ''); } catch {}
+            clearTimeout(_cssSaveTimer);
+            _cssSaveTimer = setTimeout(() => {
+                if (DB?.setCustomCss) {
+                    DB.setCustomCss(css).catch(err => VP.showToast?.(`CSS save failed: ${err.message || err}`, 'error'));
+                }
+                if (!isNativeBackend) {
+                    try { localStorage.setItem('vp-custom-css', css || ''); } catch {}
+                }
                 let style = document.getElementById('vp-world-custom-style');
                 if (!style) { style = document.createElement('style'); style.id = 'vp-world-custom-style'; document.head.appendChild(style); }
                 style.textContent = css || '';
-            }
+            }, 3000);
         };
 
         // ════════════════════════════════════════════════════════════════
@@ -878,8 +889,12 @@
         const tryLoadOverrides = () => {
             try { customOverrides = JSON.parse(localStorage.getItem('vp-color-overrides') || '{}'); } catch { customOverrides = {}; }
         };
+        let _overrideSaveTimer = null;
         const trySaveOverrides = () => {
-            try { localStorage.setItem('vp-color-overrides', JSON.stringify(customOverrides)); } catch {}
+            clearTimeout(_overrideSaveTimer);
+            _overrideSaveTimer = setTimeout(() => {
+                try { localStorage.setItem('vp-color-overrides', JSON.stringify(customOverrides)); } catch {}
+            }, 3000);
         };
         tryLoadOverrides();
 
@@ -1080,7 +1095,9 @@
 		// Preset selection change
 		presetSelect.addEventListener('change', () => {
 			const presetId = getCurrentPresetId();
-			try { localStorage.setItem('vp-custom-css-preset-id', presetId); } catch {}
+			if (!isNativeBackend) {
+				try { localStorage.setItem('vp-custom-css-preset-id', presetId); } catch {}
+			}
 			currentCss = buildAndApplyCss();
 			syncColorInputs();
 			VP.showToast?.(`Theme: ${presetSelect.options[presetSelect.selectedIndex]?.text || 'applied'}`, 'success');

@@ -395,7 +395,7 @@
         clearTimeout(_cfgTimer);
         _cfgTimer = setTimeout(() => {
             DB.setConfig(S.config).catch(e => console.warn('[VP Gallery] config persist failed', e));
-        }, 400);
+        }, 1000);
     }
 
     // ════════════════════════════════════════════════════════════════

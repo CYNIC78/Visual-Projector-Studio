@@ -245,7 +245,7 @@
         clearTimeout(_profilesPersistTimer);
         _profilesPersistTimer = setTimeout(() => {
             persistProfilesNow().catch(err => console.warn('[VP Chats] Failed to persist profiles:', err));
-        }, 120);
+        }, 3000);
     }
 
     async function persistChatStoreNow() {
@@ -261,7 +261,7 @@
         clearTimeout(_chatPersistTimer);
         _chatPersistTimer = setTimeout(() => {
             persistChatStoreNow().catch(err => console.warn('[VP Chats] Failed to persist chat store:', err));
-        }, 120);
+        }, 3000);
     }
 
     function getProfileById(profileId) {

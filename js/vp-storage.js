@@ -110,23 +110,42 @@
         });
     }
 
-    async function kvSet(key, value, scope = 'misc') {
-        const record = { key, scope, value: clonePlain(value), updatedAt: Date.now() };
-        _memoryKV.set(key, clonePlain(value));
-        if (!shouldPersist(scope)) return record.value;
+    const _pendingKv = new Map();
+    let _kvFlushTimer = null;
+
+    function scheduleKvFlush() {
+        if (_kvFlushTimer) clearTimeout(_kvFlushTimer);
+        _kvFlushTimer = setTimeout(() => { _kvFlushTimer = null; flushKvPending(); }, 3000);
+    }
+
+    async function flushKvPending() {
+        if (_kvFlushTimer) { clearTimeout(_kvFlushTimer); _kvFlushTimer = null; }
+        const batch = Array.from(_pendingKv.entries());
+        if (!batch.length) return;
+        _pendingKv.clear();
         const db = await openDb();
         if (!db) {
-            try { localStorage.setItem(lsKey(key), JSON.stringify(record.value)); } catch {}
-            return record.value;
+            for (const [, record] of batch) {
+                try { localStorage.setItem(lsKey(record.key), JSON.stringify(record.value)); } catch {}
+            }
+            return;
         }
         await new Promise((resolve, reject) => {
             const tx = db.transaction(KV_STORE, 'readwrite');
             const store = tx.objectStore(KV_STORE);
-            store.put(record);
+            for (const [, record] of batch) store.put(record);
             tx.oncomplete = resolve;
-            tx.onerror = () => reject(tx.error || new Error(`kvSet failed for ${key}`));
-            tx.onabort = () => reject(tx.error || new Error(`kvSet aborted for ${key}`));
+            tx.onerror = () => reject(tx.error || new Error('kv batch flush failed'));
+            tx.onabort = () => reject(tx.error || new Error('kv batch flush aborted'));
         });
+    }
+
+    async function kvSet(key, value, scope = 'misc') {
+        const record = { key, scope, value: clonePlain(value), updatedAt: Date.now() };
+        _memoryKV.set(key, clonePlain(value));
+        if (!shouldPersist(scope)) return record.value;
+        _pendingKv.set(key, record);
+        scheduleKvFlush();
         return record.value;
     }
 
@@ -178,20 +197,40 @@
         });
     }
 
+    const _pendingAssetsIdb = new Map();
+    let _assetIdbFlushTimer = null;
+
+    function scheduleAssetIdbFlush() {
+        if (_assetIdbFlushTimer) clearTimeout(_assetIdbFlushTimer);
+        _assetIdbFlushTimer = setTimeout(() => { _assetIdbFlushTimer = null; flushAssetIdbPending(); }, 3000);
+    }
+
+    async function flushAssetIdbPending() {
+        if (_assetIdbFlushTimer) { clearTimeout(_assetIdbFlushTimer); _assetIdbFlushTimer = null; }
+        const puts = Array.from(_pendingAssetsIdb.values()).filter(v => v.type === 'put').map(v => v.record);
+        const deletes = Array.from(_pendingAssetsIdb.entries()).filter(([, v]) => v.type === 'delete').map(([tag]) => tag);
+        _pendingAssetsIdb.clear();
+        if (!puts.length && !deletes.length) return;
+        const db = await openDb();
+        if (!db) return;
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(ASSET_STORE, 'readwrite');
+            const store = tx.objectStore(ASSET_STORE);
+            for (const rec of puts) store.put(rec);
+            for (const tag of deletes) store.delete(tag);
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error || new Error('asset idb batch flush failed'));
+            tx.onabort = () => reject(tx.error || new Error('asset idb batch flush aborted'));
+        });
+    }
+
     async function putAsset(asset) {
         const record = sanitizeAssetForStorage(asset);
         if (!record) return null;
         _memoryAssets.set(record.tag, record);
         if (!shouldPersist('gallery-assets')) return record;
-        const db = await openDb();
-        if (!db) return record;
-        await new Promise((resolve, reject) => {
-            const tx = db.transaction(ASSET_STORE, 'readwrite');
-            tx.objectStore(ASSET_STORE).put(record);
-            tx.oncomplete = resolve;
-            tx.onerror = () => reject(tx.error || new Error(`putAsset failed for ${record.tag}`));
-            tx.onabort = () => reject(tx.error || new Error(`putAsset aborted for ${record.tag}`));
-        });
+        _pendingAssetsIdb.set(record.tag, { type: 'put', record });
+        scheduleAssetIdbFlush();
         return record;
     }
 
@@ -199,20 +238,13 @@
         const rows = (assets || []).map(sanitizeAssetForStorage).filter(Boolean);
         rows.forEach(row => _memoryAssets.set(row.tag, row));
         if (!rows.length || !shouldPersist('gallery-assets')) return rows;
-        const db = await openDb();
-        if (!db) return rows;
-        await new Promise((resolve, reject) => {
-            const tx = db.transaction(ASSET_STORE, 'readwrite');
-            const store = tx.objectStore(ASSET_STORE);
-            rows.forEach(row => store.put(row));
-            tx.oncomplete = resolve;
-            tx.onerror = () => reject(tx.error || new Error('bulkPutAssets failed'));
-            tx.onabort = () => reject(tx.error || new Error('bulkPutAssets aborted'));
-        });
+        for (const row of rows) _pendingAssetsIdb.set(row.tag, { type: 'put', record: row });
+        scheduleAssetIdbFlush();
         return rows;
     }
 
     async function getAllAssets() {
+        await flushAssetIdbPending();
         if (!shouldPersist('gallery-assets')) {
             return Array.from(_memoryAssets.values()).map(cloneAssetRecord);
         }
@@ -235,30 +267,15 @@
     async function deleteAsset(tag) {
         _memoryAssets.delete(tag);
         if (!shouldPersist('gallery-assets')) return;
-        const db = await openDb();
-        if (!db) return;
-        await new Promise((resolve, reject) => {
-            const tx = db.transaction(ASSET_STORE, 'readwrite');
-            tx.objectStore(ASSET_STORE).delete(tag);
-            tx.oncomplete = resolve;
-            tx.onerror = () => reject(tx.error || new Error(`deleteAsset failed for ${tag}`));
-            tx.onabort = () => reject(tx.error || new Error(`deleteAsset aborted for ${tag}`));
-        });
+        _pendingAssetsIdb.set(tag, { type: 'delete' });
+        scheduleAssetIdbFlush();
     }
 
     async function bulkDeleteAssets(tags) {
         (tags || []).forEach(tag => _memoryAssets.delete(tag));
         if (!shouldPersist('gallery-assets')) return;
-        const db = await openDb();
-        if (!db) return;
-        await new Promise((resolve, reject) => {
-            const tx = db.transaction(ASSET_STORE, 'readwrite');
-            const store = tx.objectStore(ASSET_STORE);
-            (tags || []).forEach(tag => store.delete(tag));
-            tx.oncomplete = resolve;
-            tx.onerror = () => reject(tx.error || new Error('bulkDeleteAssets failed'));
-            tx.onabort = () => reject(tx.error || new Error('bulkDeleteAssets aborted'));
-        });
+        for (const tag of tags || []) _pendingAssetsIdb.set(tag, { type: 'delete' });
+        scheduleAssetIdbFlush();
     }
 
     async function exportAll() {
