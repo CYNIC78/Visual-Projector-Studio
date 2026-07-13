@@ -42,6 +42,25 @@
         return String(p || '').replace(/\\/g, '/').replace(/"/g, '');
     }
 
+    function toWinPath(p) {
+        if (typeof p !== 'string') return p;
+        // Preserve "file:weight" LoRA syntax
+        const lastColon = p.lastIndexOf(':');
+        if (lastColon > 1) {
+            const file = p.slice(0, lastColon).replace(/\//g, '\\');
+            const weight = p.slice(lastColon + 1);
+            return `${file}:${weight}`;
+        }
+        return p.replace(/\//g, '\\');
+    }
+
+    function absolutePath(rel, cwd) {
+        const c = String(cwd || window.NL_CWD || '.').replace(/\\/g, '/');
+        const r = String(rel || '').replace(/\\/g, '/');
+        if (/^[a-zA-Z]:/.test(r) || r.startsWith('//')) return r;
+        return (c + '/' + r).replace(/\/+/g, '/');
+    }
+
     // ── SDServerManager ─────────────────────────────────────────────
     class SDServerManager {
         constructor(config = {}) {
@@ -93,26 +112,32 @@
             }
         }
 
-        _buildArgs(modelPath, extra = {}) {
+        _buildArgs(modelPath, extra = {}, isWin = false) {
             const args = [];
+            const addPath = (flag, val) => {
+                if (val === null || val === undefined || val === '') return;
+                let v = String(val);
+                if (isWin) v = toWinPath(v);
+                args.push(flag, v);
+            };
             const add = (flag, val) => {
                 if (val === null || val === undefined || val === '') return;
                 args.push(flag, String(val));
             };
-            add('-m', modelPath);
+            addPath('-m', modelPath);
             add('--listen-ip', this.config.listenIp);
             add('--listen-port', this.config.listenPort);
             if (this.config.verbose) args.push('-v');
 
-            add('--clip_l', extra.clipL);
-            add('--clip_g', extra.clipG);
-            add('--vae', extra.vae);
-            add('--taesd', extra.taesd);
-            add('--diffusion-model', extra.diffusionModel);
+            addPath('--clip_l', extra.clipL);
+            addPath('--clip_g', extra.clipG);
+            addPath('--vae', extra.vae);
+            addPath('--taesd', extra.taesd);
+            addPath('--diffusion-model', extra.diffusionModel);
             add('--type', extra.type);
             add('--threads', extra.threads);
-            add('--lora-model-dir', extra.loraModelDir);
-            add('--embd-dir', extra.embdDir);
+            addPath('--lora-model-dir', extra.loraModelDir);
+            addPath('--embd-dir', extra.embdDir);
             add('--backend', extra.backend);
             add('--max-vram', extra.maxVram);
             if (extra.flashAttention) args.push('--fa');
@@ -135,12 +160,18 @@
             this.config.listenPort = this.config.listenPort || this._pickPort();
             this.baseUrl = `http://${this.config.listenIp}:${this.config.listenPort}`;
 
-            const args = this._buildArgs(modelPath, opts);
-            const cmd = [this.config.executablePath, ...args]
+            const isWin = (window.NL_OS || '').toLowerCase().includes('windows');
+            const args = this._buildArgs(modelPath, opts, isWin);
+
+            let exe = absolutePath(this.config.executablePath, window.NL_CWD || '.');
+            if (isWin) exe = toWinPath(exe);
+
+            const cmd = [exe, ...args]
                 .map(a => (a.includes(' ') ? `"${a}"` : a))
                 .join(' ');
 
             console.log('[SDServer] Starting:', cmd);
+            console.log('[SDServer] CWD:', window.NL_CWD || '.');
 
             const processInfo = await Neutralino.os.spawnProcess(cmd, { cwd: window.NL_CWD || '.' });
             this.processId = processInfo.id;

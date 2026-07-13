@@ -1602,76 +1602,17 @@
                             }
 
                             if (isProgress) {
-                                // For multi-snapshot chunks: animate progress smoothly
-                                // Collect all unique progress snapshots
-                                const snapshots = [];
-                                if (crParts.length > 1) {
-                                    for (const snap of crParts) {
-                                        const snapLower = snap.toLowerCase();
-                                        const snapP = snapLower.match(/(\d+)\s*\/\s*(\d+)/);
-                                        if (!snapP) continue;
-                                        const c = parseInt(snapP[1]), t = parseInt(snapP[2]);
-                                        if (t > 0 && !snapshots.some(s => s[0] === c && s[1] === t)) {
-                                            snapshots.push([c, t]);
-                                        }
-                                    }
-                                }
-                                
-                                // Animate multiple snapshots via setTimeout to spread across event loop ticks
-                                // Skip synchronous progress update below (would overwrite animation to final value)
-                                if (snapshots.length > 1) {
-                                    const elapsed = Math.floor((Date.now() - _cliStartTime) / 1000);
-                                    const lastTot = snapshots[snapshots.length - 1][1];
-                                    const phaseLabel = phase === 'gen' ? '🎨 Step' : '⏳ Loading';
-                                    const totalProgress = snapshots.length;
-                                    const intervalMs = Math.max(30, Math.min(200, 2000 / totalProgress));
-                                    const stepPerSecond = totalProgress > 1 ? Math.round(totalProgress / Math.max(1, elapsed)) : 1;
-                                    
-                                    for (let idx = 0; idx < snapshots.length; idx++) {
-                                        const delay = idx * intervalMs;
-                                        const [c, t] = snapshots[idx];
-                                        const pct = Math.min(100, Math.round((c / t) * 100));
-                                        setTimeout(() => {
-                                            progress.style.transition = 'width 0.1s linear';
-                                            progress.style.width = `${pct}%`;
-                                        }, delay);
-                                    }
-                                    
-                                    // Update label on the LAST snapshot (with ETA)
-                                    const lastIdx = snapshots.length - 1;
-                                    const [lastC, lastT] = snapshots[lastIdx];
-                                    if (progressLabel && lastT > 0) {
-                                        const remaining = Math.round((snapshots.length - 1 - lastIdx) * (snapshots.length > 1 ? elapsed / snapshots.length : 1));
-                                        const rm = String(Math.floor(remaining / 60)).padStart(2, '0');
-                                        const rs = String(remaining % 60).padStart(2, '0');
-                                        progressLabel.textContent = `${phaseLabel} ${lastC}/${lastT} · ⏱ ${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
-                                    }
-                                } else if (snapshots.length === 1) {
-                                    const [c, t] = snapshots[0];
-                                    if (t > 0) {
-                                        progress.style.transition = t > 10 ? 'width 0.5s ease' : 'width 0.15s ease';
-                                        progress.style.width = `${Math.min(100, Math.round((c / t) * 100))}%`;
-                                    }
-                                }
-
-                                const lastEntry = log.lastElementChild;
-                                if (lastEntry && isCarriageLine) {
-                                    lastEntry.innerHTML = `<span>${esc}</span>`;
-                                } else {
-                                    log.innerHTML += `<div>${esc}</div>`;
-                                }
-
-                                if (progressCurrent != null && progressTotal > 0 && snapshots.length <= 1) {
+                                // Update progress bar directly — no setTimeout animation storm
+                                if (progressCurrent != null && progressTotal > 0) {
                                     const percent = Math.min(100, Math.round((progressCurrent / progressTotal) * 100));
+                                    progress.style.transition = 'width 0.15s ease';
                                     progress.style.width = `${percent}%`;
 
-                                    // Elapsed time
                                     const elapsed = Math.floor((Date.now() - _cliStartTime) / 1000);
                                     const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
                                     const ss = String(elapsed % 60).padStart(2, '0');
                                     const timeStr = `⏱ ${mm}:${ss}`;
 
-                                    // Build status label
                                     let statusMsg = '';
                                     if (phase === 'model') {
                                         statusMsg = `⏳ Model ${progressCurrent}/${progressTotal}`;
@@ -1688,6 +1629,13 @@
                                         const prevSpeed = speedStr ? ` · ${speedStr}` : '';
                                         preview.innerHTML = `<div class="vp-as-preview-placeholder">${progressCurrent}/${progressTotal}${prevSpeed}<br><small>${timeStr}</small></div>`;
                                     }
+                                }
+
+                                const lastEntry = log.lastElementChild;
+                                if (lastEntry && isCarriageLine) {
+                                    lastEntry.innerHTML = `<span>${esc}</span>`;
+                                } else {
+                                    log.innerHTML += `<div>${esc}</div>`;
                                 }
                             } else if (lower.includes('error') || lower.includes('fatal')) {
                                 log.innerHTML += `<div style="color:var(--error)">${esc}</div>`;
