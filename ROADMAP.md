@@ -1,231 +1,161 @@
-# ROADMAP — Prompt Node v2 и Asset Gateway
+# ROADMAP — Visual Projector Studio
 
-Чего мы хотим добиться: чтобы пользователь мог взять картинку из галереи, кинуть её в ноду,
-написать пачку промптов, нажать одну кнопку — и получить кучу готовых ассетов,
-которые уже лежат в галерее и ждут своего часа.
-
-Без шаманства, без тонны ручной работы, без копания в файлах.
-
----
-
-## ✅ Фаза 1 — Фундамент Prompt Node (ЗАВЕРШЕНА)
-
-**Цель достигнута:** нода промпта хранит много вариантов, Produce All прогоняет всё сразу.
-
-### Что сделано
-
-- **Структура ноды:** `this.data.tabs = [{ id, name, text }]`, `this.data.activeTabId`
-- **Миграция:** старый формат (`this.data.positive`) конвертируется в табы автоматически
-- **Команды:** `{name:tag}` — задаёт имя ассета, `{...}` вырезаются перед отправкой модели
-- **Reference-изображения:** общая дропзона на всю ноду, drag-n-drop из галереи (`vp/asset-move-batch`, `blobToBase64`)
-- **Produce Active** — один таб, **Produce All** — все табы последовательно
-- **Именование:** `{name:smile}` → тег `smile`, иначе `gen_1`, коллизии через `getUniqueImportedTag()`
+> **Новая философия (2026-07-13):** 
+> Проектор — это **гибрид игры и Blender-студии**, а не сайт.
+> Всё живет в RAM, диск трогаем только по Save. 
+> Подробности — в [DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md)
 
 ---
 
-## 🚧 Фаза 2 — Интеграция с галереей (В ПРОЦЕССЕ)
+## ✅ Завершено — Сплиттеры: 30% CPU → 5% (2026-07-13)
 
-**Цель:** картинки из галереи → референсы ноды, готовые ассеты → обратно в галерею.
+**Задача:** убрать лаги при перетаскивании разделителей панелей.
 
-### Что сделано
+**Файл:** `js/projector-shell.js` L2014-2042
 
-- **Drag-n-drop из галереи** — дропзона распознаёт `vp/asset-move-batch`, достаёт ассет по тегу, конвертирует blob → base64 → `this.data.reference`
-- **Производство в галерею** — `displayResult()` вызывает `addImageFromBlob()` с `instantPersist: false` (черновики)
+**Было:**
+```js
+onMove = () => {
+  setCurrentLayout(setSplitRatio(...)) // clone + JSON.stringify + FS.writeFile на каждый пиксель
+  aWrap.style.flex = `calc(${pct}% - 3px)`
+}
+```
 
-### Что осталось
+**Стало (Вариант А — Optimized Live Resize):**
+- rAF throttling — 60fps max, dedup <0.001
+- Никаких `saveShellState` во время drag — только на `mouseup`
+- `body.vp-shell-resizing` с `contain: layout style paint; pointer-events:none; content-visibility:auto` для изоляции тяжелых панелей (логи, граф, галерея, экран)
 
-- **Отображение** — когда в референсы попадает ассет из галереи, показывать превью как обычно (уже работает для файловых путей, проверить для base64/blob URL)
-- **suggestedName** — убедиться, что `{name:...}` корректно формирует имя файла в галерее
+**Результат:** CPU 30%+ → 5-7%, диск не насилуется. Зафиксировано в коммите `b007179`.
 
 ---
 
-## 🔮 Фаза 3 — Продвинутые штуки (когда будет нужно)
+## 🚧 Текущие задачи — Q3 2026 (приоритет)
 
-### Многоосевые табы (декартово произведение)
+### Phase: Save System — Blender-like (RAM-first)
 
-Появится команда `{tab:poses}` — ссылка на другой таб внутри ноды.
-Система перебирает все комбинации активных табов и генерирует каждую.
+**Цель:** перестать насиловать диск, как в вебе. Жить в RAM, сохранять редко и осознанно.
 
-### Data-табы (хранилища/контейнеры)
+**Проблема сейчас:** 60+ точек пишут на диск немедленно (`setShellState`, `setGalleryData`, `setChatStore`, `putAsset` и т.д.). Даже твой воркараунд "запускаю на RAM-диске" — костыль, но идея верная.
 
-> **Decision:** Вместо отдельного типа «Data Tab» — просто чекбокс/опция на каждом табе: **«Exclude from Produce All»**.
->
-> - Таб с этой опцией не попадает в очередь генерации
-> - Его содержимое доступно для `{tab:name}` из других табов
-> - Один механимзм — два применения: и для декартова произведения, и для хранения вариантов
+**Уровни:**
+```
+Tier0 RAM (S) — источник истины
+  ↓ markDirty()
+Tier1 QuickSave (sessionStorage/memory) — каждые 3-5с, без FS
+  ↓ debounce 30-60с или Ctrl+S
+Tier2 Persistent (data/worlds/<id>/) — Ctrl+S, смена мира, выход
+```
 
-**Принцип:**
-- Каждый таб имеет флаг `skipProduce: boolean` (умолчание `false`)
-- `{tab:poses}` ссылается на таб по `id`, наличие `skipProduce` не влияет на возможность ссылки
-- Produce All пропускает табы с `skipProduce: true`
+**Что делать:**
+- `js/vp-world.js` — `isDirty`, `dirtyScopes`, `lastSavedAt`, `*` в заголовке
+- `js/vp-persistence-manager.js` — `markDirty()`, `flush()`, `saveWorldSnapshot()` с атомарным `*.tmp → rename` + `.blend1` ротация
+- Замена всех `DB.setX` → `markDirty`
+- UI: Ctrl+S / 💾 Save World, диалог `Save changes to Default? [Save] [Don't Save] [Cancel]`, `Recover Auto Save` при старте
+- AutoSave Timer → `data/backups/autosave/<world>_<timestamp>.vpworld` (НЕ в основной файл)
+- Настройки: `Save Mode: Blender-like / Auto-save (debounced) / Ephemeral`
 
-### Эджкейсы (проверено)
+**Статус:** спроектировано, ждет реализации.
 
-| Ситуация | Что будет |
-|----------|-----------|
-| `skipProduce` таб без `{tab:...}` ссылок | Просто хранилище, ничего не генерируется. Норм. |
-| Циклическая ссылка: TabA → TabB, TabB → TabA | Produce All должен детектить циклы (Set посещённых). Иначе бесконечный цикл. |
-| `skipProduce` таб с `{name:...}` | Ничего не сломается — команда просто игнорируется. |
-| Ссылка на несуществующий таб | `{tab:deleted_tab}` — при парсинге вырезается как неизвестная команда. | 
-| Удаление таба, на который ссылаются | Ссылка превращается в мёртвый `{tab:...}`, вырезается как неизвестная команда. Надо предупреждать. |
-| Референсы в data-табе | Работают как обычно — ссылающийся таб наследует референсы? Или data-таб только текст? Решить потом. |
+### Phase: SD Server — Primary, CLI — Fallback
+
+**Цель:** картинки тоже должны быть эфемерными до Keep/Save.
+
+**Почему CLI плох для Save-философии:**
+- Грузит модель на каждую генерацию (10-20с), пишет файл в `./output/` даже если мусор, для референсов пишет temp `_ref_*.png`
+
+**Server (`sd-server.exe`):**
+- Один раз грузит модель в VRAM, живет
+- `POST /generate { prompt, reference_images: [base64] }` → Blob в RAM, никаких файлов
+- `S.ephemeral.generated = Map<id, Blob>` — только RAM до `Keep`
+- UI: после генерации `✅ Keep in Gallery / 🗑️ Discard` как `Render Result` в Blender
+- Управление: `🧠 Model: sdxl.gguf (4.2GB) [Unload]` — явная команда, без таймеров автовыгрузки (как ты и сказал)
+
+**CLI остается fallback** для 4GB VRAM.
+
+**Статус:** спроектировано, stub в `engineMode: server`.
+
+### Phase: LLM Management — llama.cpp + sd.cpp связка
+
+**Цель:** чат и генерация в параллели проблематичны — диффузные модели жрут всю память, надо выгружать LLM.
+
+- `llama.cpp` будет намного управляемее чем LM Studio
+- Связка `sd.cpp + llama.cpp` — один Resource Manager, переключение `chat mode` vs `gen mode`
+- `js/llama-manager.js` + `js/sd-server-manager.js` → единый менеджер ресурсов
+
+**Статус:** идея, ждет когда `llama.cpp` настроим.
+
+---
+
+## ✅ Завершено — Prompt Node v2 (История)
+
+### Фаза 1 — Фундамент Prompt Node
+
+- Структура `tabs = [{id, name, text}]`, `activeTabId`
+- Миграция старого `positive` → табы
+- `{name:tag}` — имя ассета, `{...}` вырезаются
+- Reference дропзона, drag-n-drop из галереи
+- Produce Active / All, именование через `getUniqueImportedTag()`
+
+### Фаза 2 — Интеграция с галереей
+
+- Drag-n-drop из галереи → референсы
+- `displayResult()` → `addImageFromBlob()` с `_draft`
+
+### Фаза 3 — Продвинутые табы (когда нужно)
+
+- `{tab:poses}` — декартово произведение
+- `skipProduce` флаг — exclude from Produce All
 
 ---
 
 ## ✅ Сделано — Session 2 (2026-07-13)
 
 ### Progress Bar Steps Animation
-
-**Файл:** `projector-asset-studio.js`
-
-sd.cpp CLI буферизирует вывод шагов — все промежуточные `\r`-снапшоты приходят в одном чанке. 
-Браузер не успевает их отрисовать, прогресс-бар прыгал на 100%.
-
-- Замена `requestAnimationFrame` на `setTimeout` с интервалом `max(30ms, min(200ms, 2000/кол-во))`
-- Отключение синхронного `progress.style.width` при наличии множественных снапшотов (чтобы не перетирал анимацию)
-- Теперь `|#| 1/5 → |##| 2/5 → ... → |=====| 5/5` анимируется плавно
-
-### Fix: Prompt Node hint после F5
-
-**Файл:** `prompt.js`
-
-Подсказка `→ Gallery tag: emily_smile` пропадала после F5. 
-Причина: `_updateHint()` вызывалась до вставки `wrap` в `body`, hint-элемент отсутствовал в DOM.
-Фикс: перенос `_updateHint()` после `tabBar.after(wrap)`.
+- `setTimeout` вместо `requestAnimationFrame` для мульти-снапшотов `1/5 → 2/5`
+- Плавная анимация прогресса
 
 ### Live Step Preview
-
-**Файл:** `projector-asset-studio.js`
-
-Промежуточные шаги генерации показываются в превью студии без сохранения на диск.
-
-- Авто-инжект флагов `--preview proj --preview-path .../_step_preview_xxx.png --preview-interval 1`
-- `setInterval` каждые 300мс опрашивает файл через `Neutralino.filesystem.getStats`
-- При изменении `mtime` — грузит свежий `.png` в `#vp-as-preview-box`
-- Таймер и файл удаляются в `finally` / при stop / при exit
-- `--preview-path` добавлен в `fileKeys` для конвертации Windows-путей
+- Авто-инжект `--preview proj --preview-path .../_step_preview_xxx.png --preview-interval 1`
+- Polling через `getStats` каждые 300мс
 
 ### Fix: Output Preview при переключении воркфлоу
-
-**Файл:** `projector-asset-studio.js`
-
-При загрузке нового воркфлоу граф пересоздаётся, output нода теряла превью.
-
-- `displayResult()` сохраняет тег ассета в `outputNode.data.lastAssetTag`
-- `_restoreOutputPreview()` — ищет ассет по тегу в галерее, восстанавливает превью
-- Поддержка переименования ассетов: проверка `tagAliases` при восстановлении
-- `asset.url` в приоритете над `asset.thumbUrl` (полный размер, не 128px)
-- Вызов `_restoreOutputPreview()` при `loadWorkflowFromLibrary` + при старте (F5)
+- `lastAssetTag` + `tagAliases` + `asset.url` приоритет
 
 ### Panel Cosmetics
-
-**Файл:** `projector-asset-studio.js`
-
-- **Тулбар:** одной строкой, слева ☰ (ноды), по центру зум/CLI+/engine, справа 📋 (лог)
-- **Сайдбар нод:** как и инспектор — выплывает поверх холста с `transform: translateX`, не сдвигает layout
-- **Нижняя строка:** `flex-wrap: nowrap`, всё помещается в одну строку, компактные кнопки
-- Высота controls: 44px → 36px
-- Кнопки сайдбаров: тускнеют (`opacity: 0.5`) при скрытии, без замены текста
-- Сами сайдбары: `top:42px; bottom:46px` — не перекрывают тулбар и controls
+- Тулбар одной строкой, сайдбары поверх холста с `transform`
 
 ---
 
 ## ✅ Сделано — Session 1 (2026-07-12)
 
-### Система черновиков (Draft System)
+### Draft System
+- `_draft: true` до Apply, метки ✨, Apply/Discard All
 
-**Файлы:** `projector-gallery.js`, `projector-asset-studio.js`
+### Base64 референсы для CLI
+- Конвертация data URL → temp файлы + удаление
 
-Сгенерированные студией ассеты НЕ пишутся на диск сразу. Живут в оперативке с флагом `_draft: true` до подтверждения.
-
-- ✨ **Метка черновика** на карточке
-- ✅ **Apply** (одиночный), 🗑️ **Discard** (одиночный)
-- ✅ **Apply All** / 🗑️ **Discard All** — в футере галереи
-
-### Fix: Base64 референсы для CLI
-
-sd.cpp не умеет `data:image/...` — перед запуском CLI они конвертируются во временные файлы в `outputDir` и удаляются после генерации.
-
-### Fix: Output Preview
-
-- `setPreview()` fallback-поиск через `data-node-id`
-- `NodeBase.dispose()` сбрасывает `this.element = null`
-
-### Консоль студии ассетов
-
-- ANSI strip, `[INFO]` strip
-- `\r` мульти-снапшоты схлопываются
-- Фазы: `⏳ Model`, `🎨 Step`, `✅ Done`, `⏹ Stopped`
-- Прогресс-лейбл с таймером `⏱ mm:ss`
-- Мусор приглушён
-
-### Fix: Viewport persist
-
-Вьюпорт не уезжает при F5, если панель была развёрнута.
+### Консоль
+- ANSI strip, `\r` схлопывание, фазы `⏳ Model`, `🎨 Step`
 
 ---
 
-## 🐛 Баги / Инвестигейт
+## 🐛 Баги
 
 | Баг | Статус |
 |-----|--------|
-| **Прогресс-бар не показывает шаги** (step 1/5... всё приходит одним чанком после завершения) | Инвестигейт. Вероятно, не чинится без серверного режима |
-| **sd.cpp server mode** — base64 без временных файлов, шаги в real-time | TODO |
+| Прогресс-бар прыгал на 100% (мульти-снапшоты в одном чанке) | Исправлено setTimeout анимацией |
+| sd.cpp server mode — base64 без временных файлов | TODO в Phase SD Server |
+| RU Windows кодировка CP866 → кракозябры `���⠪��` в логах | Частично пофиксено `tryFixMojibake()`, но откатили к рабочей версии без envs — нужен безопасный фикс без `LANG=C` env |
+| Диск дергается на каждый чих (веб-норма, но анти-норма для десктопа) | Частично пофиксено сплиттерами (30%→5%), остался Save System |
 
 ---
 
-## Принципы (не нарушать)
+## Принципы (обновлено 2026-07-13, из DESIGN_PHILOSOPHY)
 
-1. **Пользователь не должен думать о тегах, путях и файлах.** Всё через UI.
-2. **Одна кнопка — одна пачка.** Produce All делает всё сам.
-3. **Никакого оверинжиниринга.** Если фичу можно не делать — не делаем.
-4. **Совместимость.** Старые воркфлоу не ломаются.
-5. **Текст — главный.** Модель ест текст. `{...}` — служебное.
-
----
-
-## Симметрия: модель = пользователь
-
-Всё, что может делать пользователь через UI, должно быть доступно модели через команды.
-
-**Тул `configure_prompt_studio`:**
-
-```js
-Tools.register({
-    name: 'configure_prompt_studio',
-    icon: '🎨',
-    description: 'Настраивает Prompt Node: создаёт табы, пишет промпты, заполняет референсы',
-    schema: {
-        type: 'function',
-        function: {
-            name: 'configure_prompt_studio',
-            parameters: {
-                type: 'object',
-                properties: {
-                    referenceTags: { type: 'array', items: { type: 'string' } },
-                    tabs: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            properties: {
-                                name: { type: 'string' },
-                                text: { type: 'string' },
-                                skipProduce: { type: 'boolean' }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    },
-    lifecycle: 'ephemeral',
-    source: 'core',
-    handler(args) {
-        // 1. Проверить теги в галерее
-        // 2. Создать/обновить Prompt Node
-        // 3. Конвертировать ассеты в base64 → reference
-        // 4. Создать табы (с поддержкой skipProduce)
-        // 5. Graph.persist()
-    }
-});
-```
+1. **RAM-first.** Диск — только по Save или AutoSave в отдельную папку.
+2. **Эфемерность по умолчанию.** Сгенерил — в RAM. Понравилось — Keep / Save.
+3. **Явное управление ресурсами.** Кнопка `Unload Model` / `Stop Server`, без таймеров.
+4. **Пользователь не думает о файлах, но контролирует Save.** Как в Blender/игре.
+5. **Бережливость.** Никаких `setShellState` на mousemove. Никаких `_ref_*.png` в Server режиме.
+6. **Совместимость.** Старые ворлд-файлы не ломаются. CLI остается fallback.
