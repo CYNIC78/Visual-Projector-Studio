@@ -275,11 +275,9 @@
                 batch_size: 1,
                 n_iter: cleanParams.batch_count || 1,
             };
-            if (cleanParams.init_image) p.init_images = [cleanParams.init_image];
-            if (cleanParams.mask_image) p.mask = cleanParams.mask_image;
-            if (cleanParams.strength != null) p.denoising_strength = cleanParams.strength;
-            if (Array.isArray(cleanParams.lora) && cleanParams.lora.length) {
-                p.lora = cleanParams.lora;
+            if (cleanParams.init_image) {
+                p.init_images = [cleanParams.init_image];
+                if (cleanParams.strength != null) p.denoising_strength = cleanParams.strength;
             }
             return p;
         }
@@ -392,47 +390,21 @@
         const p = {
             prompt: '',
             negative_prompt: '',
-            clip_skip: -1,
             width: 512,
             height: 512,
-            strength: 0.75,
             seed: -1,
             batch_count: 1,
-            auto_resize_ref_image: true,
-            increase_ref_index: false,
-            control_strength: 0.9,
-            embed_image_metadata: true,
-            init_image: null,
-            ref_images: [],
-            mask_image: null,
-            control_image: null,
             sample_params: {
-                scheduler: 'discrete',
                 sample_method: 'euler_a',
                 sample_steps: 20,
-                eta: null,
-                shifted_timestep: 0,
-                custom_sigmas: [],
-                flow_shift: null,
                 guidance: {
                     txt_cfg: 7.0,
-                    img_cfg: null,
                     distilled_guidance: 3.5,
-                    slg: { layers: [7, 8, 9], layer_start: 0.01, layer_end: 0.2, scale: 0 },
                 },
             },
-            lora: [],
-            hires: { enabled: false, upscaler: 'Latent', scale: 2.0, target_width: 0, target_height: 0, steps: 0, denoising_strength: 0.7, custom_sigmas: [], upscale_tile_size: 128 },
-            vae_tiling_params: { enabled: false, temporal_tiling: false, tile_size_x: 0, tile_size_y: 0, target_overlap: 0.5, rel_size_x: 0.0, rel_size_y: 0.0, extra_tiling_args: '' },
-            cache_mode: 'disabled',
-            cache_option: '',
-            scm_mask: '',
-            scm_policy_dynamic: true,
             output_format: 'png',
-            output_compression: 100,
         };
 
-        // Simple scalar mappings
         const get = (keys, fallback) => {
             for (const k of Array.isArray(keys) ? keys : [keys]) {
                 if (bag.map.has(k)) return bag.map.get(k);
@@ -469,32 +441,10 @@
         const scheduler = get('--schedule');
         if (scheduler) p.sample_params.scheduler = String(scheduler);
 
-        const clipSkip = get('--clip-skip');
-        if (clipSkip !== undefined) p.clip_skip = parseInt(clipSkip) ?? -1;
-
-        const strength = get('--strength');
-        if (strength !== undefined) p.strength = parseFloat(strength) ?? 0.75;
-
         const batch = get(['-b', '--batch-count']);
         if (batch !== undefined) p.batch_count = parseInt(batch) || 1;
 
-        const controlStrength = get('--control-strength');
-        if (controlStrength !== undefined) p.control_strength = parseFloat(controlStrength) ?? 0.9;
-
-        // Reference images (-r)
-        const refs = bag.get('-r');
-        if (Array.isArray(refs)) {
-            for (const ref of refs) {
-                if (typeof ref === 'string' && ref.startsWith('data:image/')) {
-                    p.ref_images.push(ref);
-                } else if (typeof ref === 'string') {
-                    const b64 = await fileToBase64(ref);
-                    if (b64) p.ref_images.push(b64);
-                }
-            }
-        }
-
-        // Init image (-i)
+        // Init image (-i) — only include if present
         const initImg = get(['-i', '--init-img']);
         if (initImg) {
             if (typeof initImg === 'string' && initImg.startsWith('data:image/')) {
@@ -503,37 +453,39 @@
                 const b64 = await fileToBase64(initImg);
                 if (b64) p.init_image = b64;
             }
+            const strength = get('--strength');
+            if (strength !== undefined) p.strength = parseFloat(strength) ?? 0.75;
         }
 
-        // Control image
-        const ctrlImg = get('--control-image');
-        if (ctrlImg) {
-            if (typeof ctrlImg === 'string' && ctrlImg.startsWith('data:image/')) {
-                p.control_image = ctrlImg;
-            } else {
-                const b64 = await fileToBase64(ctrlImg);
-                if (b64) p.control_image = b64;
+        // Reference images (-r) — only include if present
+        const refs = bag.get('-r');
+        if (Array.isArray(refs) && refs.length) {
+            p.ref_images = [];
+            for (const ref of refs) {
+                if (typeof ref === 'string' && ref.startsWith('data:image/')) {
+                    p.ref_images.push(ref);
+                } else if (typeof ref === 'string') {
+                    const b64 = await fileToBase64(ref);
+                    if (b64) p.ref_images.push(b64);
+                }
             }
+            if (!p.ref_images.length) delete p.ref_images;
         }
 
-        // LoRA — extract from LoRA node directly (server API ignores <lora:> tags in prompt)
+        // LoRA — inject into prompt as <lora:filename:weight> (server API does not accept lora array)
         if (graph?.nodes) {
             for (const node of graph.nodes.values()) {
                 if (node.type !== 'lora') continue;
                 for (const item of node.data?.items || []) {
                     if (!item.file) continue;
-                    p.lora.push({
-                        path: normPath(item.file),
-                        multiplier: parseFloat(item.weight) || 1.0,
-                        is_high_noise: false,
-                    });
+                    const fileName = String(item.file).replace(/\\/g, '/').split('/').pop();
+                    const weight = parseFloat(item.weight) || 1.0;
+                    const tag = `<lora:${fileName}:${weight}>`;
+                    if (!p.prompt.includes(tag)) {
+                        p.prompt = p.prompt ? `${p.prompt} ${tag}` : tag;
+                    }
                 }
             }
-        }
-
-        // VAE tiling
-        if (bag.map.has('--vae-tiling')) {
-            p.vae_tiling_params.enabled = true;
         }
 
         return p;
