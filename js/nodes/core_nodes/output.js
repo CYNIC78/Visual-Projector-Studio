@@ -97,8 +97,12 @@
         }
 
         setPreview(url, body) {
-            const wrap = (body || this.element)?.querySelector('.vp-as-output-preview');
-            if (!wrap) return;
+            const wrap = (body || this.element)?.querySelector('.vp-as-output-preview')
+                || (body?.parentElement || this.element?.parentElement || document)?.querySelector(`[data-node-id="${this.id}"] .vp-as-output-preview`);
+            if (!wrap) {
+                console.warn('[OutputNode] setPreview: .vp-as-output-preview not found for node', this.id);
+                return;
+            }
             if (url) {
                 wrap.innerHTML = `<img src="${url}" alt="result">`;
                 this.data.lastImage = url;

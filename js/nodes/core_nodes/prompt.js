@@ -227,12 +227,12 @@
                 margin-top:2px; min-height:16px; line-height:1.3;
             `;
             wrap.appendChild(hint);
-            this._updateHint(ta, body);
 
             // Insert after tab bar
             const tabBar = body.querySelector('.vp-as-tab-bar');
             if (tabBar) tabBar.after(wrap);
             else body.prepend(wrap);
+            this._updateHint(ta, body);
         }
 
         _updateHint(ta, body) {
