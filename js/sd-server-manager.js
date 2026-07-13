@@ -30,6 +30,21 @@
         }
     }
 
+    function stripEmpty(obj) {
+        if (obj === null || obj === undefined) return undefined;
+        if (typeof obj !== 'object') return obj;
+        if (Array.isArray(obj)) {
+            const arr = obj.map(stripEmpty).filter(v => v !== undefined);
+            return arr.length ? arr : undefined;
+        }
+        const out = {};
+        for (const [k, v] of Object.entries(obj)) {
+            const cleaned = stripEmpty(v);
+            if (cleaned !== undefined) out[k] = cleaned;
+        }
+        return Object.keys(out).length ? out : undefined;
+    }
+
     function b64ToBlob(b64, format = 'png') {
         const bin = atob(b64);
         const bytes = new Uint8Array(bin.length);
@@ -244,16 +259,76 @@
             this._currentJobId = null;
         }
 
-        async generate(params, onStatus = null) {
+        _toA1111Params(cleanParams) {
+            const sp = cleanParams.sample_params || {};
+            const g = sp.guidance || {};
+            const p = {
+                prompt: cleanParams.prompt || '',
+                negative_prompt: cleanParams.negative_prompt || '',
+                width: cleanParams.width || 512,
+                height: cleanParams.height || 512,
+                steps: sp.sample_steps || 20,
+                cfg_scale: g.txt_cfg ?? 7.0,
+                sampler_name: sp.sample_method || 'euler_a',
+                scheduler: sp.scheduler || 'discrete',
+                seed: cleanParams.seed ?? -1,
+                batch_size: 1,
+                n_iter: cleanParams.batch_count || 1,
+            };
+            if (cleanParams.init_image) p.init_images = [cleanParams.init_image];
+            if (cleanParams.mask_image) p.mask = cleanParams.mask_image;
+            if (cleanParams.strength != null) p.denoising_strength = cleanParams.strength;
+            if (Array.isArray(cleanParams.lora) && cleanParams.lora.length) {
+                p.lora = cleanParams.lora;
+            }
+            return p;
+        }
+
+        async generate(rawParams, onStatus = null) {
             if (this._state !== 'ready') throw new Error('Server not ready');
 
-            // Submit async job
-            const submit = await this._fetchJson('/sdcpp/v1/img_gen', {
-                method: 'POST',
-                body: params,
-                timeout: 15000,
-            });
-            if (!submit?.id) throw new Error('Failed to submit job: ' + JSON.stringify(submit));
+            const params = stripEmpty(rawParams);
+            console.log('[SDServer] Clean params:', JSON.stringify(params, null, 2));
+
+            // Try native async API first
+            let submit = null;
+            let usedEndpoint = 'img_gen';
+            try {
+                submit = await this._fetchJson('/sdcpp/v1/img_gen', {
+                    method: 'POST',
+                    body: params,
+                    timeout: 15000,
+                });
+            } catch (err) {
+                const is400 = err.message && err.message.includes('400');
+                if (is400) {
+                    console.warn('[SDServer] img_gen returned 400, falling back to /sdapi/v1/txt2img');
+                } else {
+                    throw err;
+                }
+            }
+
+            // Fallback to A1111-compatible synchronous API
+            if (!submit?.id) {
+                usedEndpoint = 'txt2img';
+                const a1111 = this._toA1111Params(params);
+                console.log('[SDServer] Fallback params:', JSON.stringify(a1111, null, 2));
+                const result = await this._fetchJson('/sdapi/v1/txt2img', {
+                    method: 'POST',
+                    body: a1111,
+                    timeout: 15 * 60 * 1000,
+                });
+                if (!result?.images?.length) {
+                    throw new Error('txt2img returned no images');
+                }
+                const fmt = params.output_format || 'png';
+                return result.images.map((img, idx) => ({
+                    index: idx,
+                    b64: img,
+                    blob: b64ToBlob(img, fmt),
+                    format: fmt,
+                }));
+            }
 
             this._currentJobId = submit.id;
             const pollUrl = `/sdcpp/v1/jobs/${submit.id}`;
