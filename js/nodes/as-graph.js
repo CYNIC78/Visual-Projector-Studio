@@ -406,7 +406,6 @@
 
             this.links.deserialize(state.links);
             this._loadingState = false;
-            this.persist();
         },
 
         persist() {

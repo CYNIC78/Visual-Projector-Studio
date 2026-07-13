@@ -550,7 +550,7 @@
      * @returns {Promise<string|null>} the new tag, or null on failure.
      */
     async function addImageFromBlob(blob, opts = {}) {
-        const { source = 'pasted', suggestedName = null, setAsCurrent = true } = opts;
+        const { source = 'pasted', suggestedName = null, setAsCurrent = true, instantPersist = true } = opts;
 
         if (!blob || !blob.type?.startsWith('image/')) {
             showToast('Clipboard has no image', 'error');
@@ -582,9 +582,12 @@
                 blob: outBlob, url, thumbUrl, description: '', source,
                 folderContext: null, tabId: TabsManager.getActiveTabIdForNewAsset(),
                 hidden: false,
+                _draft: !instantPersist,
             };
             S.gallery.set(finalTag, asset);
-            persistAsset(asset);
+            if (!asset._draft) {
+                persistAsset(asset);
+            }
             markVisualInventoryDirty('asset-added');
             updateGalleryButton();
             renderGalleryGrid();
@@ -681,6 +684,57 @@
         }
         if (changed > 0) markVisualInventoryDirty('asset-visibility-changed');
         return changed;
+    }
+
+    /** Apply a single draft: persist to IDB and clear the draft flag. */
+    function applyDraft(tag) {
+        const asset = S.gallery.get(tag);
+        if (!asset || !asset._draft) return false;
+        asset._draft = false;
+        persistAsset(asset);
+        markVisualInventoryDirty('draft-applied');
+        showToast(`✅ Applied: ${tag}`, 'success');
+        return true;
+    }
+
+    /** Apply all drafts in one batch. */
+    function applyAllDrafts() {
+        const drafts = Array.from(S.gallery.values()).filter(a => a._draft);
+        if (!drafts.length) { showToast('No drafts to apply', 'info'); return 0; }
+        const batch = [];
+        for (const asset of drafts) {
+            asset._draft = false;
+            batch.push(asset);
+        }
+        if (batch.length) persistAssetsBatch(batch);
+        markVisualInventoryDirty('drafts-applied-all');
+        renderGalleryGrid();
+        updateGalleryFooter();
+        showToast(`✅ Applied ${batch.length} draft(s)`, 'success');
+        return batch.length;
+    }
+
+    /** Discard (delete) all drafts at once. */
+    async function discardAllDrafts() {
+        const drafts = Array.from(S.gallery.values()).filter(a => a._draft);
+        if (!drafts.length) { showToast('No drafts to discard', 'info'); return 0; }
+        const ans = await showConfirm({
+            title: 'Discard all drafts?',
+            message: `Удалить все ${drafts.length} черновик(ов)? Они не сохранены на диск.`,
+            buttons: [
+                { id: 'cancel', label: 'Cancel', ghost: true },
+                { id: 'ok', label: 'Discard All', danger: true },
+            ],
+        });
+        if (ans !== 'ok') return 0;
+        const tags = drafts.map(a => a.tag);
+        deleteAssets(tags);
+        S.selection.tags.clear();
+        S.selection.anchor = null;
+        renderGalleryGrid();
+        updateGalleryFooter();
+        showToast(`🗑️ Discarded ${tags.length} draft(s)`, 'success');
+        return tags.length;
     }
 
     const TAG_ALIAS_TTL_MS = 10 * 60 * 1000;
@@ -1676,6 +1730,8 @@
                                 <button class="vp-btn" id="vp-gallery-paste-clipboard" title="Вставить из буфера">📋</button>
                                 <button class="vp-btn" id="vp-gallery-autotag" title="Auto-tag with AI">✨</button>
                                 <button class="vp-btn" id="vp-gallery-collage" title="Собрать Gallery View из помеченных табов" style="background:var(--accent,#6c5fa6); color:white;">🖼️</button>
+                                <button class="vp-btn" id="vp-gallery-apply-drafts" title="Apply all drafts" style="display:none;">✅ Apply All</button>
+                                <button class="vp-btn vp-btn-danger" id="vp-gallery-discard-drafts" title="Discard all drafts" style="display:none;">🗑️ Discard All</button>
                             </div>
                             <span class="vp-gallery-footer-count" id="vp-gallery-count-footer">0 ассетов</span>
                             <div style="display:flex; gap:6px;">
@@ -1770,6 +1826,8 @@
             collageBtn.addEventListener('click', generateCollageFromMarkedTabs);
             collageBtn.addEventListener('contextmenu', showCollageContextMenu);
         }
+        p$('#vp-gallery-apply-drafts')?.addEventListener('click', applyAllDrafts);
+        p$('#vp-gallery-discard-drafts')?.addEventListener('click', discardAllDrafts);
         p$('#vp-gallery-export')?.addEventListener('click', () => exportGallery());
         p$('#vp-gallery-import')?.addEventListener('click', importGallery);
         p$('#vp-search')?.addEventListener('input', () => renderGalleryGrid());
@@ -3417,6 +3475,15 @@
             normal.style.display = 'none'; selection.style.display = 'flex';
             if (countEl) countEl.textContent = `${n} selected`;
         }
+
+        // Show/hide draft action buttons when drafts exist
+        const applyBtn = w.querySelector('#vp-gallery-apply-drafts');
+        const discardBtn = w.querySelector('#vp-gallery-discard-drafts');
+        if (applyBtn || discardBtn) {
+            const hasDrafts = Array.from(S.gallery.values()).some(a => a._draft);
+            if (applyBtn) applyBtn.style.display = hasDrafts ? 'inline-block' : 'none';
+            if (discardBtn) discardBtn.style.display = hasDrafts ? 'inline-block' : 'none';
+        }
     }
 
     function refreshGalleryPanelUI() {
@@ -3572,13 +3639,13 @@
             item.appendChild(img);
             item.appendChild(label);
 
-            // Source icon
-            if (asset.source && asset.source !== 'user') {
-                const srcIcon = document.createElement('div');
-                srcIcon.style.cssText = `position:absolute; top:${isCoverAsset ? '22px' : '3px'}; left:3px; background:rgba(0,0,0,0.7); color:white; font-size:10px; padding:2px 4px; border-radius:3px; pointer-events:none;`;
-                srcIcon.textContent = ({ pasted: '📋', imported: '📥', generated: '✨' })[asset.source] || '?';
-                srcIcon.title = `Source: ${asset.source}`;
-                item.appendChild(srcIcon);
+            // Draft badge
+            if (asset._draft) {
+                const draftBadge = document.createElement('div');
+                draftBadge.textContent = '✨';
+                draftBadge.title = 'Draft — not saved to disk. Apply to keep.';
+                draftBadge.style.cssText = `position:absolute; top:3px; left:3px; background:rgba(0,0,0,0.7); color:white; font-size:12px; padding:2px 5px; border-radius:3px; pointer-events:none; z-index:4; line-height:1;`;
+                item.appendChild(draftBadge);
             }
             // Cover badge
             if (isCoverAsset) {
@@ -3679,18 +3746,34 @@
                 // 3. Re-tag with AI
                 menu.appendChild(mkItem('✨ Re-tag with AI', null, () => VP.gallery.Tagger?.retagSingle(tag)));
 
-                // 4. Delete
-                menu.appendChild(mkItem('🗑️ Удалить', 'var(--error,#e05555)', async () => {
-                    const ans = await showConfirm({
-                        title: 'Delete asset?',
-                        message: `Удалить ассет "${tag}"?`,
-                        buttons: [
-                            { id: 'cancel', label: 'Cancel', ghost: true },
-                            { id: 'ok', label: 'Delete', danger: true },
-                        ],
-                    });
-                    if (ans === 'ok') { deleteAssets(tag); renderGalleryGrid(); updateGalleryButton(); }
-                }));
+                // 4a. Apply draft (shown only for temporary assets)
+                if (asset._draft) {
+                    menu.appendChild(mkItem('✅ Apply', null, () => { applyDraft(tag); renderGalleryGrid(); updateGalleryFooter(); }));
+                    menu.appendChild(mkItem('🗑️ Discard', 'var(--error,#e05555)', async () => {
+                        const ans = await showConfirm({
+                            title: 'Discard draft?',
+                            message: `Удалить черновик "${tag}"? Он не сохранён на диск.`,
+                            buttons: [
+                                { id: 'cancel', label: 'Cancel', ghost: true },
+                                { id: 'ok', label: 'Delete', danger: true },
+                            ],
+                        });
+                        if (ans === 'ok') { deleteAssets(tag); renderGalleryGrid(); updateGalleryButton(); }
+                    }));
+                } else {
+                    // 4b. Delete (persisted assets only)
+                    menu.appendChild(mkItem('🗑️ Удалить', 'var(--error,#e05555)', async () => {
+                        const ans = await showConfirm({
+                            title: 'Delete asset?',
+                            message: `Удалить ассет "${tag}"?`,
+                            buttons: [
+                                { id: 'cancel', label: 'Cancel', ghost: true },
+                                { id: 'ok', label: 'Delete', danger: true },
+                            ],
+                        });
+                        if (ans === 'ok') { deleteAssets(tag); renderGalleryGrid(); updateGalleryButton(); }
+                    }));
+                }
 
                 document.body.appendChild(menu);
 
@@ -3834,6 +3917,8 @@
         generateCollageFromMarkedTabs, buildContactSheet, collectCollagePlan, calculateContactSheetLayout,
         // persistence
         hydrateFromDB, persistAsset, persistAssetsBatch, persistGalleryData, persistConfig,
+        // draft ops
+        applyDraft, applyAllDrafts, discardAllDrafts,
     };
 
     // ── Trigger boot (after the engine's own DOMContentLoaded fires). ──
