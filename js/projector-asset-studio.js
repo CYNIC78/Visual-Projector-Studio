@@ -1476,35 +1476,6 @@
 
             try {
                 await this.ensureOutputDir();
-
-                // ── Preflight checks — раньше sd.cpp падал с кодом 1 без пояснений ──
-                // Проверяем бинарь и модель до спавна, чтобы дать понятную ошибку
-                if (window.Neutralino?.filesystem?.getStats) {
-                    const exePath = VP_AS.utils.normPath(executable);
-                    const exeExists = await Neutralino.filesystem.getStats(exePath).then(()=>true).catch(()=>false);
-                    if (!exeExists) {
-                        throw new Error(`Executable not found: ${exePath}. Check Studio Config → Executable Path. Current: ${this.config.executablePath}`);
-                    }
-                    // Проверяем модель из bag: -m или --diffusion-model
-                    const modelPath = bag.get('-m') || bag.get('--diffusion-model') || bag.get('--model');
-                    if (modelPath) {
-                        const modelNorm = VP_AS.utils.normPath(modelPath);
-                        // Пропускаем проверку если путь выглядит как URL/data
-                        if (!modelNorm.startsWith('data:') && !modelNorm.startsWith('http')) {
-                            const modelExists = await Neutralino.filesystem.getStats(modelNorm).then(()=>true).catch(()=>false);
-                            if (!modelExists) {
-                                throw new Error(`Model not found: ${modelNorm}. Pick existing file in Loader node.`);
-                            }
-                        }
-                    } else {
-                        console.warn('[Asset Studio] No model path in bag — sd.cpp will likely exit 1');
-                    }
-                    const prompt = bag.get('-p');
-                    if (!prompt || !String(prompt).trim()) {
-                        throw new Error('Prompt is empty. Write something in Prompt node active tab.');
-                    }
-                }
-
                 let outputPath = bag.get('-o');
                 if (outputPath) outputPath = VP_AS.utils.normPath(outputPath);
 
@@ -1513,41 +1484,8 @@
                     let fullOutput = '';
                     let errorOutput = '';
                     let logBuffer = '';
-
-                    // ── Windows console encoding fix ──
-                    // sd.cpp on RU Windows may output in CP866 / CP1251, Neutralino decodes as UTF-8 → mojibake like ���⠪��
-                    // Try to recover cyrillic if we see replacement chars or Braille/CJK artefacts
-                    const tryFixMojibake = (s) => {
-                        if (!s || typeof s !== 'string') return s;
-                        // Heuristic: if string contains many � or characters from unexpected ranges (Braille U+2800, CJK)
-                        const hasGarbage = /[\uFFFD\u2800-\u28FF\u4E00-\u9FFF\u0E00-\u0E7F]/.test(s) || (s.includes('�') && /[А-Яа-я]/.test(s) === false);
-                        if (!hasGarbage) return s;
-                        // Attempt: recover bytes via latin1 and decode with common Russian codepages
-                        try {
-                            const bytes = new Uint8Array(s.length);
-                            for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i) & 0xFF;
-                            // Try cp1251 and ibm866 if available
-                            const candidates = [];
-                            try { candidates.push(new TextDecoder('windows-1251').decode(bytes)); } catch {}
-                            try { candidates.push(new TextDecoder('ibm866').decode(bytes)); } catch {}
-                            try { candidates.push(new TextDecoder('utf-8', {fatal:false}).decode(bytes)); } catch {}
-                            // Choose best candidate containing cyrillic or readable ascii
-                            for (const cand of candidates) {
-                                if (/[А-Яа-яA-Za-z]/.test(cand) && cand.length) {
-                                    // Prefer one with less �
-                                    const bad = (cand.match(/�/g) || []).length;
-                                    if (bad < (s.match(/�/g) || []).length) return cand;
-                                    // If original had no cyrillic but candidate has, use it
-                                    if (/[А-Яа-я]/.test(cand)) return cand;
-                                }
-                            }
-                        } catch {}
-                        return s;
-                    };
                     
-                    const updateLog = (chunk) => {
-                        // Попытка починить кракозябры от RU Windows консоли (CP866/CP1251 → UTF-8 mojibake)
-                        chunk = tryFixMojibake(chunk);
+                                                                                const updateLog = (chunk) => {
                         // 1. Strip ANSI escape sequences
                         let clean = chunk.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
                         // 2. Strip [INFO ], [WARN ] etc. log-level prefixes
@@ -1714,8 +1652,6 @@
                         log.scrollTop = log.scrollHeight;
                     };
 
-                    // Запускаем процесс — используем простой вызов без envs для совместимости со старыми Neutralino
-                    // (envs приводил к exit -1 на некоторых сборках, поэтому форсим локаль только через декодирование логов)
                     const processInfo = await Neutralino.os.spawnProcess(cmd, { cwd });
                     this._activeProcessId = processInfo.id;
                     if (stopBtn) stopBtn.style.display = 'inline-block';
@@ -1739,16 +1675,7 @@
                                     if (_previewTimer) clearInterval(_previewTimer);
                                     const exitCode = e.detail.data;
                                     if (exitCode === 0 || exitCode == null || this._userStopped) resolve();
-                                    else {
-                                        // Собираем последние логи для диагностики — раньше терялись
-                                        const lastErr = (errorOutput || '').slice(-2000);
-                                        const lastOut = (fullOutput || '').slice(-2000);
-                                        const combined = (lastErr + "\n" + lastOut).slice(-3000).trim();
-                                        const msg = combined
-                                            ? `sd.cpp exited with code ${exitCode}. Last logs:\n${combined}`
-                                            : `sd.cpp exited with code ${exitCode} (no output)`;
-                                        reject(new Error(msg));
-                                    }
+                                    else reject(new Error(`sd.cpp exited with code ${exitCode}`));
                                 }
                             }
                         };
@@ -1832,16 +1759,8 @@
                 }
             } catch (err) {
                 console.error('[Asset Studio] exec failed:', err);
-                // Дублируем детали в лог панели, чтобы пользователь видел причину exit 1
-                try {
-                    if (log) {
-                        const escMsg = String(err.message || err).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                        log.innerHTML += `<div style="color:var(--error); white-space:pre-wrap; word-break:break-word;"><b>✗ exec failed:</b> ${escMsg}</div>`;
-                        log.scrollTop = log.scrollHeight;
-                    }
-                } catch {}
-                if (preview) preview.innerHTML = `<div class="vp-as-preview-placeholder" style="color:var(--error)">Error: ${String(err.message || err).slice(0,800)}</div>`;
-                VP.showToast?.(`Render failed: ${String(err.message || err).slice(0,200)}`, 'error');
+                if (preview) preview.innerHTML = `<div class="vp-as-preview-placeholder" style="color:var(--error)">Error: ${err.message || err}</div>`;
+                VP.showToast?.(`Render failed: ${err.message || err}`, 'error');
             } finally {
                 this.running = false;
                 this._activeProcessId = null;
