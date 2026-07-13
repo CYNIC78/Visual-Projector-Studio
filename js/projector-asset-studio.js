@@ -1504,6 +1504,7 @@
             // Poll for live step preview updates from sd.cpp
             let _previewTimer = null;
             let _lastPreviewMtime = 0;
+            let _firstPreviewAt = null;
             if (window.Neutralino?.filesystem?.getStats) {
                 _previewTimer = setInterval(async () => {
                     try {
@@ -1511,6 +1512,11 @@
                         const mt = st.modifiedAt || st.createdAt || 0;
                         if (mt && mt !== _lastPreviewMtime) {
                             _lastPreviewMtime = mt;
+                            if (!_firstPreviewAt) {
+                                _firstPreviewAt = Date.now();
+                                const _firstPreviewDelay = Math.floor((_firstPreviewAt - _cliStartTime) / 1000);
+                                console.log(`[Asset Studio] First preview appeared after ${_firstPreviewDelay}s`);
+                            }
                             const bin = await Neutralino.filesystem.readBinaryFile(_previewFilePath);
                             const blob = new Blob([bin], { type: 'image/png' });
                             const url = URL.createObjectURL(blob);
@@ -1534,8 +1540,10 @@
                     let fullOutput = '';
                     let errorOutput = '';
                     let logBuffer = '';
+                    let _firstStdoutAt = null;
                     
                                                                                 const updateLog = (chunk) => {
+                        if (!_firstStdoutAt) _firstStdoutAt = Date.now();
                         // 1. Strip ANSI escape sequences
                         let clean = chunk.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
                         // 2. Strip [INFO ], [WARN ] etc. log-level prefixes
@@ -1650,6 +1658,7 @@
                         log.scrollTop = log.scrollHeight;
                     };
 
+                    const _spawnAt = Date.now();
                     const processInfo = await Neutralino.os.spawnProcess(cmd, { cwd });
                     this._activeProcessId = processInfo.id;
                     if (stopBtn) stopBtn.style.display = 'inline-block';
@@ -1679,6 +1688,11 @@
                         };
                             Neutralino.events.on('spawnedProcess', onSpawnedProcess);
                         });
+
+                    const _totalElapsed = Math.floor((Date.now() - _cliStartTime) / 1000);
+                    const _spawnDelay = Math.floor((_spawnAt - _cliStartTime) / 1000);
+                    const _firstOutDelay = _firstStdoutAt ? Math.floor((_firstStdoutAt - _spawnAt) / 1000) : 'N/A';
+                    console.log(`[Asset Studio] CLI timing: spawnDelay=${_spawnDelay}s, firstStdout=${_firstOutDelay}s, total=${_totalElapsed}s`);
 
                     if (this._userStopped) {
                         if (progressLabel) progressLabel.textContent = '⏹ Stopped';
@@ -1787,7 +1801,10 @@
             try {
                 // Find loader node to get model path
                 const loaderNode = Array.from(Graph.nodes.values()).find(n => n.type === 'loader');
-                const modelPath = loaderNode?.data?.coreModel || loaderNode?.data?.model || '';
+                const coreModel = loaderNode?.data?.coreModel || '';
+                const modelType = VP_AS.utils.detectModelType(coreModel);
+                const isDiffusionModel = modelType !== 'checkpoint' && !!coreModel;
+                const modelPath = coreModel || loaderNode?.data?.model || '';
                 if (!modelPath) {
                     throw new Error('No model selected in Loader node');
                 }
@@ -1800,7 +1817,8 @@
                 }
 
                 const serverReady = await this.serverManager.start(modelPath, {
-                    clipL: loaderNode?.data?.clip1 || '',
+                    isDiffusionModel,
+                    llm: loaderNode?.data?.clip1 || '',
                     clipG: loaderNode?.data?.clip2 || '',
                     vae: loaderNode?.data?.vae || '',
                     taesd: loaderNode?.data?.taesd || '',
@@ -1811,8 +1829,11 @@
                     backend: loaderNode?.data?.backend || '',
                     maxVram: loaderNode?.data?.maxVram || '',
                     flashAttention: !!loaderNode?.data?.flashAttention,
+                    diffusionFa: !!loaderNode?.data?.diffusionFa,
                     offloadCpu: !!loaderNode?.data?.offloadToCpu,
                     mmap: !!loaderNode?.data?.mmap,
+                    modelArgs: loaderNode?.data?.modelArgs || '',
+                    flowShift: loaderNode?.data?.flowShift ?? null,
                 });
 
                 if (!serverReady) {

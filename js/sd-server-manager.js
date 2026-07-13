@@ -124,13 +124,20 @@
                 if (val === null || val === undefined || val === '') return;
                 args.push(flag, String(val));
             };
-            addPath('-m', modelPath);
+            // modelPath is either a full model (-m) or diffusion model (--diffusion-model)
+            // depending on what runServer decides.
+            if (extra.isDiffusionModel) {
+                addPath('--diffusion-model', modelPath);
+            } else {
+                addPath('-m', modelPath);
+            }
             add('--listen-ip', this.config.listenIp);
             add('--listen-port', this.config.listenPort);
             if (this.config.verbose) args.push('-v');
 
             addPath('--clip_l', extra.clipL);
             addPath('--clip_g', extra.clipG);
+            addPath('--llm', extra.llm);
             addPath('--vae', extra.vae);
             addPath('--taesd', extra.taesd);
             addPath('--diffusion-model', extra.diffusionModel);
@@ -141,8 +148,11 @@
             add('--backend', extra.backend);
             add('--max-vram', extra.maxVram);
             if (extra.flashAttention) args.push('--fa');
+            if (extra.diffusionFa) args.push('--diffusion-fa');
             if (extra.offloadCpu) args.push('--offload-to-cpu');
             if (extra.mmap) args.push('--mmap');
+            if (extra.modelArgs) add('--model-args', extra.modelArgs);
+            if (extra.flowShift != null) add('--flow-shift', extra.flowShift);
             return args;
         }
 
