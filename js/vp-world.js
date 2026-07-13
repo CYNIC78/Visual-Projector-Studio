@@ -304,13 +304,10 @@
         },
 
         _bindBeforeUnload() {
-            window.addEventListener('beforeunload', (e) => {
+            window.addEventListener('beforeunload', () => {
                 if (!this.isDirty) return;
-                this.quickSave();
-                const msg = 'You have unsaved changes — save before exit?';
-                e.preventDefault();
-                e.returnValue = msg;
-                return msg;
+                // Silent quicksave for recovery, no native browser dialog — Blender-style
+                try { this.quickSave(); } catch {}
             });
         },
 

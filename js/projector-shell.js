@@ -1667,16 +1667,14 @@
             }
             .vp-world-save-btn {
                 min-width: 32px; font-weight: 800;
+                transition: opacity 0.2s;
+            }
+            .vp-world-save-btn:not(.is-dirty) {
+                opacity: 0.55;
             }
             .vp-world-save-btn.is-dirty {
-                background: rgba(240,180,80,0.18) !important;
-                border-color: rgba(240,180,80,0.45) !important;
-                color: #f0b450 !important;
-                animation: vpSaveBlink 1.2s ease-in-out infinite;
-            }
-            @keyframes vpSaveBlink {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.75; }
+                opacity: 1;
+                /* dirty is normal in RAM-first workflow — no alarming yellow blink */
             }
 
             /* ── Вариант A: оптимизация перетаскивания сплиттеров ── */
