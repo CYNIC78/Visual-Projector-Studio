@@ -1714,26 +1714,9 @@
                         log.scrollTop = log.scrollHeight;
                     };
 
-                    // Форсируем английскую локаль, чтобы избежать CP866/CP1251 кракозябр на RU Windows
-                    // Neutralino >=6 поддерживает envs в options
-                    const spawnOpts = {
-                        cwd,
-                        envs: {
-                            LANG: 'C',
-                            LC_ALL: 'C',
-                            LC_MESSAGES: 'C',
-                            PYTHONIOENCODING: 'utf-8',
-                            PYTHONUTF8: '1'
-                        }
-                    };
-                    let processInfo;
-                    try {
-                        processInfo = await Neutralino.os.spawnProcess(cmd, spawnOpts);
-                    } catch (e) {
-                        // Fallback для старых Neutralino, где второй параметр — строка cwd
-                        console.warn('[Asset Studio] spawnProcess with envs failed, fallback to cwd string:', e);
-                        processInfo = await Neutralino.os.spawnProcess(cmd, cwd);
-                    }
+                    // Запускаем процесс — используем простой вызов без envs для совместимости со старыми Neutralino
+                    // (envs приводил к exit -1 на некоторых сборках, поэтому форсим локаль только через декодирование логов)
+                    const processInfo = await Neutralino.os.spawnProcess(cmd, { cwd });
                     this._activeProcessId = processInfo.id;
                     if (stopBtn) stopBtn.style.display = 'inline-block';
                     
@@ -1800,12 +1783,7 @@
                 } else if (window.Neutralino?.os?.execCommand) {
                     // Fallback to execCommand if spawnProcess is not used/available in older versions
                     const cwd = window.NL_CWD || '.';
-                    let result;
-                    try {
-                        result = await Neutralino.os.execCommand(cmd, { cwd, envs: { LANG: 'C', LC_ALL: 'C' } });
-                    } catch {
-                        result = await Neutralino.os.execCommand(cmd, { cwd });
-                    }
+                    const result = await Neutralino.os.execCommand(cmd, { cwd });
                     console.log('[Asset Studio] exec result:', result);
 
                     const exitCode = result?.exitCode ?? 0;
