@@ -123,6 +123,9 @@
                 return await res.json().catch(() => null);
             } catch (e) {
                 clearTimeout(t);
+                if (e.name === 'TypeError' || e.message?.includes('fetch') || e.message?.includes('Failed to fetch') || e.message?.includes('CONNECTION_REFUSED')) {
+                    throw new Error(`CONNECTION_REFUSED: ${e.message}`);
+                }
                 throw e;
             }
         }
@@ -332,13 +335,26 @@
             const pollUrl = `/sdcpp/v1/jobs/${submit.id}`;
             const t0 = Date.now();
             const maxWait = 15 * 60 * 1000; // 15 min
+            let consecutiveConnErrors = 0;
 
             while (Date.now() - t0 < maxWait) {
                 await new Promise(r => setTimeout(r, 600));
                 let job;
                 try {
                     job = await this._fetchJson(pollUrl, { timeout: 8000 });
-                } catch {
+                    consecutiveConnErrors = 0;
+                } catch (err) {
+                    if (err.message?.includes('CONNECTION_REFUSED')) {
+                        consecutiveConnErrors++;
+                        if (consecutiveConnErrors >= 3) {
+                            console.error('[SDServer] Server connection lost. stderr tail:', this._stderr.slice(-800));
+                            this._state = 'error';
+                            this.processId = null;
+                            this._currentJobId = null;
+                            throw new Error('Server process crashed during generation. Check console for sd-server.exe crash details.');
+                        }
+                        continue;
+                    }
                     continue;
                 }
                 if (!job) continue;
