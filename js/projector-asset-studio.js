@@ -28,8 +28,11 @@
         progress: 0,
         config: {
             executablePath: './bin/sd.cpp/sd-cli.exe',
+            serverExecutablePath: './bin/sd.cpp/sd-server.exe',
             outputDir: './output',
-            engineMode: 'cli',
+            engineMode: 'server',
+            serverHost: '127.0.0.1',
+            serverPort: 8085,
         },
         _activeCanvas: null,
         _activeContainer: null,
@@ -962,8 +965,8 @@
                                 <span class="vp-as-mode-sep"></span>
                                 <button class="vp-btn vp-btn-sm" id="vp-as-import-cli" title="Import CLI command">CLI+</button>
                                 <select id="vp-as-engine-mode" class="vp-as-engine-mode" title="Generation engine mode">
-                                    <option value="cli">CLI</option>
-                                    <option value="server">Server — stub</option>
+                                    <option value="server">Server (primary)</option>
+                                    <option value="cli">CLI (fallback)</option>
                                 </select>
                             </span>
                             <span class="vp-as-tool-group vp-as-tool-right">
@@ -1203,24 +1206,19 @@
                 const bag = Graph.produce();
                 if (!bag) return;
 
-                const mode = this.config.engineMode || 'cli';
-                if (mode === 'server') {
-                    VP.showToast?.('Server mode is a stub — switch to CLI to render', 'info');
-                    log.innerHTML += `<div><b>[SERVER STUB]</b> Would enqueue request to sd-server.exe</div>`;
-                    log.scrollTop = log.scrollHeight;
-                    this.updateStudioStatus(container, 'Server stub');
-                    return;
-                }
-
+                const mode = this.config.engineMode || 'server';
                 const assetName = bag.meta.get('assetName') || null;
-                await this.runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
+                if (mode === 'server') {
+                    await this.runServer(log, preview, progress, progressLabel, stopBtn, container);
+                } else {
+                    await this.runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
+                }
             });
 
             const produceAllBtn = container.querySelector('#vp-as-produce-all');
             if (produceAllBtn) {
                 produceAllBtn.addEventListener('click', async () => {
                     if (this.running) return;
-                    // Find the prompt node and iterate its tabs
                     const promptNode = Array.from(Graph.nodes.values()).find(n => n.type === 'prompt');
                     if (!promptNode || !Array.isArray(promptNode.data.tabs) || promptNode.data.tabs.length === 0) {
                         VP.showToast?.('No prompt tabs found', 'warn');
@@ -1228,11 +1226,7 @@
                     }
                     const tabs = promptNode.data.tabs;
                     let success = 0, fail = 0;
-                    const mode = this.config.engineMode || 'cli';
-                    if (mode === 'server') {
-                        VP.showToast?.('Server mode is a stub', 'info');
-                        return;
-                    }
+                    const mode = this.config.engineMode || 'server';
                     for (let i = 0; i < tabs.length; i++) {
                         if (this.running) break;
                         promptNode.data.activeTabId = tabs[i].id;
@@ -1243,7 +1237,11 @@
                         log.scrollTop = log.scrollHeight;
                         this.updateStudioStatus(container, `Generating ${i+1}/${tabs.length}: ${tabs[i].name}`);
                         try {
-                            await this.runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
+                            if (mode === 'server') {
+                                await this.runServer(log, preview, progress, progressLabel, stopBtn, container);
+                            } else {
+                                await this.runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
+                            }
                             success++;
                         } catch (err) {
                             fail++;
@@ -1411,6 +1409,140 @@
                 bag.meta.set('-r', { multi: true });
             }
             return tempFiles;
+        },
+
+        // ── Server mode primary: ephemeral, no temp _ref_ files, Keep/Discard ──
+        async runServer(log, preview, progress, progressLabel, stopBtn, container) {
+            const srv = window.VP_SD_SERVER || window.VisualProjector?.sdServer;
+            if (!srv) {
+                if (log) log.innerHTML += `<div style="color:var(--error)">SD Server manager not loaded (sd-server-manager.js missing)</div>`;
+                VP.showToast?.('SD Server manager not loaded', 'error');
+                return;
+            }
+            // Sync config from AssetStudio
+            try {
+                srv.setConfig({
+                    executablePath: this.config.serverExecutablePath || './bin/sd.cpp/sd-server.exe',
+                    host: this.config.serverHost || '127.0.0.1',
+                    port: Number(this.config.serverPort) || 8085,
+                });
+            } catch {}
+
+            if (preview) preview.innerHTML = `<div class="vp-as-preview-placeholder">🟢 Server mode — resolving refs to base64 (no temp files)...</div>`;
+            progress.style.width = '8%';
+            this.running = true;
+            if (stopBtn) {
+                stopBtn.style.display = 'inline-block';
+                stopBtn.onclick = async () => {
+                    VP.showToast?.('Stop not implemented for server — use Unload', 'info');
+                };
+            }
+            this.updateStudioStatus(container, '🟢 Server → gen');
+
+            const logCb = (line, lvl = 'info') => {
+                if (!log) return;
+                const esc = String(line).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const color = lvl === 'error' ? 'var(--error)' : lvl === 'warn' ? '#e5c07b' : lvl === 'ok' ? '#a6e3a1' : 'var(--text-secondary)';
+                log.innerHTML += `<div style="color:${color}">${esc}</div>`;
+                log.scrollTop = log.scrollHeight;
+            };
+            const progressCb = (pct, label) => {
+                if (progress) {
+                    progress.style.transition = 'width 0.2s ease';
+                    progress.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+                }
+                if (progressLabel && label) progressLabel.textContent = label;
+            };
+
+            try {
+                logCb(`Server ${srv.urlBase} — building request from graph (RAM-first, ephemeral)...`, 'info');
+                const result = await srv.generateFromGraph({ logCallback: logCb, progressCallback: progressCb });
+
+                // result: {blob, url, ephemeralId, assetName}
+                progressCb(100, `✅ Done in ${result.elapsed}s — ephemeral`);
+                logCb(`Ephemeral image ${result.ephemeralId} — ${result.blob.size} bytes. Awaiting Keep/Discard`, 'ok');
+
+                // Show preview with Keep/Discard (Blender Render Result style)
+                this._showEphemeralPreview(result, preview, log, container);
+
+                VP.showToast?.(`🖼 Generated (ephemeral) — Keep or Discard`, 'success');
+            } catch (err) {
+                console.error('[Asset Studio] server gen failed', err);
+                if (preview) preview.innerHTML = `<div class="vp-as-preview-placeholder" style="color:var(--error)">Server gen failed: ${err.message || err}</div>`;
+                logCb(`❌ ${err.message || err}`, 'error');
+                VP.showToast?.(`Server gen failed: ${err.message || err}`, 'error');
+            } finally {
+                this.running = false;
+                if (stopBtn) stopBtn.style.display = 'none';
+                this.updateStudioStatus(container);
+                setTimeout(() => { if (progress) progress.style.width = '0%'; if (progressLabel) progressLabel.textContent = ''; }, 1200);
+            }
+        },
+
+        _showEphemeralPreview(result, preview, log, container) {
+            const srv = window.VP_SD_SERVER;
+            if (!preview) return;
+            preview.innerHTML = '';
+            const wrap = document.createElement('div');
+            wrap.className = 'vp-as-ephemeral-wrap';
+            wrap.style.cssText = 'display:flex; flex-direction:column; gap:6px; width:100%;';
+            wrap.innerHTML = `
+                <img src="${result.url}" style="max-width:100%;max-height:240px;object-fit:contain;border-radius:6px;border:1px solid rgba(255,255,255,0.12);" alt="ephemeral">
+                <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">
+                    <button class="vp-btn vp-btn-primary" data-act="keep">💾 Keep to Gallery</button>
+                    <button class="vp-btn vp-btn-ghost" data-act="discard">🗑 Discard</button>
+                    <button class="vp-btn vp-btn-ghost" data-act="copy">📋 Copy</button>
+                </div>
+                <div style="font-size:10px;color:var(--text-secondary);text-align:center;">Ephemeral (RAM) — ${result.assetName || 'gen'} · ${result.blob.size} bytes · privacy safe, no disk file</div>
+            `;
+            preview.appendChild(wrap);
+
+            const outputNode = Array.from(Graph.nodes.values()).find(n => n.type === 'output');
+            if (outputNode) outputNode.setPreview(result.url);
+
+            wrap.querySelector('[data-act="keep"]').addEventListener('click', async () => {
+                if (!VP.gallery?.addImageFromBlob) {
+                    VP.showToast?.('Gallery not loaded', 'warn');
+                    return;
+                }
+                let tagName = result.assetName || `gen_${Date.now().toString(36)}`;
+                try {
+                    const tag = await VP.gallery.addImageFromBlob(result.blob, {
+                        source: 'generated',
+                        suggestedName: `${tagName}.png`,
+                        setAsCurrent: false,
+                        instantPersist: false,
+                    });
+                    if (tag && outputNode) outputNode.data.lastAssetTag = tag;
+                    VP.showToast?.(`Kept to gallery: ${tag}`, 'success');
+                    if (log) log.innerHTML += `<div><b>✓ Kept:</b> ${tag}</div>`;
+                    // Remove from ephemeral after keep
+                    srv?.removeEphemeral(result.ephemeralId);
+                    wrap.querySelector('[data-act="keep"]').textContent = `✓ ${tag}`;
+                    wrap.querySelector('[data-act="keep"]').disabled = true;
+                } catch (e) {
+                    VP.showToast?.(`Keep failed: ${e.message || e}`, 'error');
+                }
+            });
+            wrap.querySelector('[data-act="discard"]').addEventListener('click', () => {
+                srv?.removeEphemeral(result.ephemeralId);
+                preview.innerHTML = `<div class="vp-as-preview-placeholder">🗑 Discarded — ephemeral cleared from RAM</div>`;
+                if (outputNode) outputNode.setPreview(null);
+                VP.showToast?.('Discarded ephemeral', 'info');
+                if (log) log.innerHTML += `<div>🗑 Discarded ${result.ephemeralId}</div>`;
+            });
+            wrap.querySelector('[data-act="copy"]').addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': result.blob })]);
+                    VP.showToast?.('Image copied to clipboard', 'success');
+                } catch {
+                    // Fallback: create download
+                    const a = document.createElement('a');
+                    a.href = result.url;
+                    a.download = `${result.assetName || 'gen'}.png`;
+                    a.click();
+                }
+            });
         },
 
         async runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName) {
@@ -1701,8 +1833,14 @@
                     const imageData = await this.loadOutputImage(outputPath);
                     if (imageData) {
                         this.displayResult(imageData, outputPath, preview, assetName);
-                        log.innerHTML += `<div><b>✓</b> Output: ${outputPath}</div>`;
+                        log.innerHTML += `<div><b>✓</b> Output: ${outputPath} (RAM, file will be deleted for privacy)</div>`;
                         VP.showToast?.('Asset generated', 'success');
+                        // RAM-first: delete output file after blob loaded — ephemeral even for CLI fallback
+                        if (window.Neutralino?.filesystem?.remove) {
+                            Neutralino.filesystem.remove(imageData.path).catch(() => {}).then(() => {
+                                log.innerHTML += `<div style="opacity:0.5">🗑 Deleted CLI output file (ephemeral): ${imageData.path}</div>`;
+                            });
+                        }
                     } else if (preview) {
                         preview.innerHTML = `<div class="vp-as-preview-placeholder">Done, but output image not found.<br>${outputPath}</div>`;
                         VP.showToast?.('Render finished; image not loaded', 'info');
@@ -1745,8 +1883,11 @@
                     const imageData = await this.loadOutputImage(outputPath);
                     if (imageData) {
                         this.displayResult(imageData, outputPath, preview, assetName);
-                        log.innerHTML += `<div><b>✓</b> Output: ${outputPath}</div>`;
+                        log.innerHTML += `<div><b>✓</b> Output: ${outputPath} (RAM, file will be deleted)</div>`;
                         VP.showToast?.('Asset generated', 'success');
+                        if (window.Neutralino?.filesystem?.remove) {
+                            Neutralino.filesystem.remove(imageData.path).catch(() => {});
+                        }
                     } else if (preview) {
                         preview.innerHTML = `<div class="vp-as-preview-placeholder">Done, but output image not found.<br>${outputPath}</div>`;
                         VP.showToast?.('Render finished; image not loaded', 'info');
@@ -1856,18 +1997,38 @@
                         <label class="vp-as-lib-toggle"><input type="checkbox" data-lib-recursive="${kind}" ${cfg.recursive !== false ? 'checked' : ''}> Scan subfolders recursively</label>
                     </div>`;
             }).join('');
+            const srv = window.VP_SD_SERVER;
+            const srvStatus = srv ? `${srv.status} ${srv.isRunning ? '🟢' : '🔴'} ${srv.urlBase}` : 'manager not loaded';
             container.innerHTML = `
                 <div class="vp-shell-settings-form">
-                    <label><span>Executable Path</span><input type="text" data-k="executablePath" value="${this.config.executablePath}"></label>
-                    <label><span>Output Directory</span><input type="text" data-k="outputDir" value="${this.config.outputDir}"></label>
                     <label><span>Engine Mode</span>
                         <select data-k="engineMode">
-                            <option value="cli" ${this.config.engineMode === 'cli' ? 'selected' : ''}>CLI (sd-cli.exe)</option>
-                            <option value="server" ${this.config.engineMode === 'server' ? 'selected' : ''}>Server (sd-server.exe)</option>
+                            <option value="server" ${this.config.engineMode === 'server' ? 'selected' : ''}>Server (primary, RAM-ephemeral)</option>
+                            <option value="cli" ${this.config.engineMode === 'cli' ? 'selected' : ''}>CLI (fallback, file)</option>
                         </select>
                     </label>
+                    <label><span>CLI Executable</span><input type="text" data-k="executablePath" value="${this.config.executablePath}"></label>
+                    <label><span>Server Executable</span><input type="text" data-k="serverExecutablePath" value="${this.config.serverExecutablePath || './bin/sd.cpp/sd-server.exe'}"></label>
+                    <label><span>Server Host</span><input type="text" data-k="serverHost" value="${this.config.serverHost || '127.0.0.1'}"></label>
+                    <label><span>Server Port</span><input type="number" data-k="serverPort" value="${this.config.serverPort || 8085}"></label>
+                    <label><span>Output Dir (CLI only)</span><input type="text" data-k="outputDir" value="${this.config.outputDir}"></label>
                 </div>
-                <div class="vp-shell-settings-note">CLI = запуск на каждый рендер. Server = заглушка, модель держится в памяти.</div>
+                <div class="vp-shell-settings-note" style="margin-top:8px">🟢 Server primary: модель грузится один раз в VRAM, генерация по HTTP → Blob RAM → Keep/Discard (Blender Render Result). Референсы как base64, без _ref_*.png. CLI — фолбек, пишет файл.</div>
+                <div class="vp-as-lib-section" style="margin-top:10px">
+                    <div class="vp-as-lib-title">🖥 SD Server Control</div>
+                    <div style="font-size:11px;color:var(--text-secondary)">Status: <b>${srvStatus}</b></div>
+                    <div style="font-size:10px;color:var(--text-secondary);line-height:1.3;">Model: ${srv?.modelPath || 'none'}<br>Ephemeral cache: ${srv?.ephemeral?.size || 0} image(s) in RAM</div>
+                    <div class="vp-as-lib-actions" style="margin-top:6px; flex-wrap:wrap;">
+                        <button class="vp-btn vp-btn-sm" data-act="srv-start">▶ Start Server</button>
+                        <button class="vp-btn vp-btn-sm" data-act="srv-stop">⏹ Stop</button>
+                        <button class="vp-btn vp-btn-sm" data-act="srv-unload">💤 Unload (free VRAM)</button>
+                        <button class="vp-btn vp-btn-sm" data-act="srv-health">🩺 Health</button>
+                        <button class="vp-btn vp-btn-sm" data-act="srv-copy-cmd">📋 Copy Cmd</button>
+                        <button class="vp-btn vp-btn-sm" data-act="srv-copy-logs">📋 Copy Logs</button>
+                        <button class="vp-btn vp-btn-sm" data-act="srv-clear-ephemeral">🗑 Clear Ephemeral</button>
+                    </div>
+                    <div class="vp-as-lib-note" style="margin-top:4px">Resource Manager: генерация жрет всю VRAM. Перед чатом выгружай модель (Unload) или останавливай сервер. В будущем — авто-переключение llama.cpp ↔ sd.cpp.</div>
+                </div>
                 <div class="vp-as-lib-section">
                     <div class="vp-as-lib-title">Model Libraries</div>
                     <div class="vp-as-lib-note">Configure absolute paths for model libraries. One folder path per line. Studio will scan these folders and show a picker instead of raw file browsing.</div>
@@ -1900,6 +2061,60 @@
                 if (btn) btn.disabled = false;
                 this.renderSettings(container);
                 VP.showToast?.('Model libraries rescanned', 'success');
+            });
+
+            // Server controls
+            const srvMgr = window.VP_SD_SERVER;
+            container.querySelector('[data-act="srv-start"]')?.addEventListener('click', async () => {
+                if (!srvMgr) { VP.showToast?.('Server manager not loaded', 'error'); return; }
+                // Get model from loader node
+                const Graph = window.VP_AS?.Graph;
+                const loaderNode = Graph ? Array.from(Graph.nodes.values()).find(n => n.type === 'loader') : null;
+                const modelPath = loaderNode?.data?.coreModel || '';
+                if (!modelPath) { VP.showToast?.('Set model in Loader node first', 'warn'); return; }
+                srvMgr.setConfig({
+                    executablePath: this.config.serverExecutablePath,
+                    host: this.config.serverHost,
+                    port: Number(this.config.serverPort) || 8085,
+                });
+                await srvMgr.start({ modelPath, vaePath: loaderNode?.data?.vae, clipLPath: loaderNode?.data?.clip1, t5xxlPath: loaderNode?.data?.t5xxl });
+                this.renderSettings(container);
+            });
+            container.querySelector('[data-act="srv-stop"]')?.addEventListener('click', async () => {
+                if (!srvMgr) return;
+                await srvMgr.stop();
+                this.renderSettings(container);
+            });
+            container.querySelector('[data-act="srv-unload"]')?.addEventListener('click', async () => {
+                if (!srvMgr) return;
+                await srvMgr.unload();
+                this.renderSettings(container);
+            });
+            container.querySelector('[data-act="srv-health"]')?.addEventListener('click', async () => {
+                if (!srvMgr) return;
+                const h = await srvMgr.healthCheck();
+                VP.showToast?.(h.ok ? `Health OK: ${JSON.stringify(h.capabilities?.model || {}).slice(0,120)}` : `Health failed: ${h.error || h.status}`, h.ok ? 'success' : 'error');
+            });
+            container.querySelector('[data-act="srv-clear-ephemeral"]')?.addEventListener('click', () => {
+                if (!srvMgr) return;
+                const n = srvMgr.ephemeral?.size || 0;
+                srvMgr.clearEphemeral();
+                VP.showToast?.(`Cleared ${n} ephemeral image(s) from RAM`, 'info');
+                this.renderSettings(container);
+            });
+            container.querySelector('[data-act="srv-copy-cmd"]')?.addEventListener('click', async () => {
+                if (!srvMgr) return;
+                const cmd = srvMgr.getLastCommand?.() || '';
+                if (!cmd) { VP.showToast?.('No command yet', 'warn'); return; }
+                try { await navigator.clipboard.writeText(cmd); VP.showToast?.('Command copied — paste in PowerShell to test', 'success'); }
+                catch { VP.showToast?.(cmd.slice(0,200), 'info'); }
+            });
+            container.querySelector('[data-act="srv-copy-logs"]')?.addEventListener('click', async () => {
+                if (!srvMgr) return;
+                const logs = srvMgr.lastLogs?.join('\n') || '';
+                if (!logs) { VP.showToast?.('No logs yet', 'warn'); return; }
+                try { await navigator.clipboard.writeText(logs); VP.showToast?.(`Copied ${srvMgr.lastLogs.length} log lines`, 'success'); }
+                catch { console.log(logs); VP.showToast?.('Logs in console (F12)', 'info'); }
             });
         },
 
