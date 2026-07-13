@@ -13,8 +13,16 @@
     const normPath = (p) => String(p || '').replace(/\\/g, '/').replace(/"/g, '');
     const uid = (prefix = 'gen') => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
+    function toWinPath(p) {
+        if (typeof p !== 'string') return p;
+        return p.replace(/\//g, '\\');
+    }
+
+    function isWindows() {
+        try { return (window.NL_OS || '').toLowerCase().includes('windows'); } catch { return true; }
+    }
+
     function b64FromBytes(bytes) {
-        // bytes = Uint8Array or ArrayBuffer
         let arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
         let binary = '';
         const chunk = 8192;
@@ -50,9 +58,7 @@
         if (typeof ref !== 'string') return null;
         const s = ref.trim();
         if (!s) return null;
-        // Already data URL
         if (s.startsWith('data:image/')) return s;
-        // Blob URL — fetch
         if (s.startsWith('blob:')) {
             try {
                 const res = await fetch(s);
@@ -63,7 +69,6 @@
                 return null;
             }
         }
-        // http/https — try fetch (may fail due CORS, but try)
         if (/^https?:\/\//i.test(s)) {
             try {
                 const res = await fetch(s);
@@ -74,7 +79,6 @@
                 return null;
             }
         }
-        // File path — read via Neutralino
         if (window.Neutralino?.filesystem?.readBinaryFile) {
             try {
                 const bin = await Neutralino.filesystem.readBinaryFile(s);
@@ -83,8 +87,6 @@
                 const b64 = b64FromBytes(bin);
                 return `data:${mime};base64,${b64}`;
             } catch (e) {
-                console.warn('[SD Server] file to base64 failed', s, e);
-                // Try with normalized path
                 const alt = normPath(s);
                 if (alt !== s) {
                     try {
@@ -98,7 +100,6 @@
                 return null;
             }
         }
-        // Gallery asset tag? Try VP state
         try {
             const S = window.VisualProjector?.state;
             if (S?.gallery?.get) {
@@ -107,7 +108,7 @@
                     if (asset.base64 && asset.base64.startsWith('data:image/')) return asset.base64;
                     if (asset.url && asset.url.startsWith('data:image/')) return asset.url;
                     if (asset.blob) return await blobToDataURL(asset.blob);
-                    if (asset.url) return await refToBase64(asset.url); // recursion for blob:
+                    if (asset.url) return await refToBase64(asset.url);
                 }
             }
         } catch {}
@@ -125,11 +126,12 @@
             this.isStarting = false;
             this.modelPath = null;
             this.lastLogs = [];
-            this.status = 'stopped'; // stopped, starting, running, error
+            this.status = 'stopped';
             this._logListeners = new Set();
             this._processHandler = null;
             this._capabilities = null;
-            // Ephemeral cache: id -> {blob, url, prompt, ts, assetName, payload}
+            this._lastExitCode = null;
+            this._useNewFlags = false; // false = --host/--port, true = --listen-ip/--listen-port
             this.ephemeral = new Map();
             SEnsureEphemeral();
             console.log('[SD Server] Manager created — ready for ephemeral gen');
@@ -147,6 +149,7 @@
                 modelPath: this.modelPath,
                 status: this.status,
                 isRunning: this.isRunning,
+                useNewFlags: this._useNewFlags,
             };
         }
 
@@ -154,7 +157,7 @@
             if (cfg.executablePath) this.executablePath = normPath(cfg.executablePath);
             if (cfg.host) this.host = String(cfg.host).trim();
             if (cfg.port) this.port = Number(cfg.port) || this.port;
-            // Persist to assetStudio config if available
+            if (typeof cfg.useNewFlags === 'boolean') this._useNewFlags = cfg.useNewFlags;
             try {
                 const AS = window.VisualProjector?.assetStudio;
                 if (AS?.config) {
@@ -172,25 +175,38 @@
 
         _emitLog(line, level = 'info') {
             this.lastLogs.push(`[${new Date().toLocaleTimeString()}] ${line}`);
-            if (this.lastLogs.length > 500) this.lastLogs = this.lastLogs.slice(-400);
+            if (this.lastLogs.length > 600) this.lastLogs = this.lastLogs.slice(-450);
             for (const l of this._logListeners) {
                 try { l(line, level); } catch {}
             }
+            // Also mirror to console for F12
+            if (level === 'error') console.error(`[SD Server] ${line}`);
+            else if (level === 'warn') console.warn(`[SD Server] ${line}`);
+            else console.log(`[SD Server] ${line}`);
         }
 
-        async _waitForServerReady(timeoutMs = 30000) {
+        async _waitForServerReady(timeoutMs = 35000) {
             const start = Date.now();
+            let attempts = 0;
             while (Date.now() - start < timeoutMs) {
-                if (!this.isRunning && !this.isStarting) break;
+                attempts++;
+                // Early exit if process died
+                if (!this.isRunning && !this.isStarting) {
+                    this._emitLog(`Process died during startup (exit ${this._lastExitCode}). Last logs:\n${this.lastLogs.slice(-12).join('\n')}`, 'error');
+                    return false;
+                }
+                // Try both endpoints
                 try {
-                    const res = await fetch(`${this.urlBase}/v1/models`, { method: 'GET' });
+                    const res = await fetch(`${this.urlBase}/v1/models`, { method: 'GET', cache: 'no-store' });
                     if (res.ok) {
-                        this._emitLog(`Server ready at ${this.urlBase} (${Math.round((Date.now() - start)/1000)}s)`, 'ok');
+                        this._emitLog(`Server ready at ${this.urlBase} (${Math.round((Date.now() - start)/1000)}s, ${attempts} checks)`, 'ok');
                         return true;
                     }
-                } catch {}
+                } catch (e) {
+                    if (attempts % 6 === 1) this._emitLog(`Waiting ${this.urlBase}/v1/models — ${e.message || 'refused'}`, 'info');
+                }
                 try {
-                    const res2 = await fetch(`${this.urlBase}/sdcpp/v1/capabilities`, { method: 'GET' });
+                    const res2 = await fetch(`${this.urlBase}/sdcpp/v1/capabilities`, { method: 'GET', cache: 'no-store' });
                     if (res2.ok) {
                         const cap = await res2.json();
                         this._capabilities = cap;
@@ -205,7 +221,7 @@
 
         async healthCheck() {
             try {
-                const res = await fetch(`${this.urlBase}/sdcpp/v1/capabilities`);
+                const res = await fetch(`${this.urlBase}/sdcpp/v1/capabilities`, { cache: 'no-store' });
                 if (res.ok) {
                     this._capabilities = await res.json();
                     return { ok: true, capabilities: this._capabilities };
@@ -216,39 +232,66 @@
             }
         }
 
-        _buildServerArgs({ modelPath, vaePath, clipLPath, t5xxlPath, extra = {} } = {}) {
-            // sd-server args are mostly same as sd-cli plus host/port
-            // Support both old (--host/--port) and new (--listen-ip/--listen-port) flags — we try old first
+        _buildServerArgs({ modelPath, vaePath, clipLPath, t5xxlPath, extra = {} } = {}, useNewFlags = false) {
+            const win = isWindows();
+            const qp = (p) => {
+                if (!p) return p;
+                let pp = normPath(p);
+                if (win) pp = toWinPath(pp);
+                // Quote if spaces
+                if (pp.includes(' ') && !pp.startsWith('"')) return `"${pp}"`;
+                return pp;
+            };
+
             const args = [];
-            // Model
             if (modelPath) {
-                // Detect if .gguf standalone or full?
-                // Use -m for simplicity (works for both in newer builds, --diffusion-model for standalone)
-                // Check ext
-                const lower = modelPath.toLowerCase();
-                if (lower.endsWith('.gguf')) {
-                    args.push('-m', `"${modelPath}"`);
-                } else {
-                    args.push('-m', `"${modelPath}"`);
-                }
+                args.push('-m', qp(modelPath));
             }
-            if (vaePath) args.push('--vae', `"${vaePath}"`);
-            if (clipLPath) args.push('--clip_l', `"${clipLPath}"`);
-            if (t5xxlPath) args.push('--t5xxl', `"${t5xxlPath}"`);
-            // Extra known loader args
+            if (vaePath) args.push('--vae', qp(vaePath));
+            if (clipLPath) args.push('--clip_l', qp(clipLPath));
+            if (t5xxlPath) args.push('--t5xxl', qp(t5xxlPath));
             if (extra.threads) args.push('-t', String(extra.threads));
             if (extra.clipOnCpu) args.push('--clip-on-cpu');
             if (extra.vaeOnCpu) args.push('--vae-on-cpu');
             if (extra.offloadToCpu) args.push('--offload-to-cpu');
             if (extra.diffusionFa) args.push('--diffusion-fa');
-            if (extra.loraDir) args.push('--lora-model-dir', `"${extra.loraDir}"`);
+            if (extra.loraDir) args.push('--lora-model-dir', qp(extra.loraDir));
 
-            // Server specific
-            args.push('--host', this.host);
-            args.push('--port', String(this.port));
-            args.push('-v'); // verbose for logs
-
+            if (useNewFlags) {
+                args.push('--listen-ip', this.host);
+                args.push('--listen-port', String(this.port));
+            } else {
+                args.push('--host', this.host);
+                args.push('--port', String(this.port));
+            }
+            args.push('-v');
             return args.join(' ');
+        }
+
+        _buildCommand(argsStr) {
+            let exe = normPath(this.executablePath);
+            if (isWindows()) exe = toWinPath(exe);
+            // Quote exe if spaces and not already quoted
+            if (exe.includes(' ') && !exe.startsWith('"')) exe = `"${exe}"`;
+            return `${exe} ${argsStr}`;
+        }
+
+        async _spawnOnce(argsStr) {
+            const cwd = window.NL_CWD || '.';
+            const cmd = this._buildCommand(argsStr);
+            this._emitLog(`Spawning: ${cmd} @ ${cwd}`, 'info');
+            try {
+                const proc = await Neutralino.os.spawnProcess(cmd, { cwd });
+                this.processId = proc.id;
+                this.isRunning = true;
+                this._lastExitCode = null;
+                this._bindProcessEvents();
+                this._emitLog(`Spawned sd-server pid=${proc.id} at ${this.urlBase}`, 'ok');
+                return proc;
+            } catch (e) {
+                this._emitLog(`spawnProcess failed: ${e.message || e}`, 'error');
+                throw e;
+            }
         }
 
         async start(opts = {}) {
@@ -273,7 +316,6 @@
                 return false;
             }
 
-            // Verify executable exists
             if (window.Neutralino?.filesystem?.getStats) {
                 try {
                     await Neutralino.filesystem.getStats(this.executablePath);
@@ -290,44 +332,64 @@
             }
 
             const extra = opts.extra || {};
-            const argStr = this._buildServerArgs({ modelPath, vaePath: opts.vaePath, clipLPath: opts.clipLPath, t5xxlPath: opts.t5xxlPath, extra });
-            const cmd = `${this.executablePath} ${argStr}`;
-            const cwd = window.NL_CWD || '.';
+            const common = { modelPath, vaePath: opts.vaePath, clipLPath: opts.clipLPath, t5xxlPath: opts.t5xxlPath, extra };
 
             this.isStarting = true;
             this.status = 'starting';
             this.modelPath = modelPath;
             this.lastLogs = [];
-            this._emitLog(`Starting: ${cmd}`, 'info');
+            this._lastExitCode = null;
 
-            try {
-                const proc = await Neutralino.os.spawnProcess(cmd, { cwd });
-                this.processId = proc.id;
-                this.isRunning = true;
-                this._bindProcessEvents();
-                this._emitLog(`Spawned sd-server pid=${proc.id} at ${this.urlBase}`, 'ok');
+            // Try old flags first unless we already know new flags needed
+            const flagsToTry = this._useNewFlags ? [true, false] : [false, true];
 
-                const ready = await this._waitForServerReady(35000);
-                if (!ready) {
-                    this._emitLog('Server did not become ready in 35s', 'error');
-                    this.status = 'error';
-                    // Don't auto-kill, let user see logs
-                    VP.showToast?.('SD Server started but not responding', 'warn');
-                    this.isStarting = false;
-                    return false;
+            for (let attempt = 0; attempt < flagsToTry.length; attempt++) {
+                const useNew = flagsToTry[attempt];
+                const flagLabel = useNew ? '--listen-ip/--listen-port (new)' : '--host/--port (old)';
+                this._emitLog(`Attempt ${attempt+1}/${flagsToTry.length}: ${flagLabel}`, 'info');
+                const argStr = this._buildServerArgs(common, useNew);
+                try {
+                    await this._spawnOnce(argStr);
+                } catch (e) {
+                    this._emitLog(`Spawn attempt ${attempt+1} failed: ${e.message}`, 'error');
+                    continue;
                 }
-                this.status = 'running';
-                this.isStarting = false;
-                VP.showToast?.(`🟢 SD Server running at ${this.urlBase}`, 'success');
-                return true;
-            } catch (e) {
-                this.isStarting = false;
-                this.isRunning = false;
-                this.status = 'error';
-                this._emitLog(`Start failed: ${e.message || e}`, 'error');
-                VP.showToast?.(`SD Server start failed: ${e.message || e}`, 'error');
-                return false;
+
+                const ready = await this._waitForServerReady(20000);
+                if (ready) {
+                    this.status = 'running';
+                    this.isStarting = false;
+                    this._useNewFlags = useNew; // remember working style
+                    VP.showToast?.(`🟢 SD Server running at ${this.urlBase} (${flagLabel})`, 'success');
+                    return true;
+                }
+
+                // Not ready — check if process died quickly (wrong flags)
+                if (!this.isRunning) {
+                    const last = this.lastLogs.slice(-20).join('\n').toLowerCase();
+                    const isFlagError = last.includes('unknown') || last.includes('unrecognized') || last.includes('host') || last.includes('listen') || last.includes('port');
+                    this._emitLog(`Server died quickly (exit ${this._lastExitCode}). Flag error suspect: ${isFlagError}. Trying other flag style...`, isFlagError ? 'warn' : 'error');
+                    // Small delay before retry
+                    await new Promise(r => setTimeout(r, 800));
+                    // Ensure stopped state
+                    this.processId = null;
+                    this.isRunning = false;
+                    continue;
+                } else {
+                    // Still running but not responding — keep it? For now stop and retry other flags
+                    this._emitLog('Server process still alive but not responding, stopping for retry...', 'warn');
+                    await this.stop();
+                    await new Promise(r => setTimeout(r, 500));
+                    continue;
+                }
             }
+
+            // All attempts failed
+            this._emitLog(`All flag attempts failed. Last logs:\n${this.lastLogs.slice(-30).join('\n')}`, 'error');
+            this.status = 'error';
+            this.isStarting = false;
+            VP.showToast?.(`SD Server start failed — check logs. Try running ${this.executablePath} --help in terminal`, 'error');
+            return false;
         }
 
         _bindProcessEvents() {
@@ -339,14 +401,19 @@
                 if (e.detail.id != pid) return;
                 if (e.detail.action === 'stdOut' || e.detail.action === 'stdErr') {
                     const data = String(e.detail.data || '');
-                    // Split into lines, strip ANSI
                     const clean = data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
                     const lines = clean.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
                     for (const l of lines) {
-                        this._emitLog(l, e.detail.action === 'stdErr' ? 'stderr' : 'stdout');
+                        // Detect ready message
+                        if (l.toLowerCase().includes('server listening') || l.toLowerCase().includes('listening on')) {
+                            this._emitLog(l, 'ok');
+                        } else {
+                            this._emitLog(l, e.detail.action === 'stdErr' ? 'stderr' : 'stdout');
+                        }
                     }
                 } else if (e.detail.action === 'exit') {
                     const code = e.detail.data;
+                    this._lastExitCode = code;
                     this._emitLog(`Server exited with code ${code}`, code === 0 ? 'ok' : 'error');
                     this.isRunning = false;
                     this.status = code === 0 ? 'stopped' : 'error';
@@ -360,7 +427,7 @@
 
         async stop() {
             if (!this.processId) {
-                this._emitLog('Server not running', 'info');
+                this._emitLog('Server not running (no pid)', 'info');
                 this.isRunning = false;
                 this.status = 'stopped';
                 return true;
@@ -370,8 +437,7 @@
                 if (window.Neutralino?.os?.updateSpawnedProcess) {
                     await Neutralino.os.updateSpawnedProcess(this.processId, 'exit');
                 }
-                // Wait a bit for exit event
-                await new Promise(r => setTimeout(r, 800));
+                await new Promise(r => setTimeout(r, 900));
                 this.isRunning = false;
                 this.status = 'stopped';
                 this.processId = null;
@@ -389,11 +455,8 @@
         }
 
         async unload() {
-            // For sd-server, unloading = stop. There's no dynamic unload API, but we can call stop and clear VRAM
-            // Future: if server supports POST /unload or similar, call it
             this._emitLog('Unload model — stopping server to free VRAM', 'info');
             await this.stop();
-            // Also try to call server unload endpoint if it exists (some forks have /models/unload)
             try {
                 await fetch(`${this.urlBase}/models/unload`, { method: 'POST' });
             } catch {}
@@ -404,7 +467,6 @@
             VP.showToast?.('Model unloaded (server stopped, VRAM freed)', 'success');
         }
 
-        // ── Ephemeral cache ──
         addEphemeral({ blob, prompt, assetName, payload }) {
             const id = uid('ephem');
             const url = URL.createObjectURL(blob);
@@ -436,9 +498,7 @@
             this.ephemeral.clear();
         }
 
-        // ── Generation via native async API ──
         async generateFromGraph({ logCallback, progressCallback } = {}) {
-            // Build payload from graph nodes
             const Graph = window.VP_AS?.Graph;
             if (!Graph) throw new Error('Graph not available');
             const nodes = Array.from(Graph.nodes.values());
@@ -447,7 +507,6 @@
             const samplerNode = nodes.find(n => n.type === 'sampler');
             const loraNode = nodes.find(n => n.type === 'lora');
 
-            // Ensure server running with correct model
             const modelPath = loaderNode?.data?.coreModel || loaderNode?.data?.diffusionModel || '';
             if (!modelPath) throw new Error('No model set in Loader node');
 
@@ -461,9 +520,8 @@
                     loraDir: loraNode?.data?.loraDir || '',
                 };
                 await this.start({ modelPath, vaePath: loaderNode?.data?.vae, clipLPath: loaderNode?.data?.clip1 || loaderNode?.data?.llm, t5xxlPath: loaderNode?.data?.t5xxl, extra });
-                if (!this.isRunning) throw new Error('Failed to start SD Server');
+                if (!this.isRunning) throw new Error(`Failed to start SD Server. Last logs:\n${this.lastLogs.slice(-20).join('\n')}`);
             } else if (this.modelPath !== modelPath) {
-                // Model changed — restart
                 if (logCallback) logCallback(`Model changed from ${this.modelPath} to ${modelPath}, restarting server...`, 'warn');
                 await this.stop();
                 await new Promise(r => setTimeout(r, 500));
@@ -478,24 +536,20 @@
                 await this.start({ modelPath, vaePath: loaderNode?.data?.vae, clipLPath: loaderNode?.data?.clip1, t5xxlPath: loaderNode?.data?.t5xxl, extra });
             }
 
-            // Build prompt
             let promptText = '';
             let negativePrompt = '';
             let assetName = null;
-            let referenceImages = []; // base64 data URLs
+            let referenceImages = [];
 
             if (promptNode) {
                 const activeTab = promptNode.data.tabs?.find(t => t.id === promptNode.data.activeTabId) || promptNode.data.tabs?.[0];
                 if (activeTab) {
                     const text = activeTab.text || '';
-                    // extract {name:...}
                     const nameMatch = text.match(/\{\s*name\s*:\s*(.+?)\s*\}/i);
                     if (nameMatch) assetName = nameMatch[1].trim();
                     promptText = text.replace(/\{[^}]+\}/g, '').trim();
                 }
                 negativePrompt = promptNode.data.negative || '';
-
-                // Reference images from prompt node
                 const refs = Array.isArray(promptNode.data.reference) ? promptNode.data.reference : [];
                 if (refs.length) {
                     if (logCallback) logCallback(`Resolving ${refs.length} reference image(s) to base64...`, 'info');
@@ -507,7 +561,6 @@
                 }
             }
 
-            // Sampler
             const width = Number(samplerNode?.data?.width || 512);
             const height = Number(samplerNode?.data?.height || 512);
             const steps = Number(samplerNode?.data?.steps || 20);
@@ -518,7 +571,6 @@
             const scheduler = samplerNode?.data?.scheduler || 'discrete';
             const clipSkip = samplerNode?.data?.clipSkip != null ? Number(samplerNode.data.clipSkip) : -1;
 
-            // LoRA
             const loraList = [];
             if (loraNode?.data?.items) {
                 for (const item of loraNode.data.items) {
@@ -527,15 +579,12 @@
                 }
             }
 
-            // Build native sdcpp API payload
-            // According to api.md, ref_images for reference, init_image for img2img
             let init_image = null;
             let ref_images = [];
             if (referenceImages.length) {
                 if (strength < 1.0 && referenceImages.length > 0) {
                     init_image = referenceImages[0];
                     ref_images = referenceImages.slice(1);
-                    // If only 1 ref and it's img2img, use it as init_image
                 } else {
                     ref_images = referenceImages;
                 }
@@ -554,9 +603,7 @@
                     sample_steps: steps,
                     sample_method: samplerMethod,
                     scheduler,
-                    guidance: {
-                        txt_cfg: cfg,
-                    }
+                    guidance: { txt_cfg: cfg }
                 },
                 lora: loraList,
                 output_format: 'png',
@@ -564,8 +611,6 @@
             };
             if (init_image) payload.init_image = init_image;
             if (ref_images.length) payload.ref_images = ref_images;
-
-            // Add width/height clamping
             payload.width = Math.max(64, Math.min(2048, payload.width));
             payload.height = Math.max(64, Math.min(2048, payload.height));
 
@@ -600,13 +645,12 @@
                 throw e;
             }
 
-            // Poll
             const pollUrl = `${this.urlBase}/sdcpp/v1/jobs/${jobId}`;
             let lastStatus = '';
             while (true) {
                 await new Promise(r => setTimeout(r, 600));
                 try {
-                    const r = await fetch(pollUrl);
+                    const r = await fetch(pollUrl, { cache: 'no-store' });
                     if (!r.ok) {
                         if (r.status === 404 || r.status === 410) throw new Error(`Job ${jobId} not found (${r.status})`);
                         continue;
@@ -617,23 +661,18 @@
                         if (logCallback) logCallback(`Job ${jobId}: ${job.status} ${job.queue_position != null ? `(queue ${job.queue_position})` : ''}`, 'info');
                     }
                     if (progressCallback) {
-                        // Fake progress from status: queued 10%, generating 50%
                         if (job.status === 'queued') progressCallback(10 + Math.min(20, (job.queue_position || 0) * 2), `Queued #${job.queue_position || 0}`);
                         else if (job.status === 'generating') progressCallback(50, 'Generating...');
                     }
-
                     if (job.status === 'completed') {
                         const images = job.result?.images || [];
                         if (!images.length) throw new Error('No images in completed job');
                         const b64 = images[0].b64_json;
                         if (!b64) throw new Error('No b64_json in result');
-                        // Convert to blob
                         const blob = dataURLToBlob(`data:image/png;base64,${b64}`);
                         const elapsed = Math.floor((Date.now() - startTime) / 1000);
                         if (logCallback) logCallback(`✅ Done in ${elapsed}s — ${blob.size} bytes`, 'ok');
                         if (progressCallback) progressCallback(100, `Done in ${elapsed}s`);
-
-                        // Ephemeral cache
                         const entry = this.addEphemeral({ blob, prompt: prompt || payload.prompt, assetName: assetName || null, payload });
                         return { blob, url: entry.url, ephemeralId: entry.id, jobId, elapsed, assetName };
                     } else if (job.status === 'failed') {
@@ -644,7 +683,6 @@
                         if (logCallback) logCallback(`⏹ Cancelled`, 'warn');
                         throw new Error('Cancelled');
                     }
-                    // else queued/generating — continue
                 } catch (e) {
                     if (e.message.includes('not found') || e.message.includes('Failed') || e.message.includes('Cancelled')) throw e;
                     if (logCallback) logCallback(`Poll error (retrying): ${e.message}`, 'warn');
@@ -669,14 +707,12 @@
         } catch {}
     }
 
-    // Export
     const singleton = new SDServerManager();
     window.VP_SD_SERVER = singleton;
     window.SDServerManager = SDServerManager;
     if (window.VisualProjector) {
         window.VisualProjector.sdServer = singleton;
     } else {
-        // lazy attach
         const iv = setInterval(() => {
             if (window.VisualProjector) {
                 window.VisualProjector.sdServer = singleton;
@@ -686,5 +722,5 @@
         setTimeout(() => clearInterval(iv), 10000);
     }
 
-    console.log('[SD Server] Manager loaded — ephemeral cache, server primary');
+    console.log('[SD Server] Manager loaded — ephemeral cache, server primary, dual-flag support');
 })();
