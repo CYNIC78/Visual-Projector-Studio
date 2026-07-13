@@ -35,6 +35,7 @@
         _activeContainer: null,
         _boundKeyHandler: null,
         _userStopped: false,
+        serverManager: null,
 
         updateStudioStatus(container, extra = '') {
             const host = container || this._activeContainer;
@@ -770,6 +771,10 @@
             this.ensureStudioState();
             this.config = { ...this.config, ...(S.assetStudio.config || {}) };
 
+            this.serverManager = new SDServerManager({
+                executablePath: this.config.serverExecutablePath || this.config.executablePath.replace('sd-cli', 'sd-server'),
+            });
+
             this.registerPanel();
             console.log('[VP Asset Studio] Ready.');
         },
@@ -963,8 +968,10 @@
                                 <button class="vp-btn vp-btn-sm" id="vp-as-import-cli" title="Import CLI command">CLI+</button>
                                 <select id="vp-as-engine-mode" class="vp-as-engine-mode" title="Generation engine mode">
                                     <option value="cli">CLI</option>
-                                    <option value="server">Server — stub</option>
+                                    <option value="server">Server</option>
                                 </select>
+                                <button class="vp-btn vp-btn-sm" id="vp-as-server-unload" title="Unload model from VRAM" style="display:none; color:#ff6b6b;">🧠 ✕</button>
+                                <span id="vp-as-server-status" class="vp-as-status-chip" style="display:none; font-size:10px; color:var(--text-secondary);"></span>
                             </span>
                             <span class="vp-as-tool-group vp-as-tool-right">
                                 <button class="vp-btn vp-btn-sm" id="vp-as-toggle-inspector" title="Toggle Inspector">📋</button>
@@ -1172,19 +1179,65 @@
                 });
             }
 
+            const serverUnloadBtn = container.querySelector('#vp-as-server-unload');
+            const serverStatusEl = container.querySelector('#vp-as-server-status');
+
+            const updateServerUI = () => {
+                const isServer = (this.config.engineMode || 'cli') === 'server';
+                if (serverUnloadBtn) serverUnloadBtn.style.display = isServer ? 'inline-block' : 'none';
+                if (serverStatusEl) {
+                    serverStatusEl.style.display = isServer ? 'inline-block' : 'none';
+                    const st = this.serverManager?.state || 'offline';
+                    const model = this.serverManager?.currentModel ? this.serverManager.currentModel.split('/').pop() : '';
+                    serverStatusEl.textContent = st === 'ready' ? `🟢 ${model}` : (st === 'starting' ? '🟡 starting…' : `⚪ ${st}`);
+                    serverStatusEl.style.color = st === 'ready' ? '#a6e3a1' : (st === 'starting' ? '#e5c07b' : 'var(--text-secondary)');
+                }
+            };
+
             if (engineMode) {
                 engineMode.value = this.config.engineMode || 'cli';
                 engineMode.addEventListener('change', () => {
                     this.config.engineMode = engineMode.value;
                     this.saveStudioState();
                     this.updateStudioStatus(container);
+                    updateServerUI();
                 });
             }
 
+            if (serverUnloadBtn) {
+                serverUnloadBtn.addEventListener('click', async () => {
+                    if (this.serverManager) {
+                        await this.serverManager.stop();
+                        VP.showToast?.('Server stopped, model unloaded from VRAM', 'success');
+                        updateServerUI();
+                    }
+                });
+            }
+
+            // Periodic server status update when in server mode
+            setInterval(() => {
+                if ((this.config.engineMode || 'cli') === 'server') updateServerUI();
+            }, 2000);
+            updateServerUI();
+
             stopBtn.addEventListener('click', async () => {
-                if (!this.running || !this._activeProcessId) return;
+                if (!this.running) return;
                 this._userStopped = true;
-                if (window.Neutralino?.os?.updateSpawnedProcess) {
+                const mode = this.config.engineMode || 'cli';
+                if (mode === 'server' && this.serverManager) {
+                    try {
+                        await this.serverManager.cancelCurrent();
+                        log.innerHTML += `<div style="color:var(--text-secondary)">⏹ Cancel request sent to server</div>`;
+                        log.scrollTop = log.scrollHeight;
+                        if (progressLabel) progressLabel.textContent = '⏹ Cancelling…';
+                    } catch (e) {
+                        console.warn('Failed to cancel server job:', e);
+                        this._userStopped = false;
+                        VP.showToast?.('Failed to cancel server job', 'error');
+                    }
+                    return;
+                }
+                if (this._activeProcessId && window.Neutralino?.os?.updateSpawnedProcess) {
                     try {
                         await Neutralino.os.updateSpawnedProcess(this._activeProcessId, 'exit');
                         log.innerHTML += `<div style="color:var(--text-secondary)">⏹ Stop signal sent</div>`;
@@ -1205,10 +1258,8 @@
 
                 const mode = this.config.engineMode || 'cli';
                 if (mode === 'server') {
-                    VP.showToast?.('Server mode is a stub — switch to CLI to render', 'info');
-                    log.innerHTML += `<div><b>[SERVER STUB]</b> Would enqueue request to sd-server.exe</div>`;
-                    log.scrollTop = log.scrollHeight;
-                    this.updateStudioStatus(container, 'Server stub');
+                    const assetName = bag.meta.get('assetName') || null;
+                    await this.runServer(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
                     return;
                 }
 
@@ -1220,7 +1271,6 @@
             if (produceAllBtn) {
                 produceAllBtn.addEventListener('click', async () => {
                     if (this.running) return;
-                    // Find the prompt node and iterate its tabs
                     const promptNode = Array.from(Graph.nodes.values()).find(n => n.type === 'prompt');
                     if (!promptNode || !Array.isArray(promptNode.data.tabs) || promptNode.data.tabs.length === 0) {
                         VP.showToast?.('No prompt tabs found', 'warn');
@@ -1229,10 +1279,6 @@
                     const tabs = promptNode.data.tabs;
                     let success = 0, fail = 0;
                     const mode = this.config.engineMode || 'cli';
-                    if (mode === 'server') {
-                        VP.showToast?.('Server mode is a stub', 'info');
-                        return;
-                    }
                     for (let i = 0; i < tabs.length; i++) {
                         if (this.running) break;
                         promptNode.data.activeTabId = tabs[i].id;
@@ -1243,7 +1289,11 @@
                         log.scrollTop = log.scrollHeight;
                         this.updateStudioStatus(container, `Generating ${i+1}/${tabs.length}: ${tabs[i].name}`);
                         try {
-                            await this.runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
+                            if (mode === 'server') {
+                                await this.runServer(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
+                            } else {
+                                await this.runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
+                            }
                             success++;
                         } catch (err) {
                             fail++;
@@ -1779,6 +1829,118 @@
             }
         },
 
+        async runServer(bag, log, preview, progress, progressLabel, stopBtn, container, assetName) {
+            this._userStopped = false;
+            this.running = true;
+            this.updateStudioStatus(container, '⏳ Starting server…');
+            if (progressLabel) progressLabel.textContent = '⏳ Starting server…';
+            progress.style.width = '5%';
+
+            try {
+                // Find loader node to get model path
+                const loaderNode = Array.from(Graph.nodes.values()).find(n => n.type === 'loader');
+                const modelPath = loaderNode?.data?.coreModel || loaderNode?.data?.model || '';
+                if (!modelPath) {
+                    throw new Error('No model selected in Loader node');
+                }
+
+                // Start / ensure server is running with this model
+                if (!this.serverManager) {
+                    this.serverManager = new SDServerManager({
+                        executablePath: this.config.serverExecutablePath || this.config.executablePath.replace('sd-cli', 'sd-server'),
+                    });
+                }
+
+                const serverReady = await this.serverManager.start(modelPath, {
+                    clipL: loaderNode?.data?.clip1 || '',
+                    clipG: loaderNode?.data?.clip2 || '',
+                    vae: loaderNode?.data?.vae || '',
+                    taesd: loaderNode?.data?.taesd || '',
+                    diffusionModel: loaderNode?.data?.diffusionModel || '',
+                    type: loaderNode?.data?.type || '',
+                    threads: loaderNode?.data?.threads || -1,
+                    loraModelDir: this.config.modelLibraries?.lora?.paths?.[0] || '',
+                    backend: loaderNode?.data?.backend || '',
+                    maxVram: loaderNode?.data?.maxVram || '',
+                    flashAttention: !!loaderNode?.data?.flashAttention,
+                    offloadCpu: !!loaderNode?.data?.offloadToCpu,
+                    mmap: !!loaderNode?.data?.mmap,
+                });
+
+                if (!serverReady) {
+                    throw new Error('Server failed to start');
+                }
+
+                progress.style.width = '15%';
+                this.updateStudioStatus(container, '⏳ Submitting job…');
+                if (progressLabel) progressLabel.textContent = '⏳ Submitting job…';
+
+                // Convert bag to server params
+                const params = await window.SDServerBagConverter.toParams(bag, Graph);
+
+                if (preview) {
+                    preview.innerHTML = `<div class="vp-as-preview-placeholder">Server generating…<br><small>${params.sample_params.sample_steps} steps · ${params.width}×${params.height}</small></div>`;
+                }
+
+                if (stopBtn) stopBtn.style.display = 'inline-block';
+
+                const startTime = Date.now();
+                const images = await this.serverManager.generate(params, (status, job) => {
+                    if (this._userStopped) return;
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                    const ss = String(elapsed % 60).padStart(2, '0');
+                    let label = '';
+                    if (status === 'queued') {
+                        label = `⏳ Queued #${job.queue_position ?? '?'}`;
+                        progress.style.width = '20%';
+                    } else if (status === 'generating') {
+                        label = `🎨 Generating…`;
+                        progress.style.width = '60%';
+                    } else {
+                        label = `🎨 ${status}`;
+                    }
+                    if (progressLabel) progressLabel.textContent = `${label} · ⏱ ${mm}:${ss}`;
+                    this.updateStudioStatus(container, label);
+                });
+
+                if (this._userStopped) {
+                    if (progressLabel) progressLabel.textContent = '⏹ Stopped';
+                    progress.style.width = '0%';
+                    log.innerHTML += `<div style="color:var(--text-secondary)">⏹ Stopped after ${Math.floor((Date.now() - startTime)/1000)}s</div>`;
+                    log.scrollTop = log.scrollHeight;
+                    return;
+                }
+
+                progress.style.width = '100%';
+                const doneElapsed = Math.floor((Date.now() - startTime) / 1000);
+                const doneMM = String(Math.floor(doneElapsed / 60)).padStart(2, '0');
+                const doneSS = String(doneElapsed % 60).padStart(2, '0');
+                if (progressLabel) progressLabel.textContent = `✅ Done in ${doneMM}:${doneSS}`;
+
+                if (images && images.length) {
+                    const img = images[0];
+                    const url = URL.createObjectURL(img.blob);
+                    this.displayResult({ blob: img.blob, url, path: 'server-output' }, 'server-output', preview, assetName);
+                    log.innerHTML += `<div><b>✓</b> Server generated ${images.length} image(s)</div>`;
+                    VP.showToast?.('Asset generated (server)', 'success');
+                } else {
+                    throw new Error('No images returned from server');
+                }
+            } catch (err) {
+                console.error('[Asset Studio] Server render failed:', err);
+                if (preview) preview.innerHTML = `<div class="vp-as-preview-placeholder" style="color:var(--error)">Error: ${err.message || err}</div>`;
+                VP.showToast?.(`Server render failed: ${err.message || err}`, 'error');
+                // Auto-fallback to CLI on next attempt is handled by user switching mode manually
+            } finally {
+                this.running = false;
+                if (stopBtn) stopBtn.style.display = 'none';
+                this.updateStudioStatus(container);
+                if (progressLabel) progressLabel.textContent = '';
+                setTimeout(() => { progress.style.width = '0%'; }, 600);
+            }
+        },
+
         async loadOutputImage(outputPath) {
             if (!outputPath) return null;
             const root = window.NL_CWD || window.NL_PATH || '.';
@@ -1858,7 +2020,8 @@
             }).join('');
             container.innerHTML = `
                 <div class="vp-shell-settings-form">
-                    <label><span>Executable Path</span><input type="text" data-k="executablePath" value="${this.config.executablePath}"></label>
+                    <label><span>CLI Executable</span><input type="text" data-k="executablePath" value="${this.config.executablePath}"></label>
+                    <label><span>Server Executable</span><input type="text" data-k="serverExecutablePath" value="${this.config.serverExecutablePath || this.config.executablePath.replace('sd-cli', 'sd-server')}"></label>
                     <label><span>Output Directory</span><input type="text" data-k="outputDir" value="${this.config.outputDir}"></label>
                     <label><span>Engine Mode</span>
                         <select data-k="engineMode">
@@ -1867,7 +2030,7 @@
                         </select>
                     </label>
                 </div>
-                <div class="vp-shell-settings-note">CLI = запуск на каждый рендер. Server = заглушка, модель держится в памяти.</div>
+                <div class="vp-shell-settings-note">CLI = запускает sd-cli.exe на каждый рендер, модель грузится с диска каждый раз. Server = запускает sd-server.exe один раз, модель живёт в VRAM, генерация по HTTP без temp-файлов.</div>
                 <div class="vp-as-lib-section">
                     <div class="vp-as-lib-title">Model Libraries</div>
                     <div class="vp-as-lib-note">Configure absolute paths for model libraries. One folder path per line. Studio will scan these folders and show a picker instead of raw file browsing.</div>
@@ -1880,6 +2043,9 @@
             container.querySelectorAll('input[data-k], select[data-k]').forEach(input => {
                 input.addEventListener('change', () => {
                     this.config[input.dataset.k] = input.value;
+                    if (input.dataset.k === 'serverExecutablePath' && this.serverManager) {
+                        this.serverManager.config.executablePath = input.value;
+                    }
                     this.saveStudioState();
                 });
             });
@@ -1956,6 +2122,7 @@
                 #vp-as-zoom-label { font-size:10px; min-width:28px; text-align:center; color:var(--text-primary); }
                 .vp-as-mode-sep { width:1px; height:14px; background:rgba(255,255,255,0.15); margin:0 1px; }
                 .vp-as-engine-mode { min-width:70px; max-width:92px; height:24px; background:var(--bg-tertiary); color:var(--text-primary); border:1px solid rgba(255,255,255,0.12); border-radius:4px; padding:1px 5px; font-size:10px; }
+                .vp-as-status-chip { padding:2px 7px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); white-space:nowrap; }
                 .vp-as-canvas-controls { min-height:36px; border-top:1px solid var(--border); background:var(--bg-secondary); display:flex; align-items:center; padding:4px 10px; gap:8px; flex-shrink:0; flex-wrap:nowrap; overflow:hidden; }
                 .vp-as-primary-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
                 .vp-as-primary-actions .vp-btn { height:24px; padding:1px 8px; font-size:11px; }
