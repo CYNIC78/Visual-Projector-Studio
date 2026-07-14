@@ -145,7 +145,7 @@ export const ModuleManager = {
    */
   async init(context) {
     _context = context;
-    _logger = context.logger.create('ModuleManager');
+    _logger = context.logger.child('ModuleManager');
 
     const sorted = _topoSort();
     _logger.info(`Starting init for ${sorted.length} modules: ${sorted.map(m => m.id).join(', ')}`);
