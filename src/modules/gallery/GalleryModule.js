@@ -40,7 +40,6 @@ export const GalleryModule = {
 
     // Initialize subsystems
     AssetPipeline.setConfig(config.gallery || {});
-    CollageGenerator.init({ eventBus, state: GalleryState });
     AutoTagger.init({
       emit: (event, payload) => eventBus.emit(event, payload),
       getGalleryState: () => GalleryState,
