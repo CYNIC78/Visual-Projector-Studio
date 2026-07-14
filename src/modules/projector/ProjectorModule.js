@@ -102,6 +102,14 @@ export const ProjectorModule = {
   },
 
   async start(ctx) {
+    // Ensure logger exists
+    this._logger = this._logger || {
+      info: (...args) => console.log('[ProjectorModule]', ...args),
+      debug: (...args) => console.debug('[ProjectorModule]', ...args),
+      warn: (...args) => console.warn('[ProjectorModule]', ...args),
+      error: (...args) => console.error('[ProjectorModule]', ...args),
+    };
+
     // Restore projector state from storage
     const saved = await ctx.storage.loadPersisted('projector-state');
     if (saved) this._state.applySnapshot(saved);
