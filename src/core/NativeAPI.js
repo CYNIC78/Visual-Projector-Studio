@@ -5,15 +5,8 @@
 
 'use strict';
 
-/** @type {boolean} */
-let _ready = false;
-/** @type {Promise<void> | null} */
-let _initPromise = null;
-
-// ─── Helpers ───
-function _hasNeutralino() {
-  return typeof window.Neutralino !== 'undefined' && window.Neutralino.init;
-}
+// ─── Helpers (top of module, no hoisting surprises) ───
+const _hasNeutralino = () => typeof window.Neutralino !== 'undefined' && window.Neutralino.init;
 
 function _guard(promise, fallback) {
   if (!_hasNeutralino()) return Promise.resolve(fallback);
@@ -22,6 +15,11 @@ function _guard(promise, fallback) {
     return fallback;
   });
 }
+
+/** @type {boolean} */
+let _ready = false;
+/** @type {Promise<void> | null} */
+let _initPromise = null;
 
 // ─── Window ───
 /** @type {NativeWindow} */
@@ -104,10 +102,6 @@ async function init() {
   })();
 
   return _initPromise;
-}
-
-function _hasNeutralino() {
-  return typeof window.Neutralino !== 'undefined' && window.Neutralino.init;
 }
 
 // ─── Public API ───
