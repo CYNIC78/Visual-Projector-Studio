@@ -138,12 +138,6 @@ function _buildSignature(sections, layout) {
   return `${COLLAGE_LAYOUT_VERSION}:${_hashString(JSON.stringify(payload))}`;
 }
 
-function _hashString(str) {
-  let h = 0x811c9dc5; const s = String(str || '');
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
-  return (h >>> 0).toString(36);
-}
-
 function _collectPlan(state) {
   const markedTabs = (state.tabs || []).filter(t => t.markedForCollage === true);
   if (markedTabs.length === 0 && state.activeTabId && state.activeTabId !== 'effects') {
