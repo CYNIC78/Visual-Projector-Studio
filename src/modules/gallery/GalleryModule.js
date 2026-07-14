@@ -86,6 +86,17 @@ export const GalleryModule = {
       AssetPipeline.setConfig(cfg.gallery);
     }
 
+    // Ensure config has defaults
+    GalleryState._config = {
+      autoTagOnLoad: 'ask',
+      maxLongSide: 1024,
+      jpegQuality: 0.92,
+      manifestDescriptions: true,
+      allowDirectoryCommands: false,
+      collageMaxHeight: 'auto',
+      ...GalleryState._config,
+    };
+
     // Auto-tag on load if configured
     if (GalleryState._config.autoTagOnLoad === 'always') {
       setTimeout(() => AutoTagger.tagAll(), 1000);
