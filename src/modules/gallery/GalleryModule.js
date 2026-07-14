@@ -74,6 +74,13 @@ export const GalleryModule = {
   },
 
   async start(ctx) {
+    // Ensure logger exists
+    this._logger = this._logger || {
+      info: (...args) => console.log('[GalleryModule]', ...args),
+      debug: (...args) => console.debug('[GalleryModule]', ...args),
+      warn: (...args) => console.warn('[GalleryModule]', ...args),
+      error: (...args) => console.error('[GalleryModule]', ...args),
+    };
     // Restore gallery state from storage
     const saved = await ctx.storage.loadPersisted('gallery-state');
     if (saved) {
