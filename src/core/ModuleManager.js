@@ -80,7 +80,7 @@ function _createContext(moduleId) {
       getAll: () => Array.from(_instances.values()),
       getInstance: (id) => _instances.get(id),
     },
-    logger: _logger.create(moduleId),
+    logger: _logger.child(moduleId),
   };
 }
 
