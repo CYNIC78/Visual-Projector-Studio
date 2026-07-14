@@ -39,9 +39,7 @@ async function boot() {
     logger,
   };
 
-  await ModuleManager.init(context);
-
-  // 3. Register domain modules
+  // 3. Register domain modules BEFORE init
   ModuleManager.register(ProjectorModule);
   ModuleManager.register(GalleryModule);
 
@@ -86,10 +84,13 @@ async function boot() {
 
   ModuleManager.register(DummyModule);
 
-  // 4. Start all modules
+  // 5. Initialize ModuleManager (now all modules are registered)
+  await ModuleManager.init(context);
+
+  // 6. Start all modules
   await ModuleManager.start();
 
-  // 5. Global error handlers
+  // 7. Global error handlers
   window.addEventListener('error', (e) => {
     logger.error('Uncaught error:', e.message, { file: e.filename, line: e.lineno, col: e.colno });
   });
@@ -97,7 +98,7 @@ async function boot() {
     logger.error('Unhandled rejection:', e.reason);
   });
 
-  // 6. Graceful shutdown on Neutralino close
+  // 8. Graceful shutdown on Neutralino close
   if (native.ready) {
     native.os.spawnProcess = native.os.spawnProcess; // ensure loaded
     // Neutralino handles window close, but we can listen for beforeunload
