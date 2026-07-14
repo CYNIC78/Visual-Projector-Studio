@@ -194,7 +194,3 @@ export const ProjectorModule = {
     ];
   },
 };
-
-// Export for direct import
-export default ProjectorModule;
-export { ProjectorModule };
