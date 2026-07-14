@@ -82,6 +82,8 @@ let _coverTag = null;
 let _coverLabel = 'cover';
 /** @type {string | null} */
 let _preparedTag = null;
+/** @type {string} */
+let _currentTransition = 'crossfade';
 
 /** @type {HistoryFrame[]} */
 let _history = [];
@@ -255,7 +257,6 @@ export const ProjectorState = {
   },
 
   /** @type {string | null} */
-  _currentTransition = 'crossfade',
 
   getCurrentTransition() {
     return _currentTransition;
