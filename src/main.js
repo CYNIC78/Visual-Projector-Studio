@@ -9,6 +9,8 @@ import { Storage } from './core/StorageAdapter.js';
 import { Config } from './core/ConfigAdapter.js';
 import { NativeAPI } from './core/NativeAPI.js';
 import { ModuleManager } from './core/ModuleManager.js';
+import { ProjectorModule } from './modules/projector/ProjectorModule.js';
+import { GalleryModule } from './modules/gallery/GalleryModule.js';
 
 // ─── Bootstrap ───
 async function boot() {
@@ -39,7 +41,11 @@ async function boot() {
 
   await ModuleManager.init(context);
 
-  // 3. Register a dummy module to verify the pipeline works
+  // 3. Register domain modules
+  ModuleManager.register(ProjectorModule);
+  ModuleManager.register(GalleryModule);
+
+  // 4. Register a dummy module to verify the pipeline works
   const DummyModule = {
     id: 'core.dummy',
     version: '1.0.0',
@@ -83,7 +89,7 @@ async function boot() {
   // 4. Start all modules
   await ModuleManager.start();
 
-  // 4. Global error handlers
+  // 5. Global error handlers
   window.addEventListener('error', (e) => {
     logger.error('Uncaught error:', e.message, { file: e.filename, line: e.lineno, col: e.colno });
   });
@@ -91,7 +97,7 @@ async function boot() {
     logger.error('Unhandled rejection:', e.reason);
   });
 
-  // 5. Graceful shutdown on Neutralino close
+  // 6. Graceful shutdown on Neutralino close
   if (native.ready) {
     native.os.spawnProcess = native.os.spawnProcess; // ensure loaded
     // Neutralino handles window close, but we can listen for beforeunload
