@@ -27,7 +27,12 @@ export const GalleryModule = {
   async init(ctx) {
     const { eventBus, storage, config, native, modules, logger } = ctx;
     this._ctx = ctx;
-    this._logger = logger.child('GalleryModule');
+    this._logger = logger?.child?.('GalleryModule') || { 
+      info: (...args) => console.log('[GalleryModule]', ...args),
+      debug: (...args) => console.debug('[GalleryModule]', ...args),
+      warn: (...args) => console.warn('[GalleryModule]', ...args),
+      error: (...args) => console.error('[GalleryModule]', ...args),
+    };
     this._state = GalleryState;
     this._assetPipeline = AssetPipeline;
     this._collageGen = CollageGenerator;
