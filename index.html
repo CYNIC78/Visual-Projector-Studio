@@ -109,6 +109,12 @@
 			});
 		})();
 	</script>
+    <!-- NEW CORE (ESM, zero-build) — loads first, provides ModuleManager, EventBus, Storage, Config, Native -->
+    <script type="module" src="src/main.js"></script>
+
+    <!-- LEGACY MODULES (global scripts) — kept for backward compatibility during migration.
+         They will still work because they attach to window.VisualProjector.
+         New core exposes window.VP_CORE for debugging. -->
     <script src="js/vendor/jszip.min.js"></script>
     <script src="js/fx-core.js"></script>
     <script src="js/vp-storage.js"></script>
