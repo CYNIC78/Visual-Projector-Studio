@@ -375,5 +375,3 @@ export const CollageGenerator = {
   _renderOnMainThread,
   _renderInWorker,
 };
-
-export { CollageGenerator };
