@@ -136,6 +136,3 @@ export const GalleryModule = {
     ];
   },
 };
-
-export default GalleryModule;
-export { GalleryModule };
