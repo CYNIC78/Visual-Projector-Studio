@@ -1,0 +1,7 @@
+/data/cache/
+/data/worlds/
+/.tmp/
+/.output/
+/.Games/
+/neutralinojs.log
+/bin/depth-anything/models/

@@ -1,0 +1,39 @@
+{
+  "applicationId": "ai.arena.visual_projector",
+  "cli": {
+    "binaryVersion": "6.8.0"
+  },
+  "version": "1.0.0",
+  "defaultMode": "window",
+  "port": 45710,
+  "documentRoot": "/",
+  "url": "/index.html",
+  "enableServer": true,
+  "enableNativeAPI": true,
+  "exportAuthInfo": true,
+  "nativeAllowList": [
+    "app.*",
+    "window.*",
+    "filesystem.*",
+    "os.*",
+    "debug.log"
+  ],
+  "logging": {
+    "enabled": true,
+    "writeToLogFile": false
+  },
+  "modes": {
+    "window": {
+      "borderless": true,
+      "title": "VP Studio",
+      "width": 1280,
+      "height": 800,
+      "frameless": true,
+      "resizable": true,
+      "maximize": true,
+      "center": true,
+      "enableInspector": true,
+      "openInspectorOnStartup": false
+    }
+  }
+}
