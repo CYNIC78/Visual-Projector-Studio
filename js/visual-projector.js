@@ -61,24 +61,21 @@
             updatedAt: null,
         },
 
-        projectorDepth: {
-            enabled: true,
-            strength: 0.045,
-            zoomBoost: 0.035,
-            zoomCurve: 1.2,
-            status: 'idle',
-            activeTag: null,
-            depthFile: null,
-            error: null,
-            pivot: 1.0,
-            strengthMultiplier: 1.0,
-            vignette: 0.0,
-            // ── Perspective pinhole-camera mode (v3) ──
-            perspective: 1.0,          // 0 = ortho, 1 = perspective, between = blend
-            aoStrength: 0.35,          // SSAO intensity
-            aoRadius: 0.018,           // SSAO sample radius in UV
-            aoDepthThreshold: 0.12,    // max depth-gap for connected surfaces (prevents AO bleeding)
-        },
+		 projectorDepth: {
+			 enabled: true,
+			 strength: 0.09,
+			 zoomBoost: 0.05,
+			 zoomCurve: 1.2,
+			 status: 'idle',
+			 activeTag: null,
+			 depthFile: null,
+			 error: null,
+			 pivot: 1.0,
+			 strengthMultiplier: 1.0,
+			 vignette: 0.0,
+			 dofStrength: 0.0,
+			 aberration: 0.0,
+		 },
 
         // ── Gallery-owned fields (populated by projector-gallery.js) ──
         galleryData: { categories: [], tabs: [], activeTabId: null },
@@ -2563,22 +2560,6 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
                     strengthSlider.value = String(currentStrength);
                     strengthVal.textContent = currentStrength.toFixed(1) + 'x';
                 }
-
-                const aoSlider = snapshotOverlay.querySelector('#vp-focus-ao-slider');
-                const aoVal = snapshotOverlay.querySelector('#vp-focus-ao-val');
-                if (aoSlider && aoVal) {
-                    const ao = State.projectorDepth.aoStrength != null ? Number(State.projectorDepth.aoStrength) : 0.35;
-                    aoSlider.value = String(ao);
-                    aoVal.textContent = ao.toFixed(2);
-                }
-
-                const aoThrSlider = snapshotOverlay.querySelector('#vp-focus-ao-threshold-slider');
-                const aoThrVal = snapshotOverlay.querySelector('#vp-focus-ao-threshold-val');
-                if (aoThrSlider && aoThrVal) {
-                    const thr = State.projectorDepth.aoDepthThreshold != null ? Number(State.projectorDepth.aoDepthThreshold) : 0.12;
-                    aoThrSlider.value = String(thr);
-                    aoThrVal.textContent = thr.toFixed(2);
-                }
             }
         }
 
@@ -2729,11 +2710,6 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
             depthFile: d.depthFile || null,
             error: d.error || null,
             webglAvailable: !!window.VPDepthRenderer,
-            // v3 perspective + AO
-            perspective: d.perspective != null ? Number(d.perspective) : 1.0,
-            aoStrength: d.aoStrength != null ? Number(d.aoStrength) : 0.35,
-            aoRadius: d.aoRadius != null ? Number(d.aoRadius) : 0.018,
-            aoDepthThreshold: d.aoDepthThreshold != null ? Number(d.aoDepthThreshold) : 0.12,
         };
     }
 
@@ -2861,17 +2837,15 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
             await _depthRuntime.promise;
         }
 
-        const ok = _depthRuntime.renderer.render(viewport, {
-            strength: computeDepthEffectiveStrength() * (asset.focusViewport?.strengthMultiplier != null ? Number(asset.focusViewport.strengthMultiplier) : (State.projectorDepth.strengthMultiplier || 1.0)),
-            inverted: !!asset.depthMap?.inverted,
-            pivot: asset.focusViewport?.pivot != null ? Number(asset.focusViewport.pivot) : (State.projectorDepth.pivot || 1.0),
-            vignette: asset.focusViewport?.vignette != null ? Number(asset.focusViewport.vignette) : (State.projectorDepth.vignette || 0.0),
-            // ── Perspective + AO (v3) ──
-            perspective: State.projectorDepth.perspective != null ? Number(State.projectorDepth.perspective) : 1.0,
-            aoStrength: State.projectorDepth.aoStrength != null ? Number(State.projectorDepth.aoStrength) : 0.35,
-            aoRadius: State.projectorDepth.aoRadius != null ? Number(State.projectorDepth.aoRadius) : 0.018,
-            aoDepthThreshold: State.projectorDepth.aoDepthThreshold != null ? Number(State.projectorDepth.aoDepthThreshold) : 0.12,
-        });
+		 const ok = _depthRuntime.renderer.render(viewport, {
+			 strength: computeDepthEffectiveStrength() * (asset.focusViewport?.strengthMultiplier != null ? Number(asset.focusViewport.strengthMultiplier) : (State.projectorDepth.strengthMultiplier || 1.0)),
+			 inverted: !!asset.depthMap?.inverted,
+			 pivot: asset.focusViewport?.pivot != null ? Number(asset.focusViewport.pivot) : (State.projectorDepth.pivot || 1.0),
+			 vignette: asset.focusViewport?.vignette != null ? Number(asset.focusViewport.vignette) : (State.projectorDepth.vignette || 0.0),
+			 nearThreshold: 0.8,  // Только объекты с глубиной > 0.9 получат усиление
+			 dofStrength: State.projectorDepth.dofStrength || 0.0,
+			 aberration: State.projectorDepth.aberration || 0.0,
+		 });
         screen.classList.toggle('vp-depth-active', !!ok);
         State.projectorDepth = { ...State.projectorDepth, status: ok ? 'ready' : 'error', activeTag: asset.tag, depthFile: asset.depthMap.file, error: ok ? null : 'render-failed' };
         return ok;
@@ -2886,38 +2860,15 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
             const rect = screen.getBoundingClientRect();
             const rx = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
             const ry = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
-
-            // ── v3: perspective-aware focal lock ──
-            const viewport = getProjectorViewportState();
-            const usePerspective = State.projectorDepth.perspective > 0.01;
-            const cam = usePerspective ? renderer.computeCamera(viewport, {
-                strength: computeDepthEffectiveStrength(),
-                strengthMultiplier: State.projectorDepth.strengthMultiplier || 1.0,
-            }) : null;
-
-            let depthVal;
-            if (usePerspective && cam) {
-                // Cast ray from camera through click into depth map
-                const aspect = cam.aspect;
-                const ndcX = (rx - 0.5) * aspect * 2.0;
-                const ndcY = (ry - 0.5) * 2.0;
-                const worldX = ndcX * cam.cameraPos[2] + cam.cameraPos[0];
-                const worldY = ndcY * cam.cameraPos[2] + cam.cameraPos[1];
-                const uvX = Math.max(0, Math.min(1, worldX + 0.5));
-                const uvY = Math.max(0, Math.min(1, worldY + 0.5));
-
-                depthVal = renderer.getDepthAtWorld(uvX, uvY, cam.maxDepth);
-                depthVal = cam.maxDepth > 0 ? Math.max(0, Math.min(1, depthVal / cam.maxDepth)) : 1.0;
-            } else {
-                // Ortho: direct UV read (unchanged)
-                const uv = renderer.computeUv(viewport);
-                const uvX = uv.origin[0] + rx * uv.size[0];
-                const uvY = uv.origin[1] + ry * uv.size[1];
-
-                depthVal = renderer.getDepthAt(uvX, uvY);
-            }
             
-            if (State.current.depthMap?.inverted && !usePerspective) {
+            // Get current viewport UV origin and size
+            const uv = renderer.computeUv(getProjectorViewportState());
+            const uvX = uv.origin[0] + rx * uv.size[0];
+            const uvY = uv.origin[1] + ry * uv.size[1];
+            
+            // Read depth value
+            let depthVal = renderer.getDepthAt(uvX, uvY);
+            if (State.current.depthMap?.inverted) {
                 depthVal = 1.0 - depthVal;
             }
             
@@ -2999,26 +2950,6 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
                         <span style="min-width: 48px;">🎞️ Vignette:</span>
                         <input type="range" id="vp-focus-vignette-slider" min="0.0" max="1.0" step="0.05" style="width: 65px; height: 3px; accent-color: #6c5fa6; cursor: pointer; background: rgba(255,255,255,0.12); border-radius: 2px; outline: none; margin: 0; padding: 0;">
                         <span id="vp-focus-vignette-val" style="min-width: 22px; font-family: monospace; text-align: right;">0.00</span>
-                    </div>
-
-                    <!-- PERSPECTIVE TOGGLE -->
-                    <div class="vp-focus-row" style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600;">
-                        <span style="min-width: 48px;">📷 Camera:</span>
-                        <button id="vp-focus-persp-toggle" title="Toggle ortho/perspective" style="pointer-events: auto; height: 18px; padding: 0 8px; font-size: 9px; font-weight: 700; border-radius: 4px; border: 1px solid rgba(255,255,255,0.18); background: rgba(108,95,166,0.70); color: #cdd6f4; cursor: pointer; outline: none; transition: background 0.15s ease;">persp</button>
-                    </div>
-
-                    <!-- AO STRENGTH SLIDER -->
-                    <div class="vp-focus-row" id="vp-focus-ao-row" style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600;">
-                        <span style="min-width: 48px;">🌑 AO Str:</span>
-                        <input type="range" id="vp-focus-ao-slider" min="0.0" max="1.0" step="0.05" style="width: 65px; height: 3px; accent-color: #6c5fa6; cursor: pointer; background: rgba(255,255,255,0.12); border-radius: 2px; outline: none; margin: 0; padding: 0;">
-                        <span id="vp-focus-ao-val" style="min-width: 22px; font-family: monospace; text-align: right;">0.35</span>
-                    </div>
-
-                    <!-- AO THRESHOLD -->
-                    <div class="vp-focus-row" id="vp-focus-ao-threshold-row" style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600;">
-                        <span style="min-width: 48px;">📏 AO Gap:</span>
-                        <input type="range" id="vp-focus-ao-threshold-slider" min="0.02" max="0.50" step="0.01" style="width: 65px; height: 3px; accent-color: #6c5fa6; cursor: pointer; background: rgba(255,255,255,0.12); border-radius: 2px; outline: none; margin: 0; padding: 0;">
-                        <span id="vp-focus-ao-threshold-val" style="min-width: 22px; font-family: monospace; text-align: right;">0.12</span>
                     </div>
                 </div>
             </div>
@@ -3198,62 +3129,6 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
                     window.VisualProjector?.gallery?.persistAsset?.(State.current);
                 }
             });
-        }
-
-        // ── Perspective camera toggle ──
-        const perspToggle = controls.querySelector('#vp-focus-persp-toggle');
-        if (perspToggle) {
-            const updatePerspUI = () => {
-                const isPersp = State.projectorDepth.perspective > 0.5;
-                perspToggle.textContent = isPersp ? 'persp' : 'ortho';
-                perspToggle.style.background = isPersp ? 'rgba(108,95,166,0.70)' : 'rgba(80,80,100,0.55)';
-                // Show/hide AO rows
-                const aoRow = controls.querySelector('#vp-focus-ao-row');
-                const aoThrRow = controls.querySelector('#vp-focus-ao-threshold-row');
-                if (aoRow) aoRow.style.display = isPersp ? 'flex' : 'none';
-                if (aoThrRow) aoThrRow.style.display = isPersp ? 'flex' : 'none';
-            };
-            updatePerspUI();
-            perspToggle.addEventListener('click', (e) => {
-                e.preventDefault(); e.stopPropagation();
-                State.projectorDepth.perspective = State.projectorDepth.perspective > 0.5 ? 0.0 : 1.0;
-                updatePerspUI();
-                updateProjectorDepthLayer().catch(() => {});
-            });
-        }
-
-        // ── AO strength slider ──
-        const aoSlider = controls.querySelector('#vp-focus-ao-slider');
-        const aoVal = controls.querySelector('#vp-focus-ao-val');
-        if (aoSlider && aoVal) {
-            const initAo = State.projectorDepth.aoStrength != null ? Number(State.projectorDepth.aoStrength) : 0.35;
-            aoSlider.value = String(initAo);
-            aoVal.textContent = initAo.toFixed(2);
-            const updateAo = (val) => {
-                const n = Number(val);
-                aoVal.textContent = n.toFixed(2);
-                State.projectorDepth.aoStrength = n;
-                updateProjectorDepthLayer().catch(() => {});
-            };
-            aoSlider.addEventListener('input', (e) => updateAo(e.target.value));
-            aoSlider.addEventListener('change', (e) => updateAo(e.target.value));
-        }
-
-        // ── AO depth threshold slider ──
-        const aoThrSlider = controls.querySelector('#vp-focus-ao-threshold-slider');
-        const aoThrVal = controls.querySelector('#vp-focus-ao-threshold-val');
-        if (aoThrSlider && aoThrVal) {
-            const initThr = State.projectorDepth.aoDepthThreshold != null ? Number(State.projectorDepth.aoDepthThreshold) : 0.12;
-            aoThrSlider.value = String(initThr);
-            aoThrVal.textContent = initThr.toFixed(2);
-            const updateAoThr = (val) => {
-                const n = Number(val);
-                aoThrVal.textContent = n.toFixed(2);
-                State.projectorDepth.aoDepthThreshold = n;
-                updateProjectorDepthLayer().catch(() => {});
-            };
-            aoThrSlider.addEventListener('input', (e) => updateAoThr(e.target.value));
-            aoThrSlider.addEventListener('change', (e) => updateAoThr(e.target.value));
         }
 
         const captureBtn = controls.querySelector('#vp-focus-capture-btn');
