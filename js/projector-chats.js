@@ -1574,6 +1574,8 @@
             .vp-profiles-grid.avatar-circle .vp-profile-card-avatar { border-radius:999px; }
             .vp-profiles-grid.avatar-square .vp-profile-card-avatar { border-radius:6px; }
             .vp-profile-card-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+            .vp-profile-card-avatar-clickable { cursor:pointer; }
+            .vp-profile-card-avatar-clickable:hover { box-shadow:0 8px 20px rgba(0,0,0,0.28), 0 0 0 2px rgba(255,255,255,0.35) inset; }
             .vp-profile-card-hero-name {
                 position:absolute; left:0; right:0; bottom:0;
                 padding:14px 8px 6px;
@@ -1684,6 +1686,41 @@
             }
             .vp-chat-editor-section input:focus,
             .vp-chat-editor-section textarea:focus { border-color: var(--accent, #6c5fa6); }
+            .vp-chat-editor-participants {
+                display:flex; flex-wrap:wrap; gap:6px;
+            }
+            .vp-chat-editor-participants:empty::after {
+                content: 'No participants yet.';
+                font-size: 11px; color: var(--text-secondary, #a6adc8);
+            }
+            .vp-chat-editor-participant-chip {
+                display:flex; align-items:center; gap:6px;
+                border:1px solid rgba(255,255,255,0.10); background:rgba(255,255,255,0.05);
+                border-radius:999px; padding:4px 8px 4px 4px;
+            }
+            .vp-chat-editor-participant-chip .vp-chat-avatar { width:22px; height:22px; flex:0 0 22px; font-size:10px; border-width:1px; }
+            .vp-chat-editor-participant-name { font-size:12px; color:var(--text-primary,#cdd6f4); font-weight:600; white-space:nowrap; }
+            .vp-chat-editor-participant-remove {
+                border:0; background:transparent; color:var(--text-secondary,#a6adc8); cursor:pointer;
+                font-size:13px; line-height:1; padding:0 2px; border-radius:4px;
+            }
+            .vp-chat-editor-participant-remove:hover { background:rgba(255,255,255,0.12); color:#f38ba8; }
+            .vp-chat-editor-participant-picker {
+                position:absolute; z-index:25; top:100%; left:0; right:0; margin-top:6px;
+                min-width:230px; max-width:100%;
+                background:var(--bg-secondary,#1e1e2e); border:1px solid rgba(255,255,255,0.10); border-radius:10px;
+                box-shadow:0 12px 36px rgba(0,0,0,0.38); padding:8px; display:flex; flex-direction:column; gap:6px;
+            }
+            .vp-chat-editor-participant-picker-note { font-size:11px; color:var(--text-secondary,#a6adc8); line-height:1.4; }
+            .vp-chat-editor-participant-picker-list { display:flex; flex-direction:column; gap:6px; overflow:auto; max-height:220px; }
+            .vp-chat-editor-participant-option {
+                border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:var(--text-primary,#cdd6f4);
+                border-radius:8px; padding:8px 9px; text-align:left; cursor:pointer;
+            }
+            .vp-chat-editor-participant-option:hover { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.14); }
+            .vp-chat-editor-participant-option .name { display:block; font-size:12px; font-weight:700; }
+            .vp-chat-editor-participant-option .meta { display:block; margin-top:2px; font-size:10px; color:var(--text-secondary,#a6adc8); }
+            .vp-chat-editor-participant-picker-actions { display:flex; gap:6px; justify-content:flex-end; padding-top:2px; }
             .vp-chat-avatar-editor {
                 display:flex; gap:12px; align-items:center; padding:10px; border:1px solid rgba(255,255,255,0.08);
                 border-radius:10px; background:rgba(255,255,255,0.035);
@@ -1874,6 +1911,9 @@
                 card.title = latestChat ? `Latest chat: ${latestChat.title}` : 'No chats yet';
 
                 const avatar = makeAvatar(profile);
+                avatar.classList.add('vp-profile-card-avatar-clickable');
+                avatar.title = 'Edit profile';
+                avatar.addEventListener('click', (e) => { e.stopPropagation(); editProfileInteractive(profile.id); });
                 // Hero block: avatar with the profile name overlaid on its
                 // bottom edge (grid mode). In list mode CSS flattens this
                 // wrapper and shows the regular body title instead.
@@ -2170,9 +2210,13 @@
     //  CHAT EDITOR MODAL  (scenario + note)
     // ════════════════════════════════════════════════════════════════
     let _chatEditorBackdrop = null;
+    let _closeChatEditorParticipantPicker = () => {};
 
     function closeChatEditorModal() {
+        _closeChatEditorParticipantPicker();
+        _closeChatEditorParticipantPicker = () => {};
         if (_chatEditorBackdrop) { _chatEditorBackdrop.remove(); _chatEditorBackdrop = null; }
+        document.removeEventListener('keydown', onChatEditorEsc, true);
     }
 
     function onChatEditorEsc(e) {
@@ -2200,6 +2244,13 @@
             <div class="vp-shell-modal-body">
                 <div class="vp-chat-editor-form">
                     <label><span>Title</span><input data-k="title" type="text" placeholder="Chat title"></label>
+                    <div class="vp-chat-editor-section">
+                        <div class="vp-chat-editor-section-head">
+                            <span>👥 Participants</span>
+                            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="add-participant" type="button">➕ Add Profile</button>
+                        </div>
+                        <div class="vp-chat-editor-participants" data-role="participants-list"></div>
+                    </div>
                     <div class="vp-chat-editor-section">
                         <div class="vp-chat-editor-section-head">
                             <span>🎬 Scenario</span>
@@ -2231,6 +2282,116 @@
         f('scenarioTitle').value = chat.scenario?.title || '';
         f('scenarioText').value = chat.scenario?.text || '';
         f('note').value = chat.note || '';
+
+        // Participants list: chips with avatar + name + remove (×), plus
+        // an "Add Profile" picker for profiles not yet in this chat.
+        const participantsList = card.querySelector('[data-role="participants-list"]');
+        _closeChatEditorParticipantPicker = () => {};
+
+        const renderParticipantsList = () => {
+            const liveChat = getChatById(chat.id) || chat;
+            participantsList.innerHTML = '';
+            const participants = Array.isArray(liveChat.participants) ? liveChat.participants : [];
+            const canRemove = participants.length > 1;
+            participants.forEach((participant) => {
+                const profile = getParticipantProfile(participant, liveChat);
+                const chip = document.createElement('div');
+                chip.className = 'vp-chat-editor-participant-chip';
+                const avatar = createAvatarNode({ profile, label: getParticipantDisplayName(participant, liveChat) });
+                chip.appendChild(avatar);
+                const name = document.createElement('span');
+                name.className = 'vp-chat-editor-participant-name';
+                name.textContent = getParticipantDisplayName(participant, liveChat);
+                chip.appendChild(name);
+                if (canRemove) {
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'vp-chat-editor-participant-remove';
+                    removeBtn.type = 'button';
+                    removeBtn.title = 'Remove from chat';
+                    removeBtn.textContent = '×';
+                    removeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const ok = removeParticipantFromChat(participant.id, liveChat.id);
+                        if (ok) renderParticipantsList();
+                    });
+                    chip.appendChild(removeBtn);
+                }
+                participantsList.appendChild(chip);
+            });
+        };
+        renderParticipantsList();
+
+        const openAddParticipantPicker = () => {
+            _closeChatEditorParticipantPicker();
+            const liveChat = getChatById(chat.id) || chat;
+            const profiles = (S.profiles.items || []);
+            const currentParticipants = Array.isArray(liveChat.participants) ? liveChat.participants : [];
+            const choices = profiles.filter(p => !currentParticipants.some(part => part.profileId === p.id));
+
+            const addBtn = card.querySelector('[data-act="add-participant"]');
+            const picker = document.createElement('div');
+            picker.className = 'vp-chat-editor-participant-picker';
+            picker.innerHTML = `
+                <div class="vp-chat-editor-participant-picker-list"></div>
+                <div class="vp-chat-editor-participant-picker-actions">
+                    <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="create-profile" type="button">➕ New Profile</button>
+                </div>`;
+
+            const anchorSection = addBtn.closest('.vp-chat-editor-section');
+            anchorSection.style.position = 'relative';
+            anchorSection.appendChild(picker);
+
+            const list = picker.querySelector('.vp-chat-editor-participant-picker-list');
+            if (!choices.length) {
+                list.innerHTML = `<div class="vp-chat-editor-participant-picker-note">All existing profiles are already in this chat.</div>`;
+            } else {
+                choices.forEach(profile => {
+                    const btn = document.createElement('button');
+                    btn.className = 'vp-chat-editor-participant-option';
+                    btn.type = 'button';
+                    btn.innerHTML = `<span class="name">${profile.name}</span><span class="meta">${profile.description || 'Add this profile as a new participant'}</span>`;
+                    btn.addEventListener('click', () => {
+                        addParticipantToChat(profile.id, liveChat.id, { activate: false });
+                        notifyChatUiChanged();
+                        renderParticipantsList();
+                        cleanupPicker();
+                    });
+                    list.appendChild(btn);
+                });
+            }
+
+            const cleanupPicker = () => {
+                if (onDocMouseDown) document.removeEventListener('mousedown', onDocMouseDown, true);
+                picker.remove();
+                _closeChatEditorParticipantPicker = () => {};
+            };
+
+            picker.querySelector('[data-act="create-profile"]').addEventListener('click', () => {
+                cleanupPicker();
+                createProfileInteractive({
+                    onSaved: (profile) => {
+                        if (profile) {
+                            addParticipantToChat(profile.id, liveChat.id, { activate: false });
+                            notifyChatUiChanged();
+                            renderParticipantsList();
+                        }
+                    },
+                });
+            });
+
+            let onDocMouseDown = (ev) => {
+                if (!picker.contains(ev.target) && ev.target !== addBtn) cleanupPicker();
+            };
+            setTimeout(() => document.addEventListener('mousedown', onDocMouseDown, true), 0);
+            _closeChatEditorParticipantPicker = cleanupPicker;
+        };
+
+        card.querySelector('[data-act="add-participant"]').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const existing = card.querySelector('.vp-chat-editor-participant-picker');
+            if (existing) _closeChatEditorParticipantPicker();
+            else openAddParticipantPicker();
+        });
 
         const close = () => closeChatEditorModal();
         backdrop.addEventListener('mousedown', (e) => { if (e.target === backdrop) close(); });

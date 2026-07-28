@@ -1733,12 +1733,28 @@
             body.vp-shell-resizing .vp-session-log-list,
             body.vp-shell-resizing .vp-gallery-grid,
             body.vp-shell-resizing .vp-as-canvas,
-            body.vp-shell-resizing .vp-as-graph,
+            body.vp-shell-resizing .vp-as-graph {
+                contain: layout style paint;
+                pointer-events: none;
+                content-visibility: auto;
+            }
+            /* #vp-screen is the always-visible projector surface — never
+               actually "offscreen" — so it must NOT get content-visibility:
+               auto. That property lets the engine defer/cache its internal
+               layout as if it were irrelevant, and under flexbox+aspect-ratio
+               this cache can go stale when only the container's cross-axis
+               size changes (no new intersection event fires because the
+               element stays fully visible the whole time). The visible
+               symptom: dragging a panel splitter's WIDTH left the Focus Mode
+               4:3 crop stretched until the user clicked/dragged the image,
+               which forced a synchronous reflow via getBoundingClientRect()
+               and "woke" the stale layout back up. Keep the perf-friendly
+               layout/paint containment and pointer-events freeze, but let
+               this element's own box re-layout normally like any other. */
             body.vp-shell-resizing #vp-screen,
             body.vp-shell-resizing .vp-screen {
                 contain: layout style paint;
                 pointer-events: none;
-                content-visibility: auto;
             }
             body.vp-shell-resizing .vp-shell-gutter.dragging {
                 pointer-events: auto;

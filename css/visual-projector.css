@@ -23,7 +23,7 @@ button, input, textarea, select { font-family:inherit; }
 .vp-header-btns { display:flex; gap:5px; margin-left:auto; }
 #vp-projector-mode { flex:1; min-height:0; display:flex; flex-direction:column; }
 .vp-screen { position:relative; flex:1; min-height:0; margin:8px; border-radius:8px; overflow:hidden; background:var(--screen-bg, #050509); display:flex; align-items:center; justify-content:center; }
-.vp-screen img { max-width:100%; max-height:100%; object-fit:contain; display:block; border-radius:var(--vp-asset-radius, 8px); }
+.vp-screen img { max-width:100%; max-height:100%; object-fit:contain; display:block; border-radius:var(--vp-asset-radius, 8px); -webkit-user-drag:none; user-drag:none; -webkit-user-select:none; user-select:none; }
 .vp-screen-empty { color:rgba(205,214,244,.45); text-align:center; line-height:1.5; font-size:13px; }
 .vp-screen-actions { position:absolute; top:8px; right:8px; z-index:20; display:flex; gap:5px; opacity:0; transform:translateY(-4px); transition:opacity .18s ease, transform .18s ease; pointer-events:none; }
 .vp-screen:hover .vp-screen-actions, .vp-screen-actions:focus-within { opacity:1; transform:translateY(0); pointer-events:auto; }
@@ -336,7 +336,18 @@ textarea, .vp-shell-modal-card, .vp-session-log-list, .vp-gallery-grid, #vp-gall
 
 
 
-/* Focus Mode: 4:3 viewport attention crop */
+/* Focus Mode: 4:3 viewport attention crop.
+   DESIGN DECISION (intentional, not a bug): width is pinned to the panel
+   and max-height caps the vertical extent. When the panel is wide+short,
+   the height cap wins and the box goes wider than a true 4:3 (aspect-ratio
+   can't hold both axes rigid at once when both are explicitly constrained).
+   We keep this "soft" 4:3 — the screen always fills the panel's width with
+   no empty letterbox bars — rather than a strict always-4:3 box with blank
+   space on the sides. If mouse/keyboard input is added to the screen later
+   and needs a fixed, input-stable aspect ratio regardless of panel shape,
+   revisit this and switch to a hard letterbox (centered, fixed 4:3, extra
+   space left empty) instead. See chat history around 2026-07-27 for the
+   discussion. */
 .vp-screen.vp-focus-mode {
     aspect-ratio: 4 / 3;
     flex: 0 1 auto;

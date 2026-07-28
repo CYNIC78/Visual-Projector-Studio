@@ -2574,6 +2574,14 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
         // projector uses contain/max-size rules; inline overrides make sure the
         // active image really becomes a 4:3 cover crop even if old transition
         // styles or later stylesheet order try to keep it contained.
+        //
+        // NOTE (intentional soft 4:3, not a bug): width stays pinned to the
+        // panel while max-height caps the vertical extent, so on a wide+short
+        // panel the box can end up wider than a true 4:3 — no letterbox bars,
+        // the screen always fills the panel width. See the matching comment
+        // in css/visual-projector.css (.vp-screen.vp-focus-mode) for the full
+        // rationale and what to change if a hard, input-stable 4:3 is needed
+        // later for mouse/keyboard input on the screen.
         if (enabled) {
             screen.style.aspectRatio = '4 / 3';
             screen.style.flex = '0 1 auto';
@@ -3170,6 +3178,17 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
 
     if (screen.dataset.focusDragWired !== '1') {
             screen.dataset.focusDragWired = '1';
+
+            // Hard stop native HTML5 drag on the projector's <img>. Without this,
+            // dragging the pixel content itself (not just our custom pointer-based
+            // pan/zoom) can start a native OS-level image drag; releasing it back
+            // over the same window makes the browser hand the drop handler a
+            // synthesized image File, which was being misread as an external drop
+            // and duplicated the asset into the gallery + screen. The projector
+            // screen must only ever react to pointerdown/move/up (see below) so
+            // that future mouse+keyboard input on this surface stays predictable.
+            screen.addEventListener('dragstart', (event) => { event.preventDefault(); });
+
             let dragging = false;
             let startX = 0;
             let startY = 0;
@@ -3337,6 +3356,7 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
                 const img = document.createElement('img');
                 img.src = State.current.url || State.current.base64;
                 img.alt = State.current.tag;
+                img.draggable = false;
                 img.style.setProperty('border-radius', 'var(--vp-asset-radius, 8px)', 'important');
                 screen.appendChild(img);
                 applyProjectorViewportUI();
@@ -3374,6 +3394,7 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
             const newImg = document.createElement('img');
             newImg.src = State.current.url || State.current.base64;
             newImg.alt = State.current.tag;
+            newImg.draggable = false;
             newImg.style.setProperty('border-radius', 'var(--vp-asset-radius, 8px)', 'important');
             if (trType !== 'fade') { newImg.style.position = 'absolute'; newImg.style.inset = '0'; newImg.style.margin = 'auto'; }
             newImg.style.setProperty('--vp-tr-dur', `${dur}s`);
@@ -3985,6 +4006,19 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
         State.ui.vpWindow  = vpWindow;
         State.ui.screen    = vpWindow.querySelector('#vp-screen');
         ensureFocusControls();
+
+        // Keep Focus Mode's 4:3 crop honest across ANY resize of the screen's
+        // own box — panel splitter drags, shell dock/undock, window resize,
+        // OS DPI changes, etc. — not just the events we happen to already
+        // hook (drag/click on the image). Re-applying object-position/scale
+        // here is cheap and idempotent, so this is a safety net rather than
+        // the primary fix for any one specific resize path.
+        try {
+            const screenRo = new ResizeObserver(() => {
+                if (getProjectorViewportState().enabled) applyProjectorViewportUI();
+            });
+            screenRo.observe(State.ui.screen);
+        } catch (e) { /* ResizeObserver unavailable — keep static layout */ }
         State.ui.tagLabel  = vpWindow.querySelector('#vp-tag-label');
         State.ui.playerBar = vpWindow.querySelector('#vp-player-bar');
         State.ui.galleryBtn = vpWindow.querySelector('#vp-toggle-gallery');
