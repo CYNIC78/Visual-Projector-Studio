@@ -5,6 +5,13 @@
 // ║  as tags ([IMG:], <diary>). Tools are for perception only:     ║
 // ║  recall, search, dice, inspect.                                ║
 // ║                                                                ║
+// ║  v25 sanctioned exception (owner 2026-07-29, see               ║
+// ║  docs/agentic-loop-design.md §5): hybrid ACTION+PERCEPTION     ║
+// ║  tools are allowed when the primary value is the RETURNED      ║
+// ║  observation — scene_navigate performs [TAB/CAT] transitions   ║
+// ║  and gives back the fresh world slice + regenerated collage    ║
+// ║  as a vision attachment.                                       ║
+// ║                                                                ║
 // ║  Load order: AFTER projector-gallery.js, BEFORE                ║
 // ║  projector-session.js (needs gallery data + before tool loop).  ║
 // ╚════════════════════════════════════════════════════════════════╝
@@ -410,6 +417,197 @@
     });
 
     // ════════════════════════════════════════════════════════════════
+    //  SCENE_NAVIGATE — hybrid ACTION+PERCEPTION (v25; design:
+    //  docs/agentic-loop-design.md §5). Performs a [TAB:]/[CAT:] gallery
+    //  transition through the director bus (v17 solo-sweep + fuzzy match
+    //  come free), WAITS for the Gallery View collage to re-render, and
+    //  returns the fresh world slice plus the new collage as a vision
+    //  attachment. The session tool-loop (projector-session.js) turns
+    //  attachments into a dedicated vision message — the model enters the
+    //  room and literally sees it after one honest pause.
+    // ════════════════════════════════════════════════════════════════
+
+    const _sceneNavSleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const SCENE_NAV_COLL_WAIT_MS = 15000;
+
+    function _sceneNavSlice() {
+        const gd = VP.state?.galleryData || {};
+        return {
+            tabs: Array.isArray(gd.tabs) ? gd.tabs : [],
+            cats: Array.isArray(gd.categories) ? gd.categories : [],
+            assets: VP.state?.gallery ? Array.from(VP.state.gallery.values()) : [],
+        };
+    }
+
+    // executeCommand fires collage regeneration synchronously and the queue
+    // may chain a restart — two consecutive calm samples = truly settled.
+    async function _sceneNavAwaitCollage(timeoutMs = SCENE_NAV_COLL_WAIT_MS) {
+        const t0 = Date.now();
+        let calm = 0;
+        let last = null;
+        while (Date.now() - t0 < timeoutMs) {
+            last = VP.gallery?.getCollagePublicState?.() || null;
+            if (!last) return { state: null, timedOut: false };
+            if (!last.running && !last.queued) {
+                if (++calm >= 2) return { state: last, timedOut: false };
+            } else calm = 0;
+            await _sceneNavSleep(150);
+        }
+        return { state: last, timedOut: true };
+    }
+
+    function _sceneNavBlobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    async function _sceneNavAssetToDataUrl(asset) {
+        try {
+            if (!asset) return '';
+            if (typeof asset.base64 === 'string' && asset.base64.startsWith('data:image/')) return asset.base64;
+            if (typeof asset.url === 'string' && asset.url.startsWith('data:image/')) return asset.url;
+            if (asset.blob && typeof asset.blob.arrayBuffer === 'function') return await _sceneNavBlobToDataUrl(asset.blob);
+            if (typeof asset.url === 'string') {
+                const resp = await fetch(asset.url);
+                if (resp?.ok) return await _sceneNavBlobToDataUrl(await resp.blob());
+            }
+        } catch (err) {
+            console.warn('[VP Core Tools] scene_navigate: collage asset -> dataUrl failed:', err);
+        }
+        return '';
+    }
+
+    Tools.register({
+        name: 'scene_navigate',
+        icon: '🚪',
+        // v26 diet (~-30% tokens): same rails, tighter prose
+        description: 'Enter/leave a scene tab or reveal/pack a pack (gallery rooms) and SEE the result: waits for the fresh Gallery View collage and returns it as an image plus visible [IMG:] tags. Use when the story moves location — call INSTEAD of [TAB:…]/[CAT:…] text commands. One transition per call; chain to keep walking.',
+        schema: {
+            type: 'object',
+            properties: {
+                entity: {
+                    type: 'string',
+                    enum: ['tab', 'pack'],
+                    description: '"tab" = a scene room (solo: one open at a time, opening sweeps others into the hall); "pack" = a category shelf of scenes.',
+                },
+                action: {
+                    type: 'string',
+                    enum: ['open', 'close'],
+                    description: 'open = enter the room / reveal the pack; close = step back into the hall / pack away.',
+                },
+                name: {
+                    type: 'string',
+                    description: 'Name of the scene tab or pack. Exact or near name — fuzzy match applies.',
+                },
+            },
+            required: ['entity', 'action', 'name'],
+        },
+        lifecycle: 'ephemeral',
+        source: 'core',
+        group: 'core',
+        summarize(res) {
+            const t = res?.transition || {};
+            if (res?.matched === false) return `Scene ➜ "${t.name || '?'}" — nothing matched`;
+            if (t.action === 'close') return `Scene ⏏ ${t.name || '?'} — back in the hall`;
+            const f = res?.focusScene;
+            if (f) return `Scene ➜ ${f.name} (${f.framesVisible} frames, fresh view)`;
+            return `Scene ➜ ${t.name || '?'}`;
+        },
+        async handler(args) {
+            if (!VP.commands?.execute) return { ok: false, error: 'Director command bus unavailable' };
+            const kind = String(args.entity || '').trim().toLowerCase() === 'pack' ? 'CAT' : 'TAB';
+            const verb = String(args.action || '').trim().toLowerCase() === 'close' ? 'close' : 'open';
+            const target = String(args.name || '').trim();
+            if (!target) return { ok: false, error: 'Empty scene name' };
+
+            const ciEq = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+            const ciNear = (a, b) => {
+                const A = String(a || '').toLowerCase(), B = String(b || '').toLowerCase();
+                return !!A && !!B && (A.includes(B) || B.includes(A));
+            };
+
+            const before = _sceneNavSlice();
+            const wasOpen = before.tabs.filter(t => t.state === 'open').map(t => t.name).join('|');
+
+            await VP.commands.execute(`[${kind}:${verb}:${target}]`, { source: 'tool:scene_navigate', showToast: true });
+
+            const after = _sceneNavSlice();
+            const subject = kind === 'TAB'
+                ? (after.tabs.find(t => ciEq(t.name, target)) || after.tabs.find(t => ciNear(t.name, target)) || null)
+                : (after.cats.find(c => ciEq(c.name, target)) || after.cats.find(c => ciNear(c.name, target)) || null);
+
+            const openNow = after.tabs.filter(t => t.state === 'open').map(t => t.name);
+            let matched = !!subject;
+            if (kind === 'TAB' && subject) {
+                matched = verb === 'open' ? subject.state === 'open' : subject.state !== 'open';
+            }
+            // Fuzzy safety net: the bus may have resolved a near name that slipped
+            // our own matching — if the set of open scenes changed, trust the world.
+            if (!matched && kind === 'TAB' && verb === 'open' && openNow.length && openNow.join('|') !== wasOpen) {
+                matched = true;
+            }
+
+            let focusScene = null;
+            let collageFresh = null;
+            const attachments = [];
+
+            if (matched && kind === 'TAB' && verb === 'open') {
+                // The honest pause: wait for the Gallery View re-render so the
+                // model receives the NEW room, not the stale one (owner's core
+                // requirement for the loop, 2026-07-29).
+                const settle = await _sceneNavAwaitCollage();
+                collageFresh = !settle.timedOut;
+
+                const tab = after.tabs.find(t => t.state === 'open') || subject;
+                if (tab) {
+                    const pack = (after.cats.find(c => c.id === tab.categoryId)?.name) || null;
+                    const tags = after.assets.filter(a => a.tabId === tab.id).map(a => a.tag).filter(Boolean);
+                    focusScene = {
+                        name: tab.name,
+                        pack,
+                        framesVisible: tags.length,
+                        tags: tags.slice(0, 24),
+                        truncatedTags: tags.length > 24,
+                    };
+                    // v27: the law of the entered state repeats at the entry moment
+                    const tabRules = String(tab.rules || '').trim();
+                    if (tabRules) focusScene.rules = tabRules.length > 300 ? tabRules.slice(0, 299) + '…' : tabRules;
+                }
+
+                const collageAsset = VP.state?.gallery?.get?.('__SCENERY_COLLAGE__');
+                const dataUrl = await _sceneNavAssetToDataUrl(collageAsset);
+                if (dataUrl) {
+                    attachments.push({
+                        kind: 'image',
+                        tag: '__SCENERY_COLLAGE__',
+                        dataUrl,
+                        caption: `FRESH GALLERY VIEW after entering "${focusScene?.name || target}"${focusScene?.pack ? ` (pack "${focusScene.pack}")` : ''}: this collage shows the room's frames${focusScene?.tags?.length ? ` — visible [IMG:] tags: ${focusScene.tags.join(', ')}` : ''}.${collageFresh === false ? ' (It was still re-rendering at timeout — latest available render attached.)' : ''}`,
+                    });
+                }
+            }
+
+            const menu = after.tabs.filter(t => t.state === 'collapsed').map(t => t.name);
+            return {
+                ok: true,
+                transition: { entity: kind, action: verb, name: target, resolved: subject?.name || null },
+                matched,
+                openScenes: openNow,
+                closedScenes: menu,
+                focusScene,
+                collageFresh,
+                attachments,
+                note: matched
+                    ? 'The world is already updated — you ARE in the new place now. Study the attached fresh collage (if present) and continue THIS same reply: describe what you see and react in character. Show frames with [IMG:tag] from the visible tags. Do NOT navigate to the same destination again this turn.'
+                    : `No scene matched "${target}". Nothing changed. Closed scenes available: ${menu.join(', ') || '(none)'}.`,
+            };
+        },
+    });
+
+    // ════════════════════════════════════════════════════════════════
     //  SCENE_DESCRIBE — describe the current scene state
     //  Combines projector frame, active speaker, recent context.
     // ════════════════════════════════════════════════════════════════
@@ -462,6 +660,6 @@
         },
     });
 
-    console.log('[VP Core Tools] 7 tools registered: roll_dice, gallery_search, recall_scene, timeline_check, character_note, asset_suggest, scene_describe');
+    console.log('[VP Core Tools] 8 tools registered: roll_dice, gallery_search, recall_scene, timeline_check, character_note, asset_suggest, scene_navigate, scene_describe');
 
 })();

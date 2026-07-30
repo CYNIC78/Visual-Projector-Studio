@@ -30,6 +30,11 @@
             executablePath: './bin/sd.cpp/sd-cli.exe',
             outputDir: './output',
             engineMode: 'cli',
+            // 🧹 VRAM-дворецкий (LM Studio / lms CLI) — docs/backend-runtime-design.md
+            vramSteward: false,      // выгружать модели LMS перед генерацией (opt-in)
+            lmsPath: '',             // путь к lms.exe; пусто = искать в PATH
+            stewardReload: false,    // после генерации вернуть модель (для установок без JIT)
+            stewardModel: '',        // идентификатор модели для `lms load <m> --ttl 600`
         },
         _activeCanvas: null,
         _activeContainer: null,
@@ -1264,6 +1269,30 @@
                                     <option value="cli">CLI</option>
                                     <option value="server">Server — stub</option>
                                 </select>
+                                <button class="vp-btn vp-btn-sm" id="vp-as-vram-steward" title="VRAM-дворецкий (LM Studio)">🧹</button>
+                                <div id="vp-as-vram-pop" style="display:none; position:fixed; z-index:10000; width:308px; padding:12px 14px; border-radius:10px; font-size:12px; line-height:1.5; background:var(--bg-secondary,#1d212b); color:var(--text-primary,#e8e8e8); border:1px solid var(--border,#3a3f4d); box-shadow:0 10px 34px rgba(0,0,0,.55);">
+                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                                        <b>🧹 VRAM-дворецкий (LM Studio)</b>
+                                        <button class="vp-btn vp-btn-ghost vp-btn-sm" data-role="close">×</button>
+                                    </div>
+                                    <label style="display:flex; gap:8px; align-items:flex-start; cursor:pointer;">
+                                        <input type="checkbox" data-role="enable" style="margin-top:2px;">
+                                        <span>Выгружать модели перед генерацией<br><code style="opacity:.75">lms unload --all</code></span>
+                                    </label>
+                                    <div style="margin-top:8px;">
+                                        Путь к lms.exe <span style="opacity:.6">(пусто = из PATH)</span>
+                                        <input type="text" data-role="lms-path" placeholder="lms" style="width:100%; box-sizing:border-box; margin-top:3px; padding:4px 8px; border-radius:6px; border:1px solid var(--border,#3a3f4d); background:var(--bg-primary,#12151c); color:inherit;">
+                                    </div>
+                                    <label style="display:flex; gap:8px; align-items:flex-start; cursor:pointer; margin-top:10px;">
+                                        <input type="checkbox" data-role="reload" style="margin-top:2px;">
+                                        <span>Вернуть модель после генерации<br><code style="opacity:.75">lms load … --ttl 600</code></span>
+                                    </label>
+                                    <div style="margin-top:6px;">
+                                        Модель (идентификатор lms)
+                                        <input type="text" data-role="reload-model" placeholder="напр. gemma-3-12b-it" style="width:100%; box-sizing:border-box; margin-top:3px; padding:4px 8px; border-radius:6px; border:1px solid var(--border,#3a3f4d); background:var(--bg-primary,#12151c); color:inherit;">
+                                    </div>
+                                    <div style="margin-top:10px; opacity:.65;">💡 LM Studio с JIT вернёт модель сама на первом сообщении чата — «вернуть модель» нужно, только если JIT у тебя выключен.</div>
+                                </div>
                             </span>
                             <span class="vp-as-tool-group vp-as-tool-right">
                                 <button class="vp-btn vp-btn-sm" id="vp-as-toggle-inspector" title="Toggle Inspector">📋</button>
@@ -1272,7 +1301,7 @@
                         <div class="vp-as-canvas-controls">
                             <div class="vp-as-primary-actions">
                                 <button class="vp-btn vp-btn-primary" id="vp-as-produce">🎨 Produce</button>
-                                <button class="vp-btn vp-btn-sm" id="vp-as-produce-all" title="Generate all tabs">▶▶ All</button>
+                                <button class="vp-btn vp-btn-sm" id="vp-as-produce-all" title="Generate all variants">▶▶ All</button>
                                 <button class="vp-btn vp-btn-sm" id="vp-as-stop" style="display:none; color:#ff6b6b; border-color:rgba(255,60,60,0.3);">⏹</button>
                                 <span class="vp-as-mode-sep"></span>
                                 <button class="vp-btn vp-btn-sm" id="vp-as-copy-cli" title="Copy CLI">📋</button>
@@ -1488,6 +1517,41 @@
                 });
             }
 
+            // ── 🧹 VRAM-дворецкий: поповер настроек (docs/backend-runtime-design.md) ──
+            const stewardBtn = container.querySelector('#vp-as-vram-steward');
+            const stewardPop = container.querySelector('#vp-as-vram-pop');
+            const syncStewardBtn = () => {
+                if (!stewardBtn) return;
+                const on = !!this.config.vramSteward;
+                stewardBtn.style.opacity = on ? '1' : '0.45';
+                stewardBtn.title = on
+                    ? 'VRAM-дворецкий: ВКЛ — lms unload перед каждой генерацией'
+                    : 'VRAM-дворецкий (LM Studio): выкл';
+            };
+            syncStewardBtn();
+            if (stewardBtn && stewardPop) {
+                const bindCfg = (role, evt, fn) => {
+                    stewardPop.querySelector(`[data-role="${role}"]`)?.addEventListener(evt, fn);
+                };
+                stewardBtn.addEventListener('click', () => {
+                    const opening = stewardPop.style.display === 'none';
+                    if (!opening) { stewardPop.style.display = 'none'; return; }
+                    const r = stewardBtn.getBoundingClientRect();
+                    stewardPop.style.top = `${r.bottom + 6}px`;
+                    stewardPop.style.left = `${Math.max(8, r.right - 308)}px`;
+                    stewardPop.style.display = 'block';
+                    const en = stewardPop.querySelector('[data-role="enable"]');   if (en) en.checked = !!this.config.vramSteward;
+                    const lp = stewardPop.querySelector('[data-role="lms-path"]'); if (lp) lp.value = this.config.lmsPath || '';
+                    const rl = stewardPop.querySelector('[data-role="reload"]');   if (rl) rl.checked = !!this.config.stewardReload;
+                    const rm = stewardPop.querySelector('[data-role="reload-model"]'); if (rm) rm.value = this.config.stewardModel || '';
+                });
+                bindCfg('close', 'click', () => { stewardPop.style.display = 'none'; });
+                bindCfg('enable', 'change', (e) => { this.config.vramSteward = !!e.target.checked; this.saveStudioState(); syncStewardBtn(); });
+                bindCfg('lms-path', 'change', (e) => { this.config.lmsPath = String(e.target.value || '').trim(); this.saveStudioState(); });
+                bindCfg('reload', 'change', (e) => { this.config.stewardReload = !!e.target.checked; this.saveStudioState(); });
+                bindCfg('reload-model', 'change', (e) => { this.config.stewardModel = String(e.target.value || '').trim(); this.saveStudioState(); });
+            }
+
             stopBtn.addEventListener('click', async () => {
                 if (!this.running || !this._activeProcessId) return;
                 this._userStopped = true;
@@ -1520,29 +1584,45 @@
                 }
 
                 const assetName = bag.meta.get('assetName') || null;
-                await this.runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
+                await this.vramPreFlight(log, container);
+                try {
+                    await this.runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName);
+                } finally {
+                    await this.vramPostFlight(log, container);
+                }
             });
 
             const produceAllBtn = container.querySelector('#vp-as-produce-all');
             if (produceAllBtn) {
                 produceAllBtn.addEventListener('click', async () => {
                     if (this.running) return;
-                    // Find the prompt node and iterate its tabs
+                    // Find the prompt node and iterate its prompt variants
+                    // (Prompt Node v2 schema; data.tabs = pre-v2 legacy fallback).
                     const promptNode = Array.from(Graph.nodes.values()).find(n => n.type === 'prompt');
-                    if (!promptNode || !Array.isArray(promptNode.data.tabs) || promptNode.data.tabs.length === 0) {
-                        VP.showToast?.('No prompt tabs found', 'warn');
+                    const variants = Array.isArray(promptNode?.data?.variants) && promptNode.data.variants.length
+                        ? promptNode.data.variants
+                        : (Array.isArray(promptNode?.data?.tabs) ? promptNode.data.tabs : []);
+                    if (!promptNode || !variants.length) {
+                        VP.showToast?.('No prompt variants found', 'warn');
                         return;
                     }
-                    const tabs = promptNode.data.tabs;
+                    const tabs = variants;
                     let success = 0, fail = 0;
                     const mode = this.config.engineMode || 'cli';
                     if (mode === 'server') {
                         VP.showToast?.('Server mode is a stub', 'info');
                         return;
                     }
+                    await this.vramPreFlight(log, container);
+                    let stewardPostDone = false;
+                    try {
                     for (let i = 0; i < tabs.length; i++) {
                         if (this.running) break;
-                        promptNode.data.activeTabId = tabs[i].id;
+                        if (Array.isArray(promptNode.data.variants) && promptNode.data.variants.length) {
+                            promptNode.data.activeVariantId = tabs[i].id;
+                        } else {
+                            promptNode.data.activeTabId = tabs[i].id; // pre-v2 legacy schema
+                        }
                         const bag = Graph.produce();
                         if (!bag) { fail++; continue; }
                         const assetName = bag.meta.get('assetName') || null;
@@ -1556,6 +1636,9 @@
                             fail++;
                             log.innerHTML += `<div style="color:var(--error)"><b>✗</b> ${tabs[i].name}: ${err.message || err}</div>`;
                         }
+                    }
+                    } finally {
+                        if (!stewardPostDone) { stewardPostDone = true; await this.vramPostFlight(log, container); }
                     }
                     VP.showToast?.(`Done: ${success} generated, ${fail} failed`, fail > 0 ? 'info' : 'success');
                     this.updateStudioStatus(container, success > 0 ? `Generated ${success} assets` : '');
@@ -1846,7 +1929,7 @@
             const promptNodes = Array.from(Graph.nodes?.values?.() || []).filter(n => n.type === 'prompt');
             const report = promptNodes.map(node => ({
                 nodeId: node.id,
-                activeTabId: node.data?.activeTabId || null,
+                activeVariantId: node.data?.activeVariantId || node.data?.activeTabId || null,
                 refs: Array.isArray(node.data?.reference)
                     ? node.data.reference.map(ref => this._describeReference(ref))
                     : [],
@@ -1901,6 +1984,49 @@
                 dropped,
             });
             return tempFiles;
+        },
+
+        // ── 🧹 VRAM-дворецкий (docs/backend-runtime-design.md) ──
+        // Мягкая деградация: любая ошибка = тост + строка в логе, генерацию НЕ блокируем.
+        _vramStewardCmd() {
+            const bin = String(this.config.lmsPath || '').trim();
+            const quote = (s) => `"${String(s).replace(/"/g, '\\"')}"`;
+            return { lms: bin ? quote(bin) : 'lms', quote };
+        },
+
+        async _vramExec(cmd, log, okHtml) {
+            const write = (html) => { if (log) { log.innerHTML += `<div>${html}</div>`; log.scrollTop = log.scrollHeight; } };
+            if (!window.Neutralino?.os?.execCommand) {
+                write(`<b>🧹 VRAM:</b> Neutralino недоступен — выгрузи/загрузи модель вручную (<code>${cmd}</code>)`);
+                return;
+            }
+            try {
+                write(`<b>🧹 VRAM:</b> <code>${cmd.replace(/</g, '&lt;')}</code>…`);
+                const res = await Neutralino.os.execCommand(cmd);
+                const code = (res && typeof res.exitCode === 'number') ? res.exitCode : 0;
+                if (code !== 0) throw new Error(`exit ${code}: ${String(res?.stdErr || res?.stdOut || '').slice(0, 180)}`);
+                if (okHtml) write(okHtml);
+            } catch (err) {
+                write(`<b style="color:var(--error)">🧹 VRAM:</b> не удалось (${String(err?.message || err).replace(/</g, '&lt;')}). Сделай вручную.`);
+                VP.showToast?.('VRAM-дворецкий: lms не ответил — управляй моделью вручную', 'warn');
+            }
+        },
+
+        async vramPreFlight(log, container) {
+            if (!this.config.vramSteward) return;
+            const { lms } = this._vramStewardCmd();
+            this.updateStudioStatus(container, '🧹 Freeing VRAM…');
+            await this._vramExec(`${lms} unload --all`, log,
+                '<b>🧹 VRAM:</b> модели выгружены. LM Studio вернёт модель сама (JIT) на первом сообщении чата.');
+            this.updateStudioStatus(container);
+        },
+
+        async vramPostFlight(log, container) {
+            const model = String(this.config.stewardModel || '').trim();
+            if (!this.config.vramSteward || !this.config.stewardReload || !model) return;
+            const { lms, quote } = this._vramStewardCmd();
+            await this._vramExec(`${lms} load ${quote(model)} --ttl 600`, log,
+                `<b>🧹 VRAM:</b> модель ${model.replace(/</g, '&lt;')} загружена обратно (TTL 600с).`);
         },
 
         async runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName) {

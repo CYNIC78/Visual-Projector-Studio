@@ -184,7 +184,8 @@
             ctx.font = 'bold 15px sans-serif';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            const headerText = `TAB: ${String(sec.tabName || '').toUpperCase()} (${(sec.assets || []).length} assets)`;
+            const catPart = sec.categoryName ? `CAT: ${String(sec.categoryName).toUpperCase()} › ` : '';
+            const headerText = `${catPart}TAB: ${String(sec.tabName || '').toUpperCase()} (${(sec.assets || []).length} assets)`;
             ctx.fillText(headerText, margin + 16, yHeader + headerHeight / 2, width - margin * 2 - 26);
 
             for (let i = 0; i < (sec.assets || []).length; i++) {

@@ -7,6 +7,13 @@
 // ║    Tags [IMG:], <diary> = ACTIONS (public, replayable)         ║
 // ║    Tools (tool_calls) = PERCEPTION (private model phase)       ║
 // ║    Manifests 📎 = TEMPORARY CONTEXT with TTL                   ║
+// ║    v25 sanctioned exception: hybrid ACTION+PERCEPTION tools    ║
+// ║    are allowed when the value is the RETURNED observation      ║
+// ║    (scene_navigate — see docs/agentic-loop-design.md §5).      ║
+// ║  Vision: a tool may return { attachments: [{kind:'image',      ║
+// ║    dataUrl, caption, tag}] } — the session tool-loop delivers  ║
+// ║    them to the model as a dedicated vision message while the   ║
+// ║    tool JSON and persisted history keep metadata only (v25).   ║
 // ║                                                                ║
 // ║  Lifecycle:                                                    ║
 // ║    'ephemeral'        — result vanishes after the turn         ║
@@ -78,6 +85,13 @@
             if (this._registry.has(def.name)) {
                 console.warn(`[VP Tools] Tool "${def.name}" already registered. Overwriting.`);
             }
+            // v26 per-tool management (owner: option B): enabled flags are runtime-only,
+            // modelConfig.disabledTools[] is the persisted truth. Tools born while a
+            // name is persisted-disabled start disabled (covers late game registrations;
+            // static tools are re-synced at boot via applyDisabledToolsFromConfig in
+            // projector-session.js).
+            const persistedDisabled = window.VisualProjector?.state?.modelConfig?.disabledTools;
+            const bornDisabled = Array.isArray(persistedDisabled) && persistedDisabled.includes(def.name);
             const entry = {
                 name: def.name,
                 description: def.description || '',
@@ -87,7 +101,7 @@
                 summarize: def.summarize || null, // Optional summarizer
                 lifecycle: def.lifecycle || 'ephemeral',
                 source: def.source || 'core',
-                enabled: def.enabled !== false,
+                enabled: def.enabled !== false && !bornDisabled,
             };
             this._registry.set(def.name, entry);
             this._emit('tools:registered', this._toolDescriptor(entry, { includeSchema: false }));

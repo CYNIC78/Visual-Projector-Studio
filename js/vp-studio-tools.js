@@ -245,17 +245,10 @@
         name: 'configure_prompt_studio',
         icon: '🎨',
         group: 'studio',
-        description: `Configure Asset Studio's Prompt Node for batch asset generation.
-Use this after the user approves an asset pack plan: emotions, poses, outfits, backgrounds, etc.
-
-IMPORTANT:
-- Use existing gallery tags in referenceTags. Do not invent reference tags.
-- Do not embed images or file paths.
-- Create one variant per generated asset.
-- Every variant prompt should start with {name:snake_case_gallery_tag}.
-- galleryTabName is the single Gallery destination tab for ALL generated assets in this pack.
-
-After calling this, tell the user: "Workflow ready! Open Asset Studio, check the workflow, then press ▶▶ Produce All."`,
+        // v26 diet (~-30% tokens): every rule kept, prose compressed
+        description: `Configure Asset Studio's Prompt Node for batch generation once the user approves a pack plan (emotions, poses, outfits).
+Rules: referenceTags = existing gallery tags only; one variant per asset; every prompt starts with {name:snake_case_gallery_tag}; galleryTabName = one destination tab for the whole pack.
+Then tell the user: "Workflow ready! Open Asset Studio, check the workflow, press ▶▶ Produce All."`,
         schema: {
             type: 'object',
             properties: {

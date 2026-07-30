@@ -2,6 +2,13 @@
 //  projector-depth-renderer.js                                     ║
 //  Tiny WebGL 2.5D renderer for Projector Focus Mode depth sidecars ║
 //  v3.1: Fixed perspective projection (strength in numerator only)  ║
+//  v3.2 (v14 tech pass): render() strength clamp raised 0.1 → 0.2   ║
+//  — plain JS option clamp (no GLSL touched). The engine-side       ║
+//  effective strength is base 0.09 (+0.05 zoom boost) × FOV slider  ║
+//  0..2.5, which saturated against the old 0.1 ceiling on the first ║
+//  ~third of slider travel, reading as "FOV does nothing". Defaults ║
+//  are unchanged; only the headroom moved. u_vignette stays as a    ║
+//  dormant FX hook (engine stopped feeding it in v14).              ║
 // ╚══════════════════════════════════════════════════════════════════╝
 (function () {
 'use strict';
@@ -359,7 +366,7 @@ function createShader(gl, type, source) {
          const x = Math.max(0, Math.min(1, viewport.x != null ? Number(viewport.x) : 0.5));
          const y = Math.max(0, Math.min(1, viewport.y != null ? Number(viewport.y) : 0.5));
          const parallax = [(x - 0.5) * 2.0, (y - 0.5) * 2.0];
-         const strength = Math.max(0, Math.min(0.1, Number(options.strength) || 0.05));
+         const strength = Math.max(0, Math.min(0.2, Number(options.strength) || 0.05));
          const invertDepth = options.inverted ? 1 : 0;
          const pivot = options.pivot != null ? Math.max(0, Math.min(1, Number(options.pivot))) : 1.0;
          const vignette = options.vignette != null ? Math.max(0, Math.min(1, Number(options.vignette))) : 0.0;

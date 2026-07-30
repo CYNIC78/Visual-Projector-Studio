@@ -17,7 +17,7 @@
 // ║  The engine talks to the gallery via window.VisualProjector   ║
 // ║  (this file) and window.VisualProjector.gallery (the panel    ║
 // ║  module). Load order:                                         ║
-// ║    fx-core.js → visual-projector.js → projector-gallery.js   ║
+// ║    fx-core.js → visual-projector.js → projector-focus.js →  ║\n// ║    projector-gallery.js                                    ║
 // ║                                                              ║
 // ║  CSS auto-loads from visual-projector.css next to the script.║
 // ╚══════════════════════════════════════════════════════════════╝
@@ -70,10 +70,11 @@
 			 activeTag: null,
 			 depthFile: null,
 			 error: null,
-			 pivot: 1.0,
-			 strengthMultiplier: 1.0,
-			 vignette: 0.0,
-			 dofStrength: 0.0,
+		 pivot: 1.0,
+		 strengthMultiplier: 1.0,
+		 // vignette removed in v14 (owner call: flat screen effects belong
+		 // to the FX engine; renderer uniform stays dormant/unfed)
+		 dofStrength: 0.0,
 			 aberration: 0.0,
 		 },
 
@@ -92,6 +93,12 @@
             gazeAutoReaction: true,
             gazeHoldDuration: 6,
             gazeCooldown:     50,
+            // v15 Gaze Attention Layer flags
+            gazeLabelsInContext: true,   // pin region/x/y/zoom/dwell label onto the gaze crop message
+            gazeManifestState:   false,  // also append an explicit [GAZE STATE] block to the scene manifest
+            gazeDeckChip:        true,   // live attention chip under the screen (deck, above the player bar)
+            // v18 Gallery View pill flag
+            collagePill:         true,   // 🖼️ deck pill with the contact-sheet state + click-popup
             debugTags:        false,
             maxLongSide:      1024,
             jpegQuality:      0.92,
@@ -109,6 +116,7 @@
             showUserInPlayback: true,
             allowUserCommands:  false,
             allowDirectoryCommands: false,
+            focusModeDefault:  false,   // v10: enable Focus Mode camera at boot ("focus as the main mode")
             mergeUserDrafts:   true,
             userDraftMergeWindowMs: 3000,
             prompts: {
@@ -151,8 +159,10 @@
         _ACTION_ALIASES: {
             open: 'open', opened: 'open', expand: 'open', show: 'open', reveal: 'open', load: 'open',
             открыть: 'open', открой: 'open', открыть_папку: 'open', развернуть: 'open', разверни: 'open', показать: 'open', покажи: 'open',
-            collapse: 'collapse', collapsed: 'collapse', close: 'collapse', fold: 'collapse', hide: 'collapse', unload: 'collapse',
-            свернуть: 'collapse', сверни: 'collapse', закрыть: 'collapse', закрой: 'collapse', скрыть: 'collapse', спрячь: 'collapse',
+            // v17: 'close' is the canonical verb; 'collapse' stays a forever-alias
+            // so old chats, prompts and hardcoded strings keep working.
+            close: 'close', closed: 'close', collapse: 'close', collapsed: 'close', fold: 'close', hide: 'close', unload: 'close',
+            свернуть: 'close', сверни: 'close', закрыть: 'close', закрой: 'close', скрыть: 'close', спрячь: 'close',
         },
 
         _rx(flags = 'giu') {
@@ -249,7 +259,9 @@
             if (parts.length < 2) return null;
             const action = this.normalizeAction(parts.shift());
             const name = this.cleanBody(parts.join(':'));
-            if (!name || (action !== 'open' && action !== 'collapse')) return null;
+            // v17: grammar is exactly 4 verbs — open/close × TAB/CAT.
+            // 'collapse' never reaches this point: _ACTION_ALIASES maps it to 'close'.
+            if (!name || (action !== 'open' && action !== 'close')) return null;
             return { action, name };
         },
         toQueueItem(cmd) {
@@ -366,457 +378,26 @@
     };
 
     // ════════════════════════════════════════════════════════════════
-    //  DIRECTOR COMMAND BUS v1
-    //  One official registry for model/director commands. VPTags parses
-    //  syntax; the bus validates, routes, executes and logs commands.
+    //  DIRECTOR COMMAND BUS v1 — SATELLITE BRIDGE → js/director-bus.js
+    //
+    //  The registry, built-in handlers (IMG / FOCUS / FX / CAT / TAB +
+    //  activity-game passthrough), FOCUS_PRESETS and the rolling command
+    //  log now live in js/director-bus.js (v06 extraction — byte-verbatim
+    //  bodies). That satellite loads BEFORE this file (see index.html
+    //  script order); deps below are function declarations, i.e. hoisted,
+    //  so passing them from this point is safe. The facade contract is
+    //  unchanged: VP.commands === the bus created here.
     // ════════════════════════════════════════════════════════════════
-    function cloneForLog(value) {
-        if (value == null) return value;
-        try { return JSON.parse(JSON.stringify(value)); }
-        catch { return String(value); }
+    if (!window.VP_DIRECTOR_BUS || typeof window.VP_DIRECTOR_BUS.createCommandBus !== 'function') {
+        throw new Error(
+            '[VP] js/director-bus.js is missing or loaded out of order.\n' +
+            'Script order must be: js/director-bus.js BEFORE js/visual-projector.js (see index.html).'
+        );
     }
-
-    const VPCommandBus = {
-        _registry: new Map(),
-        _log: [],
-        maxLog: 300,
-        _seq: 0,
-
-        register(type, spec = {}) {
-            const normalized = VPTags.normalizeType(type);
-            if (!normalized) return false;
-            const entry = {
-                type: normalized,
-                target: spec.target || 'unknown',
-                description: spec.description || '',
-                queueable: spec.queueable !== false,
-                handler: typeof spec === 'function' ? spec : spec.handler,
-                meta: spec.meta || null,
-            };
-            this._registry.set(normalized, entry);
-            return true;
-        },
-
-        unregister(type) { return this._registry.delete(VPTags.normalizeType(type)); },
-        has(type) { return this._registry.has(VPTags.normalizeType(type)); },
-
-        getRegistry() {
-            return Array.from(this._registry.values()).map(entry => ({
-                type: entry.type,
-                target: entry.target,
-                description: entry.description,
-                queueable: !!entry.queueable,
-                meta: cloneForLog(entry.meta),
-            }));
-        },
-
-        getLog(limit = this.maxLog) {
-            const n = Math.max(0, Number(limit) || this.maxLog);
-            return this._log.slice(-n).map(cloneForLog);
-        },
-
-        clearLog() { this._log = []; },
-
-        _pushLog(entry) {
-            const row = {
-                id: ++this._seq,
-                time: Date.now(),
-                ...entry,
-            };
-            this._log.push(row);
-            if (this._log.length > this.maxLog) this._log.splice(0, this._log.length - this.maxLog);
-            return row;
-        },
-
-        _payloadFor(type, body) {
-            if (type === 'IMG') {
-                const img = VPTags.parseImageBody(body);
-                if (!img?.tag) return { ok: false, error: 'Empty image tag' };
-                return { ok: true, payload: { tag: img.tag, transition: img.transition || null } };
-            }
-            if (type === 'FX') {
-                const name = VPTags.cleanBody(body);
-                if (!name) return { ok: false, error: 'Empty FX name' };
-                return { ok: true, payload: { name } };
-            }
-            if (type === 'CAT' || type === 'TAB') {
-                const dir = VPTags.parseDirBody(body);
-                if (!dir) return { ok: false, error: 'Invalid directory command; expected [TAB:open:name] or [CAT:collapse:name]' };
-                return { ok: true, payload: { entityType: type, action: dir.action, name: dir.name } };
-            }
-            if (VPTags._ACTIVITY_TYPES.has(type)) {
-                return { ok: true, payload: { arg: VPTags.cleanBody(body) } };
-            }
-            return { ok: true, payload: { body: VPTags.cleanBody(body) } };
-        },
-
-        normalize(command) {
-            if (!command) return { ok: false, error: 'Empty command' };
-            if (command.__vpCommand) return { ok: true, command };
-
-            let parsed = command;
-            if (typeof command === 'string') {
-                const found = VPTags.commands(command);
-                parsed = found[0] || null;
-            }
-            if (!parsed || typeof parsed !== 'object') return { ok: false, error: 'Command is not parseable', raw: String(command || '') };
-
-            const type = VPTags.normalizeType(parsed.type || parsed.originalType || '');
-            const originalType = String(parsed.originalType || parsed.type || type || '').trim().toUpperCase();
-            const body = VPTags.cleanBody(parsed.body ?? parsed.arg ?? '');
-            const raw = parsed.raw || (type ? `[${type}${body ? ':' + body : ''}]` : '');
-            if (!type) return { ok: false, error: 'Missing command type', raw, body };
-
-            const payloadResult = this._payloadFor(type, body);
-            if (!payloadResult.ok) {
-                return { ok: false, error: payloadResult.error, raw, type, originalType, body };
-            }
-
-            return {
-                ok: true,
-                command: {
-                    __vpCommand: true,
-                    raw,
-                    originalType,
-                    type,
-                    body,
-                    payload: payloadResult.payload,
-                },
-            };
-        },
-
-        toQueueItem(command) {
-            const rawType = command?.type || command?.originalType || '';
-            const type = VPTags.normalizeType(rawType);
-            const entry = this._registry.get(type);
-            if (!entry || entry.queueable === false) return null;
-            // Do not validate payload here: invalid queueable commands should still
-            // pass through execute() so they are logged instead of disappearing.
-            return { type: 'vp_command', command };
-        },
-
-        async execute(command, meta = {}) {
-            const normalized = this.normalize(command);
-            const baseMeta = {
-                source: meta.source || 'unknown',
-                role: meta.role || null,
-                raw: normalized.command?.raw || normalized.raw || command?.raw || String(command || ''),
-                type: normalized.command?.type || normalized.type || null,
-                originalType: normalized.command?.originalType || normalized.originalType || null,
-                body: normalized.command?.body || normalized.body || '',
-                payload: cloneForLog(normalized.command?.payload || null),
-            };
-
-            if (!normalized.ok) {
-                const row = this._pushLog({ ...baseMeta, status: 'invalid', target: null, error: normalized.error || 'Invalid command' });
-                console.warn('[VP CommandBus] Invalid command:', row);
-                return { ...row, ok: false, delayMs: 0 };
-            }
-
-            const cmd = normalized.command;
-            const entry = this._registry.get(cmd.type);
-            if (!entry) {
-                const row = this._pushLog({ ...baseMeta, status: 'unknown', target: null, error: `Command ${cmd.type} is not registered` });
-                console.warn(`[VP CommandBus] Unknown command: ${cmd.raw}`);
-                return { ...row, ok: false, delayMs: 0 };
-            }
-
-            if (typeof entry.handler !== 'function') {
-                const row = this._pushLog({ ...baseMeta, status: 'unhandled', target: entry.target, error: `Command ${cmd.type} has no handler` });
-                console.warn(`[VP CommandBus] Unhandled command: ${cmd.raw}`);
-                return { ...row, ok: false, delayMs: 0 };
-            }
-
-            try {
-                const result = await entry.handler(cmd, meta, entry);
-                const ok = !(result && result.ok === false);
-                const row = this._pushLog({
-                    ...baseMeta,
-                    target: entry.target,
-                    status: ok ? 'success' : 'failed',
-                    result: cloneForLog(result || null),
-                    error: ok ? null : (result?.error || 'Command handler returned failure'),
-                });
-                if (!ok) console.warn('[VP CommandBus] Command failed:', row);
-                return { ...row, ok, delayMs: Number(result?.delayMs || 0) };
-            } catch (err) {
-                const row = this._pushLog({
-                    ...baseMeta,
-                    target: entry.target,
-                    status: 'error',
-                    error: err?.message || String(err),
-                });
-                console.error('[VP CommandBus] Command handler error:', err);
-                return { ...row, ok: false, delayMs: 0 };
-            }
-        },
-
-        async executeText(text, meta = {}) {
-            const commands = VPTags.commands(text);
-            const types = meta.types ? new Set(meta.types.map(t => VPTags.normalizeType(t))) : null;
-            const out = [];
-            for (const cmd of commands) {
-                const type = VPTags.normalizeType(cmd.type);
-                const entry = this._registry.get(type);
-                if (types && !types.has(type)) continue;
-                if (entry?.queueable === false && !meta.allowNonQueueable) continue;
-                out.push(await this.execute(cmd, meta));
-            }
-            return out;
-        },
-    };
-
-    VPCommandBus.register('IMG', {
-        target: 'projector',
-        description: 'Switch projector to a visual asset: [IMG:tag]',
-        queueable: true,
-        handler(cmd, meta = {}) {
-            const { tag, transition } = cmd.payload || {};
-            const ok = !!tag && setCurrent(tag, meta.setCurrentSource || 'model', true, transition || null);
-            if (ok && meta.showToast !== false) showToast(`▶ ${tag}`, 'info');
-            return { ok, tag, transition: transition || null, delayMs: ok ? 400 : 0, error: ok ? null : `Image tag not found: ${tag || '(empty)'}` };
-        },
+    const VPCommandBus = window.VP_DIRECTOR_BUS.createCommandBus({
+        State, VPTags, setCurrent, showToast,
+        getProjectorViewportState, ensureViewportGlideLoopActive, updateProjectorDepthLayer,
     });
-
-    const FOCUS_PRESETS = {
-        'face': { zoom: 1.5, x: 0.5, y: 0.2, pivot: 0.85, vignette: 0.40, strength: 1.0 },
-        'portrait': { zoom: 1.5, x: 0.5, y: 0.2, pivot: 0.85, vignette: 0.40, strength: 1.0 },
-        'top': { zoom: 1.5, x: 0.5, y: 0.2, pivot: 0.85, vignette: 0.40, strength: 1.0 },
-        'middle': { zoom: 1.5, x: 0.5, y: 0.5, pivot: 1.00, vignette: 0.00, strength: 1.0 },
-        'center': { zoom: 1.5, x: 0.5, y: 0.5, pivot: 1.00, vignette: 0.00, strength: 1.0 },
-        'hands': { zoom: 1.5, x: 0.5, y: 0.7, pivot: 0.75, vignette: 0.30, strength: 1.0 },
-        'detail': { zoom: 1.5, x: 0.5, y: 0.7, pivot: 0.75, vignette: 0.30, strength: 1.0 },
-        'bottom': { zoom: 1.5, x: 0.5, y: 0.7, pivot: 0.75, vignette: 0.30, strength: 1.0 },
-        'left': { zoom: 1.4, x: 0.2, y: 0.4, pivot: 0.75, vignette: 0.40, strength: 1.0 },
-        'right': { zoom: 1.4, x: 0.8, y: 0.4, pivot: 0.75, vignette: 0.40, strength: 1.0 },
-        'background': { zoom: 1.1, x: 0.5, y: 0.5, pivot: 0.15, vignette: 0.20, strength: 1.0 },
-        'landscape': { zoom: 1.1, x: 0.5, y: 0.5, pivot: 0.15, vignette: 0.20, strength: 1.0 },
-        'foreground': { zoom: 1.1, x: 0.5, y: 0.5, pivot: 0.85, vignette: 0.20, strength: 1.0 },
-        'cinematic': { zoom: 1.4, x: 0.5, y: 0.3, pivot: 0.50, vignette: 0.65, strength: 1.6 },
-        'extreme': { zoom: 1.5, x: 0.5, y: 0.3, pivot: 0.50, vignette: 0.75, strength: 2.0 },
-        'reset': { zoom: 1.0, x: 0.5, y: 0.0, pivot: 1.00, vignette: 0.00, strength: 1.0 },
-        'default': { zoom: 1.0, x: 0.5, y: 0.0, pivot: 1.00, vignette: 0.00, strength: 1.0 },
-        'wide': { zoom: 1.0, x: 0.5, y: 0.0, pivot: 1.00, vignette: 0.00, strength: 1.0 },
-        'flat': { zoom: 1.0, x: 0.5, y: 0.0, pivot: 1.00, vignette: 0.00, strength: 1.0 },
-    };
-
-    VPCommandBus.register('FOCUS', {
-        target: 'projector-viewport',
-        description: 'Set camera viewport zoom and pan: [FOCUS:position:zoom] (e.g. [FOCUS:bottom:zoom] or [FOCUS:top] wide) or [FOCUS:zoom:x:y:pivot:vignette]',
-        queueable: true,
-        handler(cmd, meta = {}) {
-            const body = String(cmd.body || '').trim().toLowerCase();
-            const parts = body.split(':').map(p => p.trim());
-            const posArg = parts[0] || 'reset';
-            const zoomArg = parts[1] || '';
-
-            let zoom = 1.0;
-            let x = 0.5;
-            let y = 0.0;
-            let pivot = null;
-            let vignette = null;
-            let strength = null;
-
-            const current = getProjectorViewportState();
-
-            if (body === 'zoom') {
-                zoom = 1.5;
-                x = current.x;
-                y = current.y;
-            } else if (posArg === 'top' || posArg === 'face' || posArg === 'portrait') {
-                x = 0.5;
-                y = 0.0; // very top!
-            } else if (posArg === 'bottom' || posArg === 'hands' || posArg === 'detail') {
-                x = 0.5;
-                y = 1.0; // very bottom!
-            } else if (posArg === 'middle' || posArg === 'center') {
-                x = 0.5;
-                y = 0.5;
-            } else if (posArg === 'left') {
-                x = 0.0;
-                y = 0.5;
-            } else if (posArg === 'right') {
-                x = 1.0;
-                y = 0.5;
-            } else if (posArg === 'reset' || posArg === 'wide' || posArg === 'flat' || posArg === 'default') {
-                x = 0.5;
-                y = 0.0;
-                zoom = 1.0;
-            } else if (FOCUS_PRESETS[posArg]) {
-                const preset = FOCUS_PRESETS[posArg];
-                zoom = preset.zoom;
-                x = preset.x;
-                y = preset.y;
-                pivot = preset.pivot;
-                vignette = preset.vignette;
-                strength = preset.strength;
-            } else {
-                // Fallback to raw numeric parsing
-                zoom = parts[0] != null && parts[0] !== '' ? Number(parts[0]) : null;
-                x = parts[1] != null && parts[1] !== '' ? Number(parts[1]) : null;
-                y = parts[2] != null && parts[2] !== '' ? Number(parts[2]) : null;
-                pivot = parts[3] != null && parts[3] !== '' ? Number(parts[3]) : null;
-                vignette = parts[4] != null && parts[4] !== '' ? Number(parts[4]) : null;
-            }
-
-            // Apply two-layered zoom suffix if position keyword is used
-            const isPresetOrKeyword = FOCUS_PRESETS[posArg] || ['top', 'bottom', 'middle', 'center', 'left', 'right', 'reset', 'wide', 'flat', 'default', 'face', 'portrait', 'hands', 'detail'].includes(posArg);
-            if (isPresetOrKeyword && posArg !== 'reset' && posArg !== 'wide' && posArg !== 'flat' && posArg !== 'default') {
-                if (zoomArg === 'zoom' || zoomArg === 'in') {
-                    zoom = 1.5;
-                } else if (zoomArg !== '' && !isNaN(Number(zoomArg))) {
-                    zoom = Number(zoomArg);
-                } else {
-                    zoom = 1.0; // default to wide view if no zoom suffix is passed!
-                }
-            }
-
-            const patch = {};
-            if (zoom !== null && !isNaN(zoom)) patch.zoom = zoom;
-            if (x !== null && !isNaN(x)) patch.x = x;
-            if (y !== null && !isNaN(y)) patch.y = y;
-
-            patch.enabled = true;
-            patch.aspect = '4:3';
-            patch.touched = true;
-
-            // Apply viewport changes smoothly via LERP glide!
-            if (patch.zoom !== undefined) _targetViewportZoom = patch.zoom;
-            if (patch.x !== undefined) _targetViewportX = patch.x;
-            else if (_targetViewportX === null) _targetViewportX = current.x;
-            if (patch.y !== undefined) _targetViewportY = patch.y;
-            else if (_targetViewportY === null) _targetViewportY = current.y;
-
-            ensureViewportGlideLoopActive();
-
-            // Apply Pivot, Vignette and Strength if specified
-            if (pivot !== null && !isNaN(pivot)) {
-                State.projectorDepth.pivot = pivot;
-                if (State.current) {
-                    if (!State.current.focusViewport) {
-                        State.current.focusViewport = {
-                            x: State.projectorViewport.x,
-                            y: State.projectorViewport.y,
-                            zoom: State.projectorViewport.zoom,
-                        };
-                    }
-                    State.current.focusViewport.pivot = pivot;
-                }
-            }
-            if (vignette !== null && !isNaN(vignette)) {
-                State.projectorDepth.vignette = vignette;
-                if (State.current) {
-                    if (!State.current.focusViewport) {
-                        State.current.focusViewport = {
-                            x: State.projectorViewport.x,
-                            y: State.projectorViewport.y,
-                            zoom: State.projectorViewport.zoom,
-                        };
-                    }
-                    State.current.focusViewport.vignette = vignette;
-                }
-            }
-            if (strength !== null && !isNaN(strength)) {
-                State.projectorDepth.strengthMultiplier = strength;
-                if (State.current) {
-                    if (!State.current.focusViewport) {
-                        State.current.focusViewport = {
-                            x: State.projectorViewport.x,
-                            y: State.projectorViewport.y,
-                            zoom: State.projectorViewport.zoom,
-                        };
-                    }
-                    State.current.focusViewport.strengthMultiplier = strength;
-                }
-            }
-
-            // Update sliders UI if visible
-            const screen = State.ui.screen;
-            if (screen) {
-                const pivotSlider = screen.querySelector('#vp-focus-pivot-slider');
-                const pivotVal = screen.querySelector('#vp-focus-pivot-val');
-                if (pivotSlider && pivotVal && pivot !== null && !isNaN(pivot)) {
-                    pivotSlider.value = String(pivot);
-                    pivotVal.textContent = pivot.toFixed(2);
-                }
-
-                const vignetteSlider = screen.querySelector('#vp-focus-vignette-slider');
-                const vignetteVal = screen.querySelector('#vp-focus-vignette-val');
-                if (vignetteSlider && vignetteVal && vignette !== null && !isNaN(vignette)) {
-                    vignetteSlider.value = String(vignette);
-                    vignetteVal.textContent = vignette.toFixed(2);
-                }
-
-                const strengthSlider = screen.querySelector('#vp-focus-strength-slider');
-                const strengthVal = screen.querySelector('#vp-focus-strength-val');
-                if (strengthSlider && strengthVal && strength !== null && !isNaN(strength)) {
-                    strengthSlider.value = String(strength);
-                    strengthVal.textContent = strength.toFixed(1) + 'x';
-                }
-            }
-
-            updateProjectorDepthLayer().catch(() => {});
-
-            if (meta.showToast !== false) {
-                showToast(`🎥 FOCUS: ${body}`, 'info');
-            }
-            return { ok: true, zoom, x, y, pivot, vignette, delayMs: 400 };
-        },
-    });
-
-    VPCommandBus.register('FX', {
-        target: 'fx-core',
-        description: 'Trigger a visual effect: [FX:name] or [FX:name:intensity]',
-        queueable: true,
-        handler(cmd) {
-            if (typeof FX === 'undefined') return { ok: false, error: 'FX engine is not loaded' };
-            FX.fire(cmd.payload?.name || cmd.body);
-            return { ok: true, name: cmd.payload?.name || cmd.body, delayMs: 0 };
-        },
-    });
-
-    function executeDirectoryCommand(cmd) {
-        const TM = window.VisualProjector?.gallery?.TabsManager;
-        if (!TM?.executeCommand) return { ok: false, error: 'Gallery TabsManager is not ready' };
-        const { entityType, action, name } = cmd.payload || {};
-        TM.executeCommand(entityType || cmd.type, action, name);
-        return { ok: true, entityType: entityType || cmd.type, action, name, delayMs: 0 };
-    }
-
-    VPCommandBus.register('CAT', {
-        target: 'gallery-tabs',
-        description: 'Open/collapse a category: [CAT:open:name] / [CAT:collapse:name]',
-        queueable: true,
-        handler: executeDirectoryCommand,
-    });
-    VPCommandBus.register('TAB', {
-        target: 'gallery-tabs',
-        description: 'Open/collapse a tab: [TAB:open:name] / [TAB:collapse:name]',
-        queueable: true,
-        handler: executeDirectoryCommand,
-    });
-
-    for (const type of VPTags._ACTIVITY_TYPES) {
-        VPCommandBus.register(type, {
-            target: 'games',
-            description: 'Activity/game command. Full-text processing is delegated to VP_GAMES.',
-            queueable: false,
-            async handler(cmd, meta = {}) {
-                if (!window.VP_GAMES?.processActivityCommands) return { ok: false, error: 'VP_GAMES is not ready' };
-                const res = await window.VP_GAMES.processActivityCommands(cmd.raw, meta);
-                return { ok: true, resultCount: Array.isArray(res) ? res.length : 0, delayMs: 0 };
-            },
-        });
-    }
-
-    function routeActivityCommandsThroughBus(text, meta = {}, warnPrefix = '[VP]') {
-        if (!text || !window.VP_GAMES?.processActivityCommands) return;
-        VPCommandBus.executeText(text, {
-            ...meta,
-            allowNonQueueable: true,
-            types: [...VPTags._ACTIVITY_TYPES],
-        }).catch(err => console.warn(`${warnPrefix} activity command processing failed:`, err));
-    }
 
     // ════════════════════════════════════════════════════════════════
     //  LIGHTWEIGHT MODULE REGISTRIES
@@ -1003,6 +584,11 @@
         State.playback.mode = 'live';
         updatePlayerBar();
         updateProjectorUI();
+        // v23: the deck collage pill reads its state lazily (only on events).
+        // Snapshot applies — boot restore AND chat switches — carry no event,
+        // so without this nudge a persisted collage cover stayed pill-less
+        // after F5 (owner micro-bug report).
+        window.VP_COLLAGE_PILL?.refresh?.();
         return true;
     }
 
@@ -1076,10 +662,8 @@
         const previousTag = State.current?.tag || null;
         State.current = asset;
 
-        // Clear active gliding targets
-        _targetViewportX = null;
-        _targetViewportY = null;
-        _targetViewportZoom = null;
+        // Clear active gliding targets (owned by the focus satellite)
+        window.VP_FOCUS?.clearGlideTargets();
 
         // Auto-load / apply viewport settings for the active asset, or reset to default
         if (asset.focusViewport) {
@@ -1145,429 +729,31 @@
         if (previousTag) emitProjectorCurrentChanged(previousTag, source, 'clear-current');
     }
 
-    function isAssetReady(asset) {
-        return !!(asset.description && asset.description.trim().length > 0);
-    }
-
     // ════════════════════════════════════════════════════════════════
-    //  TEMPLATE  (manifest + frame context builder)
+    //  TEMPLATE (manifest + frame context) — SATELLITE BRIDGE → js/vp-templates.js
+    //
+    //  The whole template domain (DEFAULT_*_TEMPLATE, renderTemplate,
+    //  TEMPLATE_VARS, buildManifest, buildCollagePromptData,
+    //  buildVisualContextFrames, buildFrameContextPreview, the settings-UI
+    //  prompt helpers, isAssetReady) now lives in js/vp-templates.js
+    //  (v07 extraction — byte-verbatim bodies). The satellite loads right
+    //  AFTER this file (see index.html) and registers window.VP_TEMPLATES.
+    //  Same mirror as the focus bridge: names below are delegates, so all
+    //  internal call-sites and the facade keep working; if the satellite
+    //  is missing they degrade to safe empties (and the boot smoke fails
+    //  loudly — check the console / smoke-templates).
     // ════════════════════════════════════════════════════════════════
-
-    const DEFAULT_MANIFEST_TEMPLATE =
-`[SCENE CONTROL]
-{{#if hasGallery}}You are an improv actor playing out a seamless narrative using the provided assets. Match the visual style and emotional tone of the assets while progressing the scene
-
-Use [IMG:tag] to cut to a frame.
-
-GUIDELINES:
-- The active frame is the scene's live visual — let it inspire and ground what happens next.
-- Pick one or more [IMG:tag] from the frame list to illustrate actions or emotions.
-- Put [IMG:tag] before the lines that match that frame.
-- Don't use same tags in a row.
-
-{{/if}}{{#if hasReady}}AVAILABLE FRAMES (tag — description):
-{{assetsList}}
-{{#if isCollageActive}}
-[CURRENT GALLERY VIEW]
-{{#if collageTitle}}Title: {{collageTitle}}
-{{/if}}{{#if collageDescription}}Director note: {{collageDescription}}
-{{/if}}Visible tabs: {{collageSections}}
-
-This image shows the current gallery view available for choosing scene frames.
-It may change when tabs are opened or collapsed.
-Preview cards are grouped by "TAB: <Name>". Use a preview card's [IMG:tag] label only when you want to switch the visible scene frame.
-{{#if allowDirectoryCommands}}You may navigate the gallery to view other assets using [TAB:open:name], [TAB:collapse:name], [CAT:open:name], or [CAT:collapse:name].{{/if}}
-{{/if}}
-
-{{/if}}{{#if hasEffects}}VISUAL EFFECTS:
-Trigger an effect that overlays the current frame: insert [FX:name] and it fires automatically. Optional intensity 1-10: [FX:name:8] (default 5). Effects fade on their own; a new one replaces the active effect. Use them sparingly, only when they fit the moment.
-
-Available effects:
-{{/if}}{{#if hasTransient}}{{effectsList}}
-{{/if}}{{#if hasMood}}{{moodList}}
-{{/if}}{{#if hasGallery}}
-Currently showing: {{currentTag}}
-{{/if}}[/SCENE CONTROL]`;
-
-    const DEFAULT_FRAME_TEMPLATE =
-`[STAGE — frame {{n}} of {{total}}, {{position}}]
-The scene's current visual. Let it ground and inspire what happens next.
-Frame: {{tag}} ({{source}})`;
-
-    function renderTemplate(template, data) {
-        try {
-            let result = template;
-            
-            // To properly handle nested blocks like {{#if isCollageActive}}...{{#if collageTitle}}...{{/if}}...{{/if}}
-            // we must process the inner-most blocks FIRST.
-            // Since JS regex engine does not natively support recursive matching out of the box easily,
-            // the safest robust approach for our specific hardcoded keys is to resolve them explicitly from inside out.
-            
-            // Inner level 1
-            result = result.replace(/\{\{#if\s+allowDirectoryCommands\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, content) => data.allowDirectoryCommands ? content : '');
-            result = result.replace(/\{\{#if\s+collageTitle\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, content) => data.collageTitle ? content : '');
-            result = result.replace(/\{\{#if\s+collageDescription\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, content) => data.collageDescription ? content : '');
-            
-            // Outer level
-            result = result.replace(/\{\{#if\s+isCollageActive\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, content) => data.isCollageActive ? content : '');
-            
-            // Fallback for everything else (using a do-while loop to catch remaining non-nested ones)
-            let prev;
-            do {
-                prev = result;
-                // Important: Use lazy matching and ensure no inner {{#if}} exists in the captured group
-                result = result.replace(/\{\{#if\s+(\w+)\}\}((?:(?:(?!\{\{#if\s+\w+\}\})[\s\S])*?))\{\{\/if\}\}/g, (_, key, content) => data[key] ? content : '');
-            } while (result !== prev);
-            
-            // Values replacement
-            result = result.replace(/\{\{(\w+)\}\}/g, (match, key) => data[key] !== undefined ? String(data[key]) : match);
-            return result;
-        } catch (err) {
-            console.warn('[VP] Template render failed:', err);
-            return null;
-        }
-    }
-
-    const TEMPLATE_VARS = {
-        manifest: {
-            '{{currentTag}}':   'tag of the currently shown asset',
-            '{{assetsList}}':   'list of tagged assets (with descriptions if enabled)',
-            '{{pendingList}}':  'list of untagged assets',
-            '{{galleryCount}}': 'total number of assets',
-            '{{readyCount}}':   'number of tagged assets',
-            '{{pendingCount}}': 'number of untagged assets',
-            '{{effectsList}}':  'list of transient effects available to the bot',
-            '{{moodList}}':     'list of mood effects available to the bot',
-            '{{#if hasGallery}}...{{/if}}': 'shown only if the gallery has assets',
-            '{{#if hasReady}}...{{/if}}':   'shown only if there are tagged assets',
-            '{{#if hasPending}}...{{/if}}': 'shown only if there are untagged assets',
-            '{{#if noReady}}...{{/if}}':    'shown only if no tagged assets exist',
-            '{{#if hasEffects}}...{{/if}}': 'shown only if any effect is available to the bot',
-            '{{#if hasTransient}}...{{/if}}': 'shown only if a transient effect is available',
-            '{{#if hasMood}}...{{/if}}':      'shown only if a mood effect is available',
-        },
-        frame: {
-            '{{n}}':        'frame number in history (1-based)',
-            '{{total}}':    'total frames in history',
-            '{{position}}': '"CURRENT ACTIVE frame" or "previous frame"',
-            '{{tag}}':      'tag of this frame\'s asset',
-            '{{source}}':   'who set this shot',
-        },
-    };
-
-    function updatePromptHints(textarea, type) {
-        const hintsEl = textarea.parentElement.querySelector('.vp-prompt-hints');
-        if (!hintsEl) return;
-        const content = textarea.value;
-        const allVars = TEMPLATE_VARS[type] || {};
-        const used = [], unused = [];
-        for (const [varName, description] of Object.entries(allVars)) {
-            const checkStr = varName.startsWith('{{#if') ? varName.match(/\{\{#if\s+\w+\}\}/)[0] : varName;
-            if (content.includes(checkStr)) used.push({ name: varName, desc: description });
-            else unused.push({ name: varName, desc: description });
-        }
-        const usedHTML = used.length > 0
-            ? `<div class="vp-hints-section"><div class="vp-hints-title">✓ Using:</div>${used.map(v => `<code class="vp-hint-used" title="${v.desc}">${v.name}</code>`).join(' ')}</div>`
-            : '';
-        const unusedHTML = unused.length > 0
-            ? `<div class="vp-hints-section"><div class="vp-hints-title">+ Available (click to insert):</div>${unused.map(v => `<code class="vp-hint-available" data-insert="${escapeAttr(v.name)}" title="${v.desc}">${v.name}</code>`).join(' ')}</div>`
-            : '';
-        hintsEl.innerHTML = usedHTML + unusedHTML;
-        hintsEl.querySelectorAll('.vp-hint-available').forEach(el => {
-            el.addEventListener('click', () => {
-                insertAtCursor(textarea, el.dataset.insert);
-                textarea.focus();
-                updatePromptHints(textarea, type);
-                if (type === 'manifest') State.config.prompts.manifest = textarea.value.trim() || null;
-                else State.config.prompts.frameContext = textarea.value.trim() || null;
-                schedulePersist?.();
-            });
-        });
-    }
-
-    function updateTemplateStatus(textarea) {
-        const section = textarea.closest('.vp-prompt-section');
-        if (!section) return;
-        let badge = section.querySelector('.vp-prompt-badge');
-        if (!badge) {
-            badge = document.createElement('span');
-            badge.className = 'vp-prompt-badge';
-            section.querySelector('.vp-prompt-label span').appendChild(badge);
-        }
-        const isDefault = textarea.dataset.isDefault === 'true';
-        badge.textContent = isDefault ? ' · default' : ' · custom';
-        badge.classList.toggle('vp-prompt-badge-default', isDefault);
-        badge.classList.toggle('vp-prompt-badge-custom', !isDefault);
-    }
-
-    function insertAtCursor(textarea, text) {
-        const start = textarea.selectionStart;
-        const end   = textarea.selectionEnd;
-        const value = textarea.value;
-        textarea.value = value.substring(0, start) + text + value.substring(end);
-        textarea.selectionStart = textarea.selectionEnd = start + text.length;
-    }
-
-    function escapeAttr(str) {
-        return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;');
-    }
-
-    function buildManifest(templateOverride = null) {
-        const fxEnabled = (typeof FX !== 'undefined') && FX.enabled;
-        if (State.gallery.size === 0 && !fxEnabled) return '';
-
-        const currentTag = State.current ? State.current.tag : 'none';
-        const allAssets = Array.from(State.gallery.values()).filter(a => !a.hidden && a.tag !== '__SCENERY_COLLAGE__');
-        const activeCollageAsset = State.coverTag === '__SCENERY_COLLAGE__' ? State.gallery.get('__SCENERY_COLLAGE__') : null;
-        const activeCollageTags = new Set((activeCollageAsset?.collageMeta?.tabs || [])
-            .flatMap(t => Array.isArray(t.assetTags) ? t.assetTags : []));
-        const hasActiveCollageFilter = activeCollageTags.size > 0;
-        const isInActiveCollage = (asset) => !hasActiveCollageFilter || asset?.tag === '__SCENERY_COLLAGE__' || activeCollageTags.has(asset?.tag);
-
-        let treeList = '';
-        let readyCount = 0;
-        let pendingCount = 0;
-
-        const hasCollapsibles = State.config.allowDirectoryCommands && State.galleryData &&
-            (State.galleryData.categories.some(c => c.state !== 'locked') || State.galleryData.tabs.some(t => t.state !== 'locked'));
-        if (hasCollapsibles) {
-            treeList += `# GALLERY NAVIGATION\nSome gallery categories and tabs are collapsed below. To pull their assets into your NEXT turn, use [TAB:open:Name] or [CAT:open:Name]. To hide them again, use [TAB:collapse:Name] or [CAT:collapse:Name].\n`;
-        }
-
-        const processedTags = new Set();
-
-        if (State.galleryData && State.galleryData.categories) {
-            for (const cat of State.galleryData.categories) {
-                if (cat.state === 'locked') {
-                    const lockedTabs = State.galleryData.tabs.filter(t => t.categoryId === cat.id);
-                    lockedTabs.forEach(tab => { allAssets.filter(a => a.tabId === tab.id).forEach(a => processedTags.add(a.tag)); });
-                    continue;
-                }
-                const catTabs = State.galleryData.tabs.filter(t => {
-                    if (t.categoryId === cat.id) {
-                        if (t.state === 'locked') { allAssets.filter(a => a.tabId === t.id).forEach(a => processedTags.add(a.tag)); return false; }
-                        return true;
-                    }
-                    return false;
-                });
-                if (catTabs.length === 0) continue;
-
-                if (cat.state === 'collapsed') {
-                    let catAssetsTotal = 0;
-                    catTabs.forEach(tab => {
-                        const tabAssets = allAssets.filter(a => a.tabId === tab.id);
-                        catAssetsTotal += tabAssets.length;
-                        tabAssets.forEach(a => processedTags.add(a.tag));
-                    });
-                    if (State.config.allowDirectoryCommands) {
-                        catTabs.forEach(tab => { allAssets.filter(a => a.tabId === tab.id).forEach(a => isAssetReady(a) ? readyCount++ : pendingCount++); });
-                        treeList += `\n# 📦 Category: ${cat.name} — collapsed (${catTabs.length} tabs, ${catAssetsTotal} assets)${cat.desc ? ' — '+cat.desc : ''}. Request with [CAT:open:${cat.name}].\n`;
-                    }
-                    continue;
-                }
-
-                treeList += `\n# 📁 Category: ${cat.name}${cat.desc ? ' — '+cat.desc : ''}\n`;
-                for (const tab of catTabs) {
-                    const tabAssets = allAssets.filter(a => a.tabId === tab.id);
-                    if (tab.state === 'collapsed') {
-                        tabAssets.forEach(a => processedTags.add(a.tag));
-                        if (State.config.allowDirectoryCommands) {
-                            tabAssets.forEach(a => isAssetReady(a) ? readyCount++ : pendingCount++);
-                            treeList += `  ▸ Tab: ${tab.name} — collapsed (${tabAssets.length} assets)${tab.desc ? ' — '+tab.desc : ''}. Request with [TAB:open:${tab.name}].\n`;
-                        }
-                    } else {
-                        const isCollageActive = (State.coverTag === '__SCENERY_COLLAGE__');
-                        const visibleTabAssets = tabAssets.filter(isInActiveCollage);
-                        const tabIsRepresentedInCollage = hasActiveCollageFilter && visibleTabAssets.length > 0;
-                        const tabHiddenByContactSheet = isCollageActive && hasActiveCollageFilter && !tabIsRepresentedInCollage;
-
-                        if (tabHiddenByContactSheet) {
-                            // The tab is open in the gallery UI, but not part of the current
-                            // Gallery View. Do not leak even its tab name unless directory
-                            // navigation hints are explicitly enabled.
-                            tabAssets.forEach(a => processedTags.add(a.tag));
-                            if (State.config.allowDirectoryCommands) {
-                                treeList += `  ▸ Tab: ${tab.name}:${tab.desc ? ' '+tab.desc : ''}\n`;
-                                treeList += `    [not in current Gallery View — ${tabAssets.length} asset(s) hidden from current gallery view]\n`;
-                            }
-                        } else {
-                            treeList += `  ▸ Tab: ${tab.name}:${tab.desc ? ' '+tab.desc : ''}\n`;
-                            if (tabAssets.length === 0) treeList += `    (empty)\n`;
-                            else if (isCollageActive && tabIsRepresentedInCollage) {
-                                tabAssets.forEach(a => processedTags.add(a.tag));
-                                visibleTabAssets.forEach(a => { if (isAssetReady(a)) readyCount++; else pendingCount++; });
-                                treeList += `    [GALLERY VIEW ACTIVE — use the visible preview-card [IMG:tag] labels in the current Gallery View]\n`;
-                            } else {
-                                for (const a of tabAssets) {
-                                    processedTags.add(a.tag);
-                                    if (isAssetReady(a)) {
-                                        treeList += State.config.manifestDescriptions ? `    ${a.tag} — ${a.description}\n` : `    ${a.tag}\n`;
-                                        readyCount++;
-                                    } else { treeList += `    ${a.tag}\n`; pendingCount++; }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let strayAssets = allAssets.filter(a => !processedTags.has(a.tag));
-        if (hasActiveCollageFilter) strayAssets = strayAssets.filter(isInActiveCollage);
-        if (strayAssets.length > 0) {
-            treeList += `\n# 📁 Category: Uncategorized\n`;
-            for (const a of strayAssets) {
-                if (isAssetReady(a)) { treeList += State.config.manifestDescriptions ? `    ${a.tag} — ${a.description}\n` : `    ${a.tag}\n`; readyCount++; }
-                else { treeList += `    ${a.tag}\n`; pendingCount++; }
-            }
-        }
-
-        const transientEntries = fxEnabled ? Object.entries(FX.catalog) : [];
-        const moodEntries      = fxEnabled ? Object.entries(FX.moodCatalog) : [];
-        const fxLine = (name, info) => { const desc = (info.desc || '').trim(); return desc ? `  [FX:${name}] — ${desc}` : `  [FX:${name}]`; };
-        const effectsList = transientEntries.map(([name, info]) => fxLine(name, info)).join('\n');
-        const moodList    = moodEntries.map(([name, info]) => fxLine(name, info)).join('\n');
-        const hasTransient = transientEntries.length > 0;
-        const hasMood      = moodEntries.length > 0;
-        const hasGallery = State.gallery.size > 0;
-
-        const isCollageActive = (State.coverTag === '__SCENERY_COLLAGE__');
-        let collageTitle = '';
-        let collageDescription = '';
-        let collageSections = 0;
-        
-        if (isCollageActive && activeCollageAsset) {
-            const meta = activeCollageAsset.collageMeta || {};
-            collageTitle = meta.title || '';
-            collageDescription = meta.description || '';
-            collageSections = Array.isArray(meta.tabs) ? meta.tabs.length : 0;
-        }
-
-        const data = {
-            currentTag,
-            assetsList: treeList.trim(),
-            pendingList: '(See untagged items in tree above)',
-            galleryCount: State.gallery.size,
-            readyCount, pendingCount,
-            hasGallery,
-            hasReady: readyCount > 0 || pendingCount > 0,
-            hasPending: pendingCount > 0,
-            noReady: readyCount === 0 && pendingCount === 0,
-            hasEffects: fxEnabled && (hasTransient || hasMood),
-            hasTransient, hasMood, effectsList, moodList,
-            isCollageActive,
-            collageTitle,
-            collageDescription,
-            collageSections,
-            allowDirectoryCommands: !!State.config.allowDirectoryCommands,
-        };
-
-        const template = (templateOverride ?? State.config.prompts?.manifest) || DEFAULT_MANIFEST_TEMPLATE;
-        let rendered = renderTemplate(template, data);
-        if (rendered === null && (templateOverride || State.config.prompts?.manifest)) {
-            rendered = renderTemplate(DEFAULT_MANIFEST_TEMPLATE, data);
-        }
-
-        // Dynamically inject camera controls manifest strictly in Focus Mode!
-        if (getProjectorViewportState().enabled) {
-            const cameraControlsManifest = `
-
-[CAMERA CONTROLS]
-The screen is in Focus Mode. You can smoothly pan and zoom the camera/projector screen to control the viewport and direct the viewer's attention.
-To direct the camera, output [FOCUS:position] or [FOCUS:position:zoom] on a new line:
-- Positions: top, middle, bottom, left, right, reset
-- Optional zoom parameter: zoom (add ":zoom" to zoom in, omit to stay wide)
-
-Examples:
-- [FOCUS:top] — Focus on the top area (wide view).
-- [FOCUS:bottom:zoom] — Focus on the bottom area (zoomed in).
-- [FOCUS:left:zoom] — Zoom and pan to the left side.
-- [FOCUS:reset] — Reset smoothly to the default wide, full view.
-
-Use these camera controls on a new line to emphasize a dramatic shift, zoom in on details, or change perspective during your response!
-[/CAMERA CONTROLS]`;
-            rendered += cameraControlsManifest;
-        }
-
-        return rendered;
-    }
-
-    function buildCollagePromptData(tag) {
-        const asset = State.gallery.get(tag);
-        const meta = asset?.collageMeta || null;
-        const tabs = Array.isArray(meta?.tabs) ? meta.tabs : [];
-        const assetTags = tabs.flatMap(t => Array.isArray(t.assetTags) ? t.assetTags : []);
-        const label = String(State.coverLabel || '').trim();
-        const labelKey = label.toLowerCase();
-        const collageTitle = label && !new Set(['cover', 'contact sheet', 'gallery view', 'current gallery view']).has(labelKey) ? label : '';
-        const desc = String(asset?.description || '').trim();
-        const descKey = desc.toLowerCase();
-        const collageDescription = desc && descKey !== 'automatic scenery assets collage' ? desc : '';
-        return {
-            collageTitle,
-            collageDescription,
-            allowDirectoryCommands: !!State.config.allowDirectoryCommands,
-            collageSignature: meta?.signature || meta?.generatedAt || 'not-recorded',
-            collageSections: tabs.length
-                ? tabs.map(t => `${t.name || 'tab'} (${Number(t.count || 0)} cards)`).join('; ')
-                : '(sections are visible in the image)',
-            collageAssetCount: Number(meta?.assetsCount || assetTags.length || 0) || 'unknown',
-        };
-    }
-
-    function buildVisualContextFrames() {
-        const depth = State.config.contextDepth;
-        let frames = [];
-        const hasCover = !!State.coverTag;
-        const coverIsCurrent = !!(hasCover && State.current?.tag === State.coverTag);
-
-        if (hasCover) {
-            const cover = State.gallery.get(State.coverTag);
-            if (cover) {
-                frames.push({
-                    tag: cover.tag,
-                    blob: cover.blob,
-                    url: cover.url,
-                    thumbUrl: cover.thumbUrl,
-                    filename: cover.filename || cover.tag,
-                    source: 'cover',
-                    collageMeta: cover.collageMeta || null,
-                });
-            }
-        }
-
-        // If the cover/contact-sheet is the active frame, older history should not
-        // become the "CURRENT ACTIVE frame" after it. This was confusing small
-        // vision models and could make them report stale assets as currently seen.
-        if (!coverIsCurrent && depth > 0 && State.history.length > 0) {
-            const history = State.history
-                .slice(-depth)
-                .filter(h => h && h.tag && (!State.coverTag || h.tag !== State.coverTag));
-            frames = frames.concat(history);
-        }
-
-        return frames;
-    }
-
-    function buildFrameContextPreview(templateOverride = null) {
-        const chosenTemplate = (templateOverride ?? State.config.prompts?.frameContext) || DEFAULT_FRAME_TEMPLATE;
-        let frames = buildVisualContextFrames().map(h => ({ tag: h.tag, source: h.source, collageMeta: h.collageMeta || null }));
-        if (frames.length === 0) frames = [{ tag: State.current?.tag || 'sample_tag', source: 'user' }];
-        return frames.map((h, index) => {
-            if (h.tag === '__SCENERY_COLLAGE__') return null; // collage descriptions are now part of the main manifest
-
-            const isLast = index === frames.length - 1;
-            const data = {
-                n: index + 1, total: frames.length,
-                position: isLast ? 'CURRENT ACTIVE frame' : 'previous frame',
-                tag: h.tag,
-                source: h.source === 'model' ? 'set by you' : 'set by the director',
-            };
-            let rendered = renderTemplate(chosenTemplate, data);
-            if (rendered === null && templateOverride) rendered = renderTemplate(DEFAULT_FRAME_TEMPLATE, data);
-            return rendered;
-        }).filter(Boolean).join('\n\n---\n\n');
-    }
+    function renderTemplate(...a) { return window.VP_TEMPLATES?.renderTemplate(...a) ?? null; }
+    function buildManifest(...a) { return window.VP_TEMPLATES?.buildManifest(...a) ?? ''; }
+    function buildVisualContextFrames(...a) { return window.VP_TEMPLATES?.buildVisualContextFrames(...a) ?? []; }
+    function buildCollageRulesNote(...a) { return window.VP_TEMPLATES?.buildCollageRulesNote?.(...a) ?? ''; } // v27
+    function buildFrameContextPreview(...a) { return window.VP_TEMPLATES?.buildFrameContextPreview(...a) ?? ''; }
+    function updatePromptHints(...a) { return window.VP_TEMPLATES?.updatePromptHints(...a); }
+    function updateTemplateStatus(...a) { return window.VP_TEMPLATES?.updateTemplateStatus(...a); }
+    function insertAtCursor(...a) { return window.VP_TEMPLATES?.insertAtCursor(...a); }
+    function escapeAttr(...a) { return window.VP_TEMPLATES?.escapeAttr ? window.VP_TEMPLATES.escapeAttr(...a) : String(a[0] ?? ''); }
+    function getDefaultManifestTemplate() { return window.VP_TEMPLATES?.DEFAULT_MANIFEST_TEMPLATE || ''; }
+    function getDefaultFrameTemplate() { return window.VP_TEMPLATES?.DEFAULT_FRAME_TEMPLATE || ''; }
 
     function blobToBase64(blob) {
         return new Promise((resolve, reject) => {
@@ -1758,7 +944,19 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
         const focus = await captureFocusViewportDataUrl();
         if (!focus?.dataUrl) return null;
         const tag = focus.sourceTag || State.current?.tag || 'current frame';
-        const text = `This focused crop of the active scene shows exactly where the camera/user's gaze is resting right now on your current frame [${tag}]. Respond dynamically to what is visible in this frame.`;
+        let text = `This focused crop of the active scene shows exactly where the camera/user's gaze is resting right now on your current frame [${tag}]. Respond dynamically to what is visible in this frame.`;
+        // v15 Gaze Attention Layer: pin *computable* coordinates onto the gaze
+        // crop (region/x/y/zoom/dwell) so the model can react to attention CHANGES,
+        // not just to the crop's pixels. Flag-controlled (default on).
+        if (State.config?.gazeLabelsInContext !== false) {
+            const g = window.VP_FOCUS?.getGazeState?.();
+            if (g && g.enabled) {
+                const dwellMs = window.VP_FOCUS?.getGazeDwell?.() || 0;
+                const dwellSec = Math.round(dwellMs / 1000);
+                const dwellTxt = dwellSec >= 4 ? ` — held here for ${dwellSec}s` : '';
+                text += ` Gaze pin: region "${g.region}" (x=${g.x.toFixed(2)}, y=${g.y.toFixed(2)}), zoom ${g.zoom.toFixed(2)}x${g.anchor ? `, anchor "${g.anchor}"` : ''}${dwellTxt}. If the user is clearly staring at a detail, acknowledge it.`;
+            }
+        }
         return {
             role: 'user',
             content: [
@@ -1776,14 +974,19 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
 
         const focusMessage = await buildFocusContextMessage();
         
-        const template = State.config.prompts?.frameContext || DEFAULT_FRAME_TEMPLATE;
+        const template = State.config.prompts?.frameContext || getDefaultFrameTemplate(); // DEFAULT_FRAME_TEMPLATE lives in vp-templates.js (v07)
         const contextMessages = await Promise.all(frames.map(async (h, index) => {
             const base64Str = await ensureBase64(h);
 
             if (h.tag === '__SCENERY_COLLAGE__') {
+                // v27: active-state law rides as the collage's text companion —
+                // scene rules of the displayed tabs travel WITH the scene image
+                // in this high-attention zone (docs/tab-fsm-design.md §8).
+                const rulesNote = buildCollageRulesNote(State.galleryData);
                 return {
                     role: 'user',
                     content: [
+                        ...(rulesNote ? [{ type: 'text', text: rulesNote }] : []),
                         { type: 'image_url', image_url: { url: base64Str }, __isCollageMarker: true },
                     ],
                 };
@@ -1804,7 +1007,7 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
                 source: h.source === 'model' ? 'set by you' : 'set by the director',
             };
             let rendered = renderTemplate(template, data);
-            if (rendered === null) rendered = renderTemplate(DEFAULT_FRAME_TEMPLATE, data);
+            if (rendered === null) rendered = renderTemplate(getDefaultFrameTemplate(), data);
             
             return {
                 role: 'user',
@@ -2331,982 +1534,49 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
     };
 
     // ════════════════════════════════════════════════════════════════
-    //  FOCUS MODE / VIEWPORT ATTENTION  (4:3 visual focus foundation)
+    //  FOCUS DOMAIN — SATELLITE BRIDGE (js/projector-focus.js)
+    //  Focus mode (camera viewport), the WebGL depth layer + focal
+    //  lock and the on-screen focus controls were extracted to
+    //  js/projector-focus.js, loaded AFTER this file (the VP facade is
+    //  assembled at EOF) and registering window.VP_FOCUS.
+    //  Delegates below forward by name, keeping every internal
+    //  call-site and the facade untouched; before the satellite
+    //  registers they degrade to safe no-ops/defaults.
     // ════════════════════════════════════════════════════════════════
 
-    function clamp01(value, fallback = 0) {
-        const n = Number(value);
-        if (!Number.isFinite(n)) return fallback;
-        return Math.max(0, Math.min(1, n));
-    }
-
     function getDefaultProjectorViewport() {
-        return { x: 0.5, y: 0 };
+        return window.VP_FOCUS?.getDefaultProjectorViewport() || { x: 0.5, y: 0 };
     }
-
-    function isDefaultProjectorViewport(x, y, zoom = 1) {
-        const d = getDefaultProjectorViewport();
-        const xAtDefault = Math.abs(clamp01(x, d.x) - d.x) < 0.001;
-        const yAtDefault = Math.abs(clamp01(y, d.y) - d.y) < 0.001;
-        const zoomAtDefault = Math.abs((Number(zoom) || 1) - 1) < 0.001;
-        if (!zoomAtDefault) return false;
-
-        // At 1x only the overflowing axis carries gaze meaning. Ignore the
-        // locked perpendicular axis for dirty/default purposes, but still keep
-        // it visually snapped by the drag engine. With zoom enabled both axes
-        // become meaningful and the full check above applies.
-        const axis = getCurrentImageOverflowAxis();
-        if (axis === 'y') return yAtDefault;
-        if (axis === 'x') return xAtDefault;
-        if (axis === 'none') return true;
-        return xAtDefault && yAtDefault;
-    }
-
     function getProjectorViewportState() {
-        const vp = State.projectorViewport || {};
-        return {
-            enabled: !!vp.enabled,
-            aspect: vp.aspect || '4:3',
-            x: clamp01(vp.x, 0.5),
-            y: clamp01(vp.y, 0),
-            step: Math.max(0.05, Math.min(1, Number(vp.step) || 0.5)),
-            zoom: Math.max(1, Math.min(Math.max(1.01, Number(vp.focusZoom) || 1.5), Number(vp.zoom) || 1)),
-            focusZoom: Math.max(1.3, Math.min(1.7, Number(vp.focusZoom) || 1.5)),
-            zoomStep: Math.max(0.03, Math.min(0.25, Number(vp.zoomStep) || 0.10)),
-            dirty: !!vp.dirty,
-            touchedAt: vp.touchedAt || null,
-            updatedAt: vp.updatedAt || null,
-            currentTag: State.current?.tag || null,
+        return window.VP_FOCUS?.getProjectorViewportState() || {
+            enabled: false, aspect: '4:3', x: 0.5, y: 0,
+            step: 0.5, zoom: 1, focusZoom: 1.5, zoomStep: 0.10,
+            dirty: false, touchedAt: null, updatedAt: null,
+            currentTag: State?.current?.tag || null,
         };
     }
-
-    function emitProjectorViewportChanged(reason = 'viewport-changed') {
-        const viewport = getProjectorViewportState();
-        try {
-            window.VP_HUB?.emit?.('projector:viewport-changed', { viewport, reason }, { moduleId: 'projector' });
-        } catch (err) {
-            console.warn('[VP Projector] hub emit projector:viewport-changed failed:', err);
-        }
-    }
-
-    function setProjectorViewport(patch = {}, reason = 'set-viewport') {
-        const current = getProjectorViewportState();
-        const nextX = patch.x != null ? clamp01(patch.x, current.x) : current.x;
-        const nextY = patch.y != null ? clamp01(patch.y, current.y) : current.y;
-        const nextFocusZoom = patch.focusZoom != null ? Math.max(1.3, Math.min(1.7, Number(patch.focusZoom) || current.focusZoom || 1.5)) : current.focusZoom;
-        const nextZoom = patch.zoom != null ? Math.max(1, Math.min(nextFocusZoom, Number(patch.zoom) || current.zoom || 1)) : Math.max(1, Math.min(nextFocusZoom, current.zoom || 1));
-        const nextEnabled = patch.enabled != null ? !!patch.enabled : current.enabled;
-        const touched = patch.touched === true || patch.dirty === true;
-        const atDefault = isDefaultProjectorViewport(nextX, nextY, nextZoom);
-        const nextDirty = nextEnabled && (patch.dirty != null ? !!patch.dirty : (touched || current.dirty || nextZoom > 1.001) && !atDefault);
-        const next = {
-            enabled: nextEnabled,
-            aspect: patch.aspect || current.aspect || '4:3',
-            x: nextX,
-            y: nextY,
-            step: patch.step != null ? Math.max(0.05, Math.min(1, Number(patch.step) || current.step)) : current.step,
-            zoom: nextEnabled ? nextZoom : 1,
-            focusZoom: nextFocusZoom,
-            zoomStep: patch.zoomStep != null ? Math.max(0.03, Math.min(0.25, Number(patch.zoomStep) || current.zoomStep)) : current.zoomStep,
-            dirty: nextDirty,
-            touchedAt: nextDirty ? Date.now() : null,
-            updatedAt: Date.now(),
-        };
-        State.projectorViewport = next;
-
-        // Auto-save user's viewport settings to the current asset's metadata
-        if (State.current && nextEnabled) {
-            const isDefault = isDefaultProjectorViewport(next.x, next.y, next.zoom);
-            if (isDefault) {
-                const existingPivot = State.current.focusViewport?.pivot;
-                const existingMultiplier = State.current.focusViewport?.strengthMultiplier;
-                const existingVignette = State.current.focusViewport?.vignette;
-                if (existingPivot != null || existingMultiplier != null || existingVignette != null) {
-                    State.current.focusViewport = {
-                        x: next.x,
-                        y: next.y,
-                        zoom: next.zoom,
-                        pivot: existingPivot != null ? existingPivot : 1.0,
-                        strengthMultiplier: existingMultiplier != null ? existingMultiplier : 1.0,
-                        vignette: existingVignette != null ? existingVignette : 0.0
-                    };
-                } else {
-                    State.current.focusViewport = null;
-                }
-            } else {
-                State.current.focusViewport = {
-                    x: next.x,
-                    y: next.y,
-                    zoom: next.zoom,
-                    pivot: State.current.focusViewport?.pivot != null ? State.current.focusViewport.pivot : (State.projectorDepth.pivot || 1.0),
-                    strengthMultiplier: State.current.focusViewport?.strengthMultiplier != null ? State.current.focusViewport.strengthMultiplier : (State.projectorDepth.strengthMultiplier || 1.0),
-                    vignette: State.current.focusViewport?.vignette != null ? State.current.focusViewport.vignette : (State.projectorDepth.vignette || 0.0)
-                };
-            }
-            if (patch.silent !== true) {
-                window.VisualProjector?.gallery?.persistAsset?.(State.current);
-            }
-        }
-
-        applyProjectorViewportUI();
-        updatePlayerBar();
-        if (patch.silent !== true) emitProjectorViewportChanged(reason);
-        return getProjectorViewportState();
-    }
-
-    function panProjectorViewport(dx = 0, dy = 0, reason = 'pan-viewport') {
-        const current = getProjectorViewportState();
-        const step = current.step || 0.5;
-        return setProjectorViewport({
-            x: current.x + (Number(dx) || 0) * step,
-            y: current.y + (Number(dy) || 0) * step,
-            touched: true,
-        }, reason);
-    }
-
-    function resetProjectorViewport(reason = 'reset-viewport') {
-        _targetViewportX = null;
-        _targetViewportY = null;
-        _targetViewportZoom = null;
-        const d = getDefaultProjectorViewport();
-        return setProjectorViewport({ x: d.x, y: d.y, zoom: 1, dirty: false }, reason);
-    }
-
-    function setProjectorViewportMode(payload = {}) {
-        const enabled = payload.enabled != null ? !!payload.enabled : true;
-        return setProjectorViewport({
-            enabled,
-            aspect: payload.aspect || '4:3',
-            step: payload.step,
-            zoom: enabled ? (payload.zoom != null ? payload.zoom : getProjectorViewportState().zoom) : 1,
-            focusZoom: payload.focusZoom,
-            x: payload.x != null ? payload.x : (enabled ? getProjectorViewportState().x : getDefaultProjectorViewport().x),
-            y: payload.y != null ? payload.y : (enabled ? getProjectorViewportState().y : getDefaultProjectorViewport().y),
-            dirty: enabled ? (payload.dirty === true ? true : getProjectorViewportState().dirty) : false,
-        }, 'set-viewport-mode');
-    }
-
-    function setProjectorViewportZoom(zoom = 1, reason = 'set-viewport-zoom') {
-        const current = getProjectorViewportState();
-        _targetViewportZoom = Math.max(1, Math.min(current.focusZoom || 1.5, Number(zoom) || 1));
-        if (_targetViewportX === null) _targetViewportX = current.x;
-        if (_targetViewportY === null) _targetViewportY = current.y;
-        ensureViewportGlideLoopActive();
-        return getProjectorViewportState();
-    }
-
-    function toggleProjectorViewportZoom(reason = 'toggle-viewport-zoom') {
-        const current = getProjectorViewportState();
-        return setProjectorViewportZoom(current.zoom > 1.001 ? 1 : current.focusZoom, reason);
-    }
-
-    function getCurrentImageOverflowAxis() {
-        const img = State.ui.screen?.querySelector('img:not([data-outgoing])');
-        const vp = getProjectorViewportState();
-        if (!img || !img.naturalWidth || !img.naturalHeight) return vp.zoom > 1.001 ? 'both' : 'both';
-        if (vp.zoom > 1.001) return 'both';
-        const imageRatio = img.naturalWidth / img.naturalHeight;
-        const viewportRatio = 4 / 3;
-        if (Math.abs(imageRatio - viewportRatio) < 0.03) return 'none';
-        return imageRatio > viewportRatio ? 'x' : 'y';
-    }
-
-    function updateFocusArrowState() {
-        const screen = State.ui.screen;
-        if (!screen) return;
-        const vp = getProjectorViewportState();
-        const axis = getCurrentImageOverflowAxis();
-        screen.querySelectorAll('[data-focus-pan]').forEach(btn => {
-            const dir = btn.dataset.focusPan;
-            let visible = vp.enabled;
-            if (axis === 'x') visible = visible && (dir === 'left' || dir === 'right');
-            else if (axis === 'y') visible = visible && (dir === 'up' || dir === 'down');
-            else if (axis === 'none') visible = false;
-            if (dir === 'left' && vp.x <= 0.001) visible = false;
-            if (dir === 'right' && vp.x >= 0.999) visible = false;
-            if (dir === 'up' && vp.y <= 0.001) visible = false;
-            if (dir === 'down' && vp.y >= 0.999) visible = false;
-            btn.hidden = !visible;
-        });
-    }
-
-    function applyProjectorViewportUI() {
-        const screen = State.ui.screen;
-        if (!screen) return;
-        const vp = getProjectorViewportState();
-        const enabled = !!vp.enabled;
-        screen.classList.toggle('vp-focus-mode', enabled);
-
-        const snapshotOverlay = screen.querySelector('.vp-focus-snapshot-overlay');
-        if (snapshotOverlay) {
-            snapshotOverlay.style.display = enabled ? 'block' : 'none';
-            if (enabled) {
-                const pivotSlider = snapshotOverlay.querySelector('#vp-focus-pivot-slider');
-                const pivotVal = snapshotOverlay.querySelector('#vp-focus-pivot-val');
-                if (pivotSlider && pivotVal) {
-                    const currentPivot = State.current?.focusViewport?.pivot != null 
-                        ? Number(State.current.focusViewport.pivot) 
-                        : (State.projectorDepth.pivot || 1.0);
-                    pivotSlider.value = String(currentPivot);
-                    pivotVal.textContent = currentPivot.toFixed(2);
-                }
-
-                const strengthSlider = snapshotOverlay.querySelector('#vp-focus-strength-slider');
-                const strengthVal = snapshotOverlay.querySelector('#vp-focus-strength-val');
-                if (strengthSlider && strengthVal) {
-                    const currentStrength = State.current?.focusViewport?.strengthMultiplier != null 
-                        ? Number(State.current.focusViewport.strengthMultiplier) 
-                        : (State.projectorDepth.strengthMultiplier || 1.0);
-                    strengthSlider.value = String(currentStrength);
-                    strengthVal.textContent = currentStrength.toFixed(1) + 'x';
-                }
-            }
-        }
-
-        const focusX = `${Math.round(vp.x * 10000) / 100}%`;
-        const focusY = `${Math.round(vp.y * 10000) / 100}%`;
-        const focusZoom = Math.max(1, Number(vp.zoom) || 1);
-        screen.style.setProperty('--vp-focus-x', focusX);
-        screen.style.setProperty('--vp-focus-y', focusY);
-        screen.style.setProperty('--vp-focus-zoom', String(focusZoom));
-
-        // Force the Focus Mode geometry inline as well as in CSS. The normal
-        // projector uses contain/max-size rules; inline overrides make sure the
-        // active image really becomes a 4:3 cover crop even if old transition
-        // styles or later stylesheet order try to keep it contained.
-        //
-        // NOTE (intentional soft 4:3, not a bug): width stays pinned to the
-        // panel while max-height caps the vertical extent, so on a wide+short
-        // panel the box can end up wider than a true 4:3 — no letterbox bars,
-        // the screen always fills the panel width. See the matching comment
-        // in css/visual-projector.css (.vp-screen.vp-focus-mode) for the full
-        // rationale and what to change if a hard, input-stable 4:3 is needed
-        // later for mouse/keyboard input on the screen.
-        if (enabled) {
-            screen.style.aspectRatio = '4 / 3';
-            screen.style.flex = '0 1 auto';
-            screen.style.width = 'calc(100% - 16px)';
-            screen.style.maxHeight = 'calc(100% - 16px)';
-            screen.style.alignSelf = 'center';
-        } else {
-            screen.style.aspectRatio = '';
-            screen.style.flex = '';
-            screen.style.width = '';
-            screen.style.maxHeight = '';
-            screen.style.alignSelf = '';
-        }
-
-        screen.querySelectorAll('img').forEach(img => {
-            if (enabled) {
-                img.style.setProperty('width', '100%', 'important');
-                img.style.setProperty('height', '100%', 'important');
-                img.style.setProperty('max-width', 'none', 'important');
-                img.style.setProperty('max-height', 'none', 'important');
-                img.style.setProperty('object-fit', 'cover', 'important');
-                // Use direct computed values instead of CSS variables here. Some
-                // engines don't interpolate object-position smoothly when only a
-                // parent CSS variable changes, especially on the secondary axis.
-                img.style.setProperty('object-position', `${focusX} ${focusY}`, 'important');
-                img.style.setProperty('transform', `scale(${focusZoom})`, 'important');
-                img.style.setProperty('transform-origin', `${focusX} ${focusY}`, 'important');
-            } else {
-                img.style.removeProperty('width');
-                img.style.removeProperty('height');
-                img.style.removeProperty('max-width');
-                img.style.removeProperty('max-height');
-                img.style.removeProperty('object-fit');
-                img.style.removeProperty('object-position');
-                img.style.removeProperty('transform');
-                img.style.removeProperty('transform-origin');
-            }
-            img.onload = () => updateFocusArrowState();
-        });
-        updateFocusArrowState();
-        updateProjectorDepthLayer().catch(err => {
-            State.projectorDepth = { ...State.projectorDepth, status: 'error', error: err?.message || String(err) };
-            console.warn('[VP Depth] layer update failed:', err);
-        });
-    }
-
-    const _depthRuntime = {
-        renderer: null,
-        imageSrc: '',
-        depthSrc: '',
-        depthObjectUrl: null,
-        imageObjectUrl: null,
-        loadingKey: '',
-        promise: null,
-    };
-
-    let _targetViewportX = null;
-    let _targetViewportY = null;
-    let _targetViewportZoom = null;
-    let _glideLoopActive = false;
-    let _focusPanelCollapsed = false;
-
-    function ensureViewportGlideLoopActive() {
-        if (_glideLoopActive) return;
-        _glideLoopActive = true;
-        
-        const lerpFactor = 0.12; // light, responsive glide inertia
-        
-        function loop() {
-            if (_targetViewportX === null || _targetViewportY === null) {
-                _glideLoopActive = false;
-                return;
-            }
-            
-            const current = getProjectorViewportState();
-            const dx = _targetViewportX - current.x;
-            const dy = _targetViewportY - current.y;
-            const dZoom = _targetViewportZoom !== null ? (_targetViewportZoom - current.zoom) : 0;
-            
-            if (Math.abs(dx) < 0.0005 && Math.abs(dy) < 0.0005 && Math.abs(dZoom) < 0.0005) {
-                setProjectorViewport({
-                    x: _targetViewportX,
-                    y: _targetViewportY,
-                    zoom: _targetViewportZoom !== null ? _targetViewportZoom : current.zoom,
-                    touched: true
-                }, 'focus-drag-snap-final');
-                
-                _targetViewportX = null;
-                _targetViewportY = null;
-                _targetViewportZoom = null;
-                _glideLoopActive = false;
-                return;
-            }
-            
-            const nextX = current.x + dx * lerpFactor;
-            const nextY = current.y + dy * lerpFactor;
-            const nextZoom = _targetViewportZoom !== null ? (current.zoom + dZoom * lerpFactor) : current.zoom;
-            
-            setProjectorViewport({
-                x: nextX,
-                y: nextY,
-                zoom: nextZoom,
-                touched: true,
-                silent: true
-            }, 'focus-drag-glide');
-            
-            requestAnimationFrame(loop);
-        }
-        
-        requestAnimationFrame(loop);
-    }
-
-    function computeDepthEffectiveStrength() {
-        const d = State.projectorDepth || {};
-        const vp = getProjectorViewportState();
-        const base = Math.max(0, Math.min(0.2, Number(d.strength) || 0.045));
-        const boost = Math.max(0, Math.min(0.12, Number(d.zoomBoost) || 0.035));
-        const curve = Math.max(0.5, Math.min(3, Number(d.zoomCurve) || 1.2));
-        const denom = Math.max(0.001, (vp.focusZoom || 1.5) - 1);
-        const t = Math.max(0, Math.min(1, ((vp.zoom || 1) - 1) / denom));
-        return Math.max(0, Math.min(0.2, base + boost * Math.pow(t, curve)));
-    }
-
     function getProjectorDepthState() {
-        const d = State.projectorDepth || {};
-        return {
-            enabled: d.enabled !== false,
-            strength: Math.max(0, Math.min(0.2, Number(d.strength) || 0.045)),
-            zoomBoost: Math.max(0, Math.min(0.12, Number(d.zoomBoost) || 0.035)),
-            zoomCurve: Math.max(0.5, Math.min(3, Number(d.zoomCurve) || 1.2)),
-            effectiveStrength: computeDepthEffectiveStrength(),
-            status: d.status || 'idle',
-            activeTag: d.activeTag || null,
-            depthFile: d.depthFile || null,
-            error: d.error || null,
+        return window.VP_FOCUS?.getProjectorDepthState() || {
+            enabled: true, strength: 0.045, zoomBoost: 0.035, zoomCurve: 1.2,
+            effectiveStrength: 0, status: 'idle',
+            activeTag: null, depthFile: null, error: null,
             webglAvailable: !!window.VPDepthRenderer,
         };
     }
+    function applyProjectorViewportUI(...a) { return window.VP_FOCUS?.applyProjectorViewportUI(...a); }
+    function setProjectorViewport(...a) { return window.VP_FOCUS?.setProjectorViewport(...a); }
+    function panProjectorViewport(...a) { return window.VP_FOCUS?.panProjectorViewport(...a); }
+    function resetProjectorViewport(...a) { return window.VP_FOCUS?.resetProjectorViewport(...a); }
+    function setProjectorViewportMode(...a) { return window.VP_FOCUS?.setProjectorViewportMode(...a); }
+    function setProjectorViewportZoom(...a) { return window.VP_FOCUS?.setProjectorViewportZoom(...a); }
+    function toggleProjectorViewportZoom(...a) { return window.VP_FOCUS?.toggleProjectorViewportZoom(...a); }
+    function setProjectorDepthMode(...a) { return window.VP_FOCUS?.setProjectorDepthMode(...a); }
+    function setProjectorDepthStrength(...a) { return window.VP_FOCUS?.setProjectorDepthStrength(...a); }
+    function setProjectorDepthZoomBoost(...a) { return window.VP_FOCUS?.setProjectorDepthZoomBoost(...a); }
+    function updateProjectorDepthLayer(...a) { return window.VP_FOCUS?.updateProjectorDepthLayer(...a); }
+    function ensureFocusControls(...a) { return window.VP_FOCUS?.ensureFocusControls(...a); }
+    function ensureViewportGlideLoopActive(...a) { return window.VP_FOCUS?.ensureViewportGlideLoopActive(...a); }
 
-    function setProjectorDepthMode(payload = {}) {
-        State.projectorDepth = {
-            ...State.projectorDepth,
-            enabled: payload.enabled != null ? !!payload.enabled : true,
-            status: State.projectorDepth?.status || 'idle',
-            error: null,
-        };
-        updateProjectorDepthLayer().catch(err => console.warn('[VP Depth] update failed:', err));
-        return getProjectorDepthState();
-    }
-
-    function setProjectorDepthStrength(strength = 0.045) {
-        State.projectorDepth = {
-            ...State.projectorDepth,
-            strength: Math.max(0, Math.min(0.2, Number(strength) || 0.045)),
-        };
-        updateProjectorDepthLayer().catch(err => console.warn('[VP Depth] render failed:', err));
-        return getProjectorDepthState();
-    }
-
-    function setProjectorDepthZoomBoost(zoomBoost = 0.035) {
-        State.projectorDepth = {
-            ...State.projectorDepth,
-            zoomBoost: Math.max(0, Math.min(0.12, Number(zoomBoost) || 0.035)),
-        };
-        updateProjectorDepthLayer().catch(err => console.warn('[VP Depth] render failed:', err));
-        return getProjectorDepthState();
-    }
-
-    function ensureDepthCanvas() {
-        const screen = State.ui.screen;
-        if (!screen) return null;
-        let canvas = screen.querySelector('.vp-depth-canvas');
-        if (!canvas) {
-            canvas = document.createElement('canvas');
-            canvas.className = 'vp-depth-canvas';
-            canvas.setAttribute('aria-hidden', 'true');
-            screen.appendChild(canvas);
-        }
-        return canvas;
-    }
-
-    function revokeDepthRuntimeUrls({ keepImage = false, keepDepth = false } = {}) {
-        if (!keepImage && _depthRuntime.imageObjectUrl) {
-            try { URL.revokeObjectURL(_depthRuntime.imageObjectUrl); } catch {}
-            _depthRuntime.imageObjectUrl = null;
-        }
-        if (!keepDepth && _depthRuntime.depthObjectUrl) {
-            try { URL.revokeObjectURL(_depthRuntime.depthObjectUrl); } catch {}
-            _depthRuntime.depthObjectUrl = null;
-        }
-    }
-
-    async function getCurrentImageSourceForDepth(asset) {
-        if (!asset) return { src: '', objectUrl: null };
-        if (asset.url || asset.base64) return { src: asset.url || asset.base64, objectUrl: null };
-        if (asset.blob) {
-            const url = URL.createObjectURL(asset.blob);
-            return { src: url, objectUrl: url };
-        }
-        return { src: '', objectUrl: null };
-    }
-
-    async function getDepthSidecarObjectUrl(asset) {
-        const file = asset?.depthMap?.file;
-        if (!file || asset.depthMap?.status !== 'ready') return { src: '', objectUrl: null };
-        const info = window.VP_DB?.getBackendInfo?.();
-        const worldRoot = info?.worldRoot;
-        if (!worldRoot || !window.Neutralino?.filesystem?.readBinaryFile) return { src: '', objectUrl: null };
-        const path = `${worldRoot}/assets/depth/${file}`;
-        const bin = await Neutralino.filesystem.readBinaryFile(path);
-        const blob = new Blob([bin], { type: 'image/png' });
-        const url = URL.createObjectURL(blob);
-        return { src: url, objectUrl: url, path };
-    }
-
-    function deactivateProjectorDepthLayer(reason = 'inactive') {
-        const screen = State.ui.screen;
-        if (screen) screen.classList.remove('vp-depth-active');
-        const canvas = screen?.querySelector('.vp-depth-canvas');
-        if (canvas) canvas.style.display = 'none';
-        State.projectorDepth = {
-            ...State.projectorDepth,
-            status: reason,
-            activeTag: null,
-            depthFile: null,
-        };
-    }
-
-    async function updateProjectorDepthLayer() {
-        const screen = State.ui.screen;
-        const asset = State.current;
-        const viewport = getProjectorViewportState();
-        const depthState = getProjectorDepthState();
-        if (!screen || !asset || !viewport.enabled || !depthState.enabled || asset.depthMap?.status !== 'ready' || !window.VPDepthRenderer) {
-            deactivateProjectorDepthLayer(!viewport.enabled ? 'focus-disabled' : 'inactive');
-            return false;
-        }
-
-        const canvas = ensureDepthCanvas();
-        if (!canvas) return false;
-        canvas.style.display = 'block';
-
-        const key = `${asset.tag}|${asset.url || asset.base64 || asset.file || ''}|${asset.depthMap.file}`;
-        if (_depthRuntime.loadingKey === key && _depthRuntime.promise) {
-            await _depthRuntime.promise;
-        } else if (_depthRuntime.loadingKey !== key || !_depthRuntime.renderer?.ready) {
-            _depthRuntime.loadingKey = key;
-            _depthRuntime.promise = (async () => {
-                State.projectorDepth = { ...State.projectorDepth, status: 'loading', activeTag: asset.tag, depthFile: asset.depthMap.file, error: null };
-                const image = await getCurrentImageSourceForDepth(asset);
-                const depth = await getDepthSidecarObjectUrl(asset);
-                if (!image.src || !depth.src) throw new Error('Depth renderer source is unavailable');
-                revokeDepthRuntimeUrls({ keepImage: false, keepDepth: false });
-                _depthRuntime.imageObjectUrl = image.objectUrl;
-                _depthRuntime.depthObjectUrl = depth.objectUrl;
-                if (!_depthRuntime.renderer) _depthRuntime.renderer = new window.VPDepthRenderer(canvas);
-                await _depthRuntime.renderer.setSources(image.src, depth.src);
-                _depthRuntime.imageSrc = image.src;
-                _depthRuntime.depthSrc = depth.src;
-            })();
-            await _depthRuntime.promise;
-        }
-
-		 const ok = _depthRuntime.renderer.render(viewport, {
-			 strength: computeDepthEffectiveStrength() * (asset.focusViewport?.strengthMultiplier != null ? Number(asset.focusViewport.strengthMultiplier) : (State.projectorDepth.strengthMultiplier || 1.0)),
-			 inverted: !!asset.depthMap?.inverted,
-			 pivot: asset.focusViewport?.pivot != null ? Number(asset.focusViewport.pivot) : (State.projectorDepth.pivot || 1.0),
-			 vignette: asset.focusViewport?.vignette != null ? Number(asset.focusViewport.vignette) : (State.projectorDepth.vignette || 0.0),
-			 nearThreshold: 0.8,  // Только объекты с глубиной > 0.9 получат усиление
-			 dofStrength: State.projectorDepth.dofStrength || 0.0,
-			 aberration: State.projectorDepth.aberration || 0.0,
-		 });
-        screen.classList.toggle('vp-depth-active', !!ok);
-        State.projectorDepth = { ...State.projectorDepth, status: ok ? 'ready' : 'error', activeTag: asset.tag, depthFile: asset.depthMap.file, error: ok ? null : 'render-failed' };
-        return ok;
-    }
-
-    async function performFocalLockAtClick(event) {
-        const screen = State.ui.screen;
-        const renderer = _depthRuntime.renderer;
-        if (!screen || !renderer || !renderer.ready || !State.current) return;
-        
-        try {
-            const rect = screen.getBoundingClientRect();
-            const rx = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-            const ry = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
-            
-            // Get current viewport UV origin and size
-            const uv = renderer.computeUv(getProjectorViewportState());
-            const uvX = uv.origin[0] + rx * uv.size[0];
-            const uvY = uv.origin[1] + ry * uv.size[1];
-            
-            // Read depth value
-            let depthVal = renderer.getDepthAt(uvX, uvY);
-            if (State.current.depthMap?.inverted) {
-                depthVal = 1.0 - depthVal;
-            }
-            
-            // Update pivot state
-            if (!State.current.focusViewport) {
-                State.current.focusViewport = {
-                    x: State.projectorViewport.x,
-                    y: State.projectorViewport.y,
-                    zoom: State.projectorViewport.zoom,
-                };
-            }
-            State.current.focusViewport.pivot = depthVal;
-            State.projectorDepth.pivot = depthVal;
-            
-            // Persist asset RAM changes
-            window.VisualProjector?.gallery?.persistAsset?.(State.current);
-            
-            // Update UI slider and value label
-            const pivotSlider = screen.querySelector('#vp-focus-pivot-slider');
-            const pivotVal = screen.querySelector('#vp-focus-pivot-val');
-            if (pivotSlider && pivotVal) {
-                pivotSlider.value = String(depthVal);
-                pivotVal.textContent = depthVal.toFixed(2);
-            }
-            
-            // Render the depth layer with the new focal plane
-            await updateProjectorDepthLayer();
-            
-            showToast(`Фокус заблокирован на глубине ${depthVal.toFixed(2)}`, 'success');
-        } catch (err) {
-            console.warn('[VP Focus Mode] Focal lock failed:', err);
-        }
-    }
-
-    function ensureFocusControls() {
-        const screen = State.ui.screen;
-        if (!screen) return;
-        ensureDepthCanvas();
-        if (screen.querySelector('.vp-focus-snapshot-overlay')) return;
-        const controls = document.createElement('div');
-        controls.className = 'vp-focus-snapshot-overlay';
-        controls.style.cssText = `
-            position: absolute;
-            inset: 0;
-            z-index: 31; /* above depth canvas and other layers */
-            pointer-events: none;
-            display: none; /* controlled by applyProjectorViewportUI */
-        `;
-        
-        // Render a beautiful, balanced Camera HUD overlay:
-        // Left side: Focus controls panel (anchored left, stacked vertically, collapsible via left-side anchored arrow)
-        // Right side: Snapshot Focus button (anchored right)
-        // Both on the same bottom-aligned baseline and made more compact.
-        controls.innerHTML = `
-            <!-- LEFT SIDE: FOCUS HUD CONTROLS (COLLAPSIBLE WITH ANCHORED TOGGLE) -->
-            <div style="position: absolute; left: 12px; bottom: 12px; pointer-events: none; display: flex; align-items: center; gap: 8px; z-index: 100;">
-                
-                <!-- ANCHORED TOGGLE BUTTON -->
-                <button id="vp-focus-pivot-toggle-btn" style="pointer-events: auto; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: rgba(20,20,32,0.76); border: 1px solid rgba(255,255,255,0.16); border-radius: 6px; color: #cdd6f4; backdrop-filter: blur(6px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; outline: none; padding: 0; transition: background 0.15s ease, transform 0.1s ease;" title="Свернуть настройки камеры">◀</button>
-
-                <!-- SLIDERS PANEL -->
-                <div id="vp-focus-pivot-panel" style="pointer-events: auto; display: flex; flex-direction: column; gap: 6px; background: rgba(20,20,32,0.76); border: 1px solid rgba(255,255,255,0.16); border-radius: 10px; padding: 6px 10px; color: #cdd6f4; backdrop-filter: blur(6px); box-shadow: 0 4px 16px rgba(0,0,0,0.4); transition: width 0.15s ease, padding 0.15s ease, opacity 0.15s ease, border-color 0.15s ease, gap 0.15s ease;">
-                    <!-- STRENGTH/FOV SLIDER -->
-                    <div class="vp-focus-row" style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600;">
-                        <span style="min-width: 48px;">🔍 FOV Scale:</span>
-                        <input type="range" id="vp-focus-strength-slider" min="0.0" max="2.5" step="0.05" style="width: 65px; height: 3px; accent-color: #6c5fa6; cursor: pointer; background: rgba(255,255,255,0.12); border-radius: 2px; outline: none; margin: 0; padding: 0;">
-                        <span id="vp-focus-strength-val" style="min-width: 22px; font-family: monospace; text-align: right;">1.0x</span>
-                    </div>
-                    
-                    <!-- FOCUS PLANE SLIDER -->
-                    <div class="vp-focus-row" style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600;">
-                        <span style="min-width: 48px;">🎯 Focus:</span>
-                        <input type="range" id="vp-focus-pivot-slider" min="0.0" max="1.0" step="0.01" style="width: 65px; height: 3px; accent-color: #6c5fa6; cursor: pointer; background: rgba(255,255,255,0.12); border-radius: 2px; outline: none; margin: 0; padding: 0;">
-                        <span id="vp-focus-pivot-val" style="min-width: 22px; font-family: monospace; text-align: right;">1.00</span>
-                    </div>
-
-                    <!-- VIGNETTE SLIDER -->
-                    <div class="vp-focus-row" style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600;">
-                        <span style="min-width: 48px;">🎞️ Vignette:</span>
-                        <input type="range" id="vp-focus-vignette-slider" min="0.0" max="1.0" step="0.05" style="width: 65px; height: 3px; accent-color: #6c5fa6; cursor: pointer; background: rgba(255,255,255,0.12); border-radius: 2px; outline: none; margin: 0; padding: 0;">
-                        <span id="vp-focus-vignette-val" style="min-width: 22px; font-family: monospace; text-align: right;">0.00</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- RIGHT SIDE: SNAPSHOT BUTTON -->
-            <div style="position: absolute; right: 12px; bottom: 12px; pointer-events: auto; z-index: 100;">
-                <button class="vp-btn" id="vp-focus-capture-btn" title="Сделать снимок угла обзора и прикрепить его как взгляд персонажа к следующему сообщению" style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 11px; border-radius: 999px; background: rgba(20,20,32,0.76); border: 1px solid rgba(255,255,255,0.16); color: #cdd6f4; backdrop-filter: blur(6px); box-shadow: 0 4px 16px rgba(0,0,0,0.4); cursor: pointer; transition: transform 0.1s ease, background 0.15s ease;">
-                    <span style="font-size: 11px;">📷</span>
-                    <span>Snapshot Focus</span>
-                </button>
-            </div>
-        `;
-
-        const btn = controls.querySelector('#vp-focus-pivot-toggle-btn');
-        const panel = controls.querySelector('#vp-focus-pivot-panel');
-        const rows = panel.querySelectorAll('.vp-focus-row');
-        
-        if (btn && panel) {
-            const togglePanel = (collapse) => {
-                _focusPanelCollapsed = collapse;
-                if (_focusPanelCollapsed) {
-                    rows.forEach(r => { r.style.display = 'none'; r.style.opacity = '0'; });
-                    panel.style.width = '0px';
-                    panel.style.padding = '0px';
-                    panel.style.gap = '0px';
-                    panel.style.border = 'none';
-                    panel.style.background = 'transparent';
-                    panel.style.boxShadow = 'none';
-                    panel.style.backdropFilter = 'none';
-                    btn.innerHTML = '▶';
-                    btn.title = 'Развернуть настройки камеры';
-                } else {
-                    rows.forEach(r => { r.style.display = 'flex'; r.style.opacity = '1'; });
-                    panel.style.width = '';
-                    panel.style.padding = '6px 10px';
-                    panel.style.gap = '6px';
-                    panel.style.border = '1px solid rgba(255,255,255,0.16)';
-                    panel.style.background = 'rgba(20,20,32,0.76)';
-                    panel.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
-                    panel.style.backdropFilter = 'blur(6px)';
-                    btn.innerHTML = '◀';
-                    btn.title = 'Свернуть настройки камеры';
-                }
-            };
-
-            // Restore previous state if any
-            togglePanel(_focusPanelCollapsed);
-
-            btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(108,95,166,0.85)'; });
-            btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(20,20,32,0.76)'; });
-
-            btn.addEventListener('click', (e) => {
-                e.preventDefault(); e.stopPropagation();
-                togglePanel(!_focusPanelCollapsed);
-                // Trigger slider updates just in case
-                applyProjectorViewportUI();
-            });
-
-        const strengthSlider = controls.querySelector('#vp-focus-strength-slider');
-        const strengthVal = controls.querySelector('#vp-focus-strength-val');
-        
-        if (strengthSlider && strengthVal) {
-            const initialStrength = State.current?.focusViewport?.strengthMultiplier != null 
-                ? Number(State.current.focusViewport.strengthMultiplier) 
-                : (State.projectorDepth.strengthMultiplier || 1.0);
-            
-            strengthSlider.value = String(initialStrength);
-            strengthVal.textContent = initialStrength.toFixed(1) + 'x';
-
-            const updateStrengthValue = (val) => {
-                const num = Number(val);
-                strengthVal.textContent = num.toFixed(1) + 'x';
-                
-                if (State.current) {
-                    if (!State.current.focusViewport) {
-                        State.current.focusViewport = {
-                            x: State.projectorViewport.x,
-                            y: State.projectorViewport.y,
-                            zoom: State.projectorViewport.zoom,
-                        };
-                    }
-                    State.current.focusViewport.strengthMultiplier = num;
-                }
-                State.projectorDepth.strengthMultiplier = num;
-                updateProjectorDepthLayer().catch(() => {});
-            };
-
-            strengthSlider.addEventListener('input', (e) => {
-                updateStrengthValue(e.target.value);
-            });
-
-            strengthSlider.addEventListener('change', (e) => {
-                updateStrengthValue(e.target.value);
-                if (State.current) {
-                    window.VisualProjector?.gallery?.persistAsset?.(State.current);
-                }
-            });
-        }
-
-        const pivotSlider = controls.querySelector('#vp-focus-pivot-slider');
-        const pivotVal = controls.querySelector('#vp-focus-pivot-val');
-        
-        if (pivotSlider && pivotVal) {
-            const initialPivot = State.current?.focusViewport?.pivot != null 
-                ? Number(State.current.focusViewport.pivot) 
-                : (State.projectorDepth.pivot || 1.0);
-            
-            pivotSlider.value = String(initialPivot);
-            pivotVal.textContent = initialPivot.toFixed(2);
-
-            const updatePivotValue = (val) => {
-                const num = Number(val);
-                pivotVal.textContent = num.toFixed(2);
-                
-                if (State.current) {
-                    if (!State.current.focusViewport) {
-                        State.current.focusViewport = {
-                            x: State.projectorViewport.x,
-                            y: State.projectorViewport.y,
-                            zoom: State.projectorViewport.zoom,
-                        };
-                    }
-                    State.current.focusViewport.pivot = num;
-                }
-                State.projectorDepth.pivot = num;
-                updateProjectorDepthLayer().catch(() => {});
-            };
-
-            pivotSlider.addEventListener('input', (e) => {
-                updatePivotValue(e.target.value);
-            });
-
-            pivotSlider.addEventListener('change', (e) => {
-                updatePivotValue(e.target.value);
-                if (State.current) {
-                    window.VisualProjector?.gallery?.persistAsset?.(State.current);
-                }
-            });
-        }
-
-        const vignetteSlider = controls.querySelector('#vp-focus-vignette-slider');
-        const vignetteVal = controls.querySelector('#vp-focus-vignette-val');
-        
-        if (vignetteSlider && vignetteVal) {
-            const initialVignette = State.current?.focusViewport?.vignette != null 
-                ? Number(State.current.focusViewport.vignette) 
-                : (State.projectorDepth.vignette || 0.0);
-            
-            vignetteSlider.value = String(initialVignette);
-            vignetteVal.textContent = initialVignette.toFixed(2);
-
-            const updateVignetteValue = (val) => {
-                const num = Number(val);
-                vignetteVal.textContent = num.toFixed(2);
-                
-                if (State.current) {
-                    if (!State.current.focusViewport) {
-                        State.current.focusViewport = {
-                            x: State.projectorViewport.x,
-                            y: State.projectorViewport.y,
-                            zoom: State.projectorViewport.zoom,
-                        };
-                    }
-                    State.current.focusViewport.vignette = num;
-                }
-                State.projectorDepth.vignette = num;
-                updateProjectorDepthLayer().catch(() => {});
-            };
-
-            vignetteSlider.addEventListener('input', (e) => {
-                updateVignetteValue(e.target.value);
-            });
-
-            vignetteSlider.addEventListener('change', (e) => {
-                updateVignetteValue(e.target.value);
-                if (State.current) {
-                    window.VisualProjector?.gallery?.persistAsset?.(State.current);
-                }
-            });
-        }
-
-        const captureBtn = controls.querySelector('#vp-focus-capture-btn');
-        if (captureBtn) {
-            captureBtn.addEventListener('mouseenter', () => { captureBtn.style.background = 'rgba(108,95,166,0.85)'; });
-            captureBtn.addEventListener('mouseleave', () => { captureBtn.style.background = 'rgba(20,20,32,0.76)'; });
-            captureBtn.addEventListener('click', async (e) => {
-                e.preventDefault(); e.stopPropagation();
-                captureBtn.style.transform = 'scale(0.92)';
-                setTimeout(() => { captureBtn.style.transform = ''; }, 100);
-
-                try {
-                    const focus = await captureFocusViewportDataUrl();
-                    if (!focus || !focus.dataUrl) {
-                        showToast('Не удалось сделать снимок фокуса', 'error');
-                        return;
-                    }
-
-                    const tag = focus.sourceTag || State.current?.tag || 'current';
-                    const manifestText = `[GAZE FOCUS ATTACHMENT: ${tag}]\nThe user is looking at this specific cropped area of the active image [${tag}] right now. This is their character's direct point-of-view, gaze focus, and zoom level. Treat this as their active attention target during your response.`;
-                    
-                    if (window.VisualProjector?.session?.queueManifest) {
-                        window.VisualProjector.session.queueManifest(manifestText, { source: 'user-gaze', ttl: 1 });
-                    }
-                    
-                    // Trigger input panel re-render
-                    window.VisualProjector?.session?.renderRegisteredPanels?.(['input']);
-
-                    showToast('Снимок фокуса прикреплен к следующему сообщению!', 'success');
-                } catch (err) {
-                    console.error('[VP Focus Mode] Snapshot capture failed:', err);
-                    showToast('Ошибка снимка: ' + (err.message || err), 'error');
-                }
-            });
-        }
-
-        screen.appendChild(controls);
-    }
-
-    if (screen.dataset.focusDragWired !== '1') {
-            screen.dataset.focusDragWired = '1';
-
-            // Hard stop native HTML5 drag on the projector's <img>. Without this,
-            // dragging the pixel content itself (not just our custom pointer-based
-            // pan/zoom) can start a native OS-level image drag; releasing it back
-            // over the same window makes the browser hand the drop handler a
-            // synthesized image File, which was being misread as an external drop
-            // and duplicated the asset into the gallery + screen. The projector
-            // screen must only ever react to pointerdown/move/up (see below) so
-            // that future mouse+keyboard input on this surface stays predictable.
-            screen.addEventListener('dragstart', (event) => { event.preventDefault(); });
-
-            let dragging = false;
-            let startX = 0;
-            let startY = 0;
-            let startViewport = null;
-            let moved = false;
-            let dragOriginX = 0;
-            let dragOriginY = 0;
-            let totalDx = 0;
-            let totalDy = 0;
-            let lastDragAxis = 'none';
-
-            const snapToStep = (value, step) => {
-                const s = Math.max(0.05, Math.min(1, Number(step) || 0.5));
-                return clamp01(Math.round(clamp01(value) / s) * s, 0);
-            };
-
-            const directionalSnap = (startValue, currentValue, mouseDelta, step, axisSize) => {
-                const s = Math.max(0.05, Math.min(1, Number(step) || 0.5));
-                const intentPx = Math.max(14, Math.min(42, axisSize * 0.045));
-                if (Math.abs(mouseDelta) < intentPx) return snapToStep(currentValue, s);
-                const direction = mouseDelta < 0 ? 1 : -1;
-                return clamp01(snapToStep(startValue, s) + direction * s, startValue);
-            };
-
-            const applySmoothDrag = (event) => {
-                if (!dragging || !startViewport) return;
-                const axis = getCurrentImageOverflowAxis();
-                const rect = screen.getBoundingClientRect();
-                totalDx = event.clientX - dragOriginX;
-                totalDy = event.clientY - dragOriginY;
-                const dragW = Math.max(120, rect.width * 0.65);
-                const dragH = Math.max(120, rect.height * 0.65);
-
-                let tx = startViewport.x;
-                let ty = startViewport.y;
-
-                if (axis === 'x' || axis === 'both') tx = clamp01(startViewport.x - totalDx / dragW, startViewport.x);
-                if (axis === 'y' || axis === 'both') ty = clamp01(startViewport.y - totalDy / dragH, startViewport.y);
-                if (axis === 'none') return;
-
-                if (Math.abs(totalDx) > 3 || Math.abs(totalDy) > 3) moved = true;
-                if (Math.abs(totalDx) > Math.abs(totalDy)) lastDragAxis = 'x';
-                else if (Math.abs(totalDy) > Math.abs(totalDx)) lastDragAxis = 'y';
-                else lastDragAxis = axis;
-
-                // Update gliding targets and ensure the loop runs!
-                _targetViewportX = tx;
-                _targetViewportY = ty;
-                ensureViewportGlideLoopActive();
-            };
-
-            screen.addEventListener('wheel', (event) => {
-                const vp = getProjectorViewportState();
-                if (!vp.enabled) return;
-                // Wheel over the focused projector toggles the single balanced zoom
-                // level. If the browser reports mouse buttons, RMB+wheel also works;
-                // plain wheel is accepted because the projector surface itself does
-                // not need page scrolling.
-                event.preventDefault();
-                const delta = Math.max(-0.12, Math.min(0.12, -event.deltaY * 0.0015));
-                const nextZoom = Math.max(1, Math.min(vp.focusZoom || 1.5, vp.zoom + delta));
-                setProjectorViewportZoom(nextZoom, delta >= 0 ? 'focus-wheel-zoom-in' : 'focus-wheel-zoom-out');
-            }, { passive: false });
-            screen.addEventListener('contextmenu', (event) => {
-                if (!getProjectorViewportState().enabled) return;
-                event.preventDefault();
-            });
-
-            screen.addEventListener('pointerdown', (event) => {
-                if (!getProjectorViewportState().enabled) return;
-                if (event.target.closest('button, input, select, textarea, .vp-screen-actions, .vp-focus-controls')) return;
-                dragging = true;
-                moved = false;
-                totalDx = 0;
-                totalDy = 0;
-                lastDragAxis = 'none';
-                startX = event.clientX;
-                startY = event.clientY;
-                dragOriginX = event.clientX;
-                dragOriginY = event.clientY;
-                startViewport = getProjectorViewportState();
-                screen.classList.add('vp-focus-dragging');
-                screen.setPointerCapture?.(event.pointerId);
-                event.preventDefault();
-            });
-            screen.addEventListener('pointermove', (event) => {
-                if (!dragging) return;
-                applySmoothDrag(event);
-            });
-
-            const finishFreeDrag = () => {
-                updateFocusArrowState();
-            };
-
-            const finishDrag = (event) => {
-                if (!dragging) return;
-                dragging = false;
-                screen.classList.remove('vp-focus-dragging');
-                try { screen.releasePointerCapture?.(event.pointerId); } catch {}
-                if (!moved) {
-                    performFocalLockAtClick(event);
-                } else {
-                    finishFreeDrag();
-                }
-                startViewport = null;
-            };
-            screen.addEventListener('pointerup', finishDrag);
-            screen.addEventListener('pointercancel', finishDrag);
-            screen.addEventListener('lostpointercapture', () => {
-                if (!dragging) return;
-                dragging = false;
-                screen.classList.remove('vp-focus-dragging');
-                finishFreeDrag();
-                startViewport = null;
-            });
-        }
-        updateFocusArrowState();
-    }
 
     // ════════════════════════════════════════════════════════════════
     //  PROJECTOR UI  (screen render + transitions + player bar)
@@ -3573,243 +1843,30 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
         }
     }
 
-    // ════════════════════════════════════════════════════════════════
-    //  DRAG / RESIZE  (projector window)
-    // ════════════════════════════════════════════════════════════════
-
-    function setupDragAndResize(vpWindow, opts = {}) {
-        const headerSel = opts.headerSel || '#vp-header';
-        const handleSel = opts.handleSel || '#vp-resize-handle';
-        const storageKey = opts.storageKey || 'vp-state';
-        const header = vpWindow.querySelector(headerSel);
-        const handle = vpWindow.querySelector(handleSel);
-
-        header.addEventListener('mousedown', e => {
-            if (vpWindow.classList.contains('vp-shell-docked')) return;
-            if (e.target.tagName === 'BUTTON') return;
-            e.preventDefault();
-            const { rect, css } = getNormalizedElementPlacement(vpWindow);
-            vpWindow.style.left = `${css.left}px`; vpWindow.style.top = `${css.top}px`; vpWindow.style.right = 'auto';
-            State.drag = { isDragging: true, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, scaleX: css.scaleX, scaleY: css.scaleY };
-            document.body.classList.add('vp-dragging');
-        });
-        handle.addEventListener('mousedown', e => {
-            if (vpWindow.classList.contains('vp-shell-docked')) return;
-            e.preventDefault(); e.stopPropagation();
-            const { css } = getNormalizedElementPlacement(vpWindow);
-            State.resize = { isResizing: true, startX: e.clientX, startY: e.clientY, startWidth: vpWindow.offsetWidth, startHeight: vpWindow.offsetHeight, scaleX: css.scaleX, scaleY: css.scaleY };
-            document.body.classList.add('vp-resizing');
-        });
-        document.addEventListener('mousemove', e => {
-            if (State.drag?.isDragging) {
-                vpWindow.style.left = `${(e.clientX - State.drag.offsetX) / State.drag.scaleX}px`;
-                vpWindow.style.top  = `${(e.clientY - State.drag.offsetY) / State.drag.scaleY}px`;
-            }
-            if (State.resize?.isResizing) {
-                const deltaX = (e.clientX - State.resize.startX) / State.resize.scaleX;
-                const deltaY = (e.clientY - State.resize.startY) / State.resize.scaleY;
-                vpWindow.style.width  = `${Math.max(400, State.resize.startWidth  + deltaX)}px`;
-                vpWindow.style.height = `${Math.max(340, State.resize.startHeight + deltaY)}px`;
-            }
-        });
-        document.addEventListener('mouseup', () => {
-            if (State.drag?.isDragging) { State.drag.isDragging = false; document.body.classList.remove('vp-dragging'); saveWindowState(vpWindow, storageKey); }
-            if (State.resize?.isResizing) { State.resize.isResizing = false; document.body.classList.remove('vp-resizing'); saveWindowState(vpWindow, storageKey); }
-        });
-    }
-
-    function saveWindowState(vpWindow, storageKey) {
-        const key = storageKey || 'vp-state';
-        const { css } = getNormalizedElementPlacement(vpWindow);
-        const geom = { left: css.left, top: css.top, width: vpWindow.offsetWidth, height: vpWindow.offsetHeight };
-        const db = window.VP_DB;
-        if (db?.setWinGeom) db.setWinGeom(geom).catch(() => {});
-        else {
-            try { localStorage.setItem(key, JSON.stringify(geom)); } catch {}
-        }
-    }
-
-    function loadWindowState(vpWindow, storageKey) {
-        const key = storageKey || 'vp-state';
-        const applyGeom = (s) => {
-            if (!s) return;
-            vpWindow.style.left = `${s.left}px`; vpWindow.style.top = `${s.top}px`;
-            vpWindow.style.right = 'auto'; vpWindow.style.width = `${s.width}px`;
-            if (s.height) vpWindow.style.height = `${s.height}px`;
-        };
-
-        const applyLocalFallback = () => {
-            try { applyGeom(JSON.parse(localStorage.getItem(key) || 'null')); } catch {}
-        };
-
-        const db = window.VP_DB;
-        if (db?.getWinGeom) {
-            return db.getWinGeom().then((s) => {
-                if (s) applyGeom(s);
-                else applyLocalFallback();
-            }).catch(() => {
-                applyLocalFallback();
-            });
-        }
-
-        applyLocalFallback();
-        return Promise.resolve();
-    }
+    // ═══════════════════════════════════════════════════════════════
+    //  DRAG / RESIZE (projector window) — SATELLITE BRIDGE → js/vp-window-drag.js
+    //
+    //  setupDragAndResize + win-geometry persistence now live in
+    //  js/vp-window-drag.js (v09 extraction — byte-verbatim bodies).
+    //  Drag state (State.drag / State.resize) remains on shared State.
+    //  Delegates no-op safely if the satellite is missing.
+    // ═══════════════════════════════════════════════════════════════
+    function setupDragAndResize(...a) { return window.VP_WINDOW_DRAG?.setupDragAndResize(...a); }
+    function saveWindowState(...a) { return window.VP_WINDOW_DRAG?.saveWindowState(...a); }
+    function loadWindowState(...a) { return window.VP_WINDOW_DRAG?.loadWindowState ? window.VP_WINDOW_DRAG.loadWindowState(...a) : Promise.resolve(); }
 
     // ════════════════════════════════════════════════════════════════
-    //  CONFIRM / PROMPT PREVIEW DIALOGS
+    //  CONFIRM / PROMPT PREVIEW DIALOGS — SATELLITE BRIDGE → js/vp-dialogs.js
+    //
+    //  The three shared modal primitives now live in js/vp-dialogs.js
+    //  (v08 extraction — byte-verbatim bodies; that module is fully
+    //  self-contained DOM building, zero engine deps). Delegates below
+    //  keep the facade entry points identical for every studio module;
+    //  if the satellite is missing they resolve to safe cancels.
     // ════════════════════════════════════════════════════════════════
-
-    function showConfirm({ title, message, buttons }) {
-        return new Promise(resolve => {
-            const backdrop = document.createElement('div');
-            backdrop.style.cssText = `position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10003; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; animation: vpFadeIn 0.2s ease;`;
-            const modal = document.createElement('div');
-            modal.style.cssText = `background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #383860); border-radius: 10px; padding: 20px 24px; max-width: 380px; box-shadow: 0 12px 48px rgba(0,0,0,0.7);`;
-            const titleEl = document.createElement('div');
-            titleEl.style.cssText = `color: var(--text-primary, #cdd6f4); font-size: 15px; font-weight: 600; margin-bottom: 8px;`;
-            titleEl.textContent = title;
-            const msgEl = document.createElement('div');
-            msgEl.style.cssText = `color: var(--text-secondary, #8888aa); font-size: 13px; line-height: 1.5; margin-bottom: 16px;`;
-            msgEl.textContent = message;
-            const btnsEl = document.createElement('div');
-            btnsEl.style.cssText = `display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;`;
-            let done = false;
-            let onKey = null;
-            const finish = (id) => {
-                if (done) return;
-                done = true;
-                if (onKey) document.removeEventListener('keydown', onKey);
-                backdrop.style.animation = 'vpFadeOut 0.15s ease forwards';
-                setTimeout(() => { backdrop.remove(); resolve(id); }, 150);
-            };
-            buttons.forEach(btn => {
-                const b = document.createElement('button');
-                b.textContent = btn.label;
-                b.className = `vp-btn ${btn.ghost ? 'vp-btn-ghost' : ''} ${btn.danger ? 'vp-btn-danger' : ''}`;
-                b.style.cssText = `padding: 6px 12px; height: 28px; font-size: 12px;`;
-                b.addEventListener('click', () => finish(btn.id));
-                btnsEl.appendChild(b);
-            });
-            modal.appendChild(titleEl); modal.appendChild(msgEl); modal.appendChild(btnsEl);
-            backdrop.appendChild(modal);
-            document.body.appendChild(backdrop);
-            backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) finish('cancel'); });
-            onKey = e => { if (e.key === 'Escape') finish('cancel'); };
-            document.addEventListener('keydown', onKey);
-        });
-    }
-
-    function showPrompt(options = {}) {
-        const {
-            title = 'Input',
-            message = '',
-            value = '',
-            placeholder = '',
-            confirmLabel = 'OK',
-            cancelLabel = 'Cancel',
-            multiline = false,
-            required = false,
-            trim = true,
-            maxLength = 0,
-        } = options || {};
-
-        return new Promise(resolve => {
-            const backdrop = document.createElement('div');
-            backdrop.style.cssText = `position: fixed; inset: 0; background: rgba(0,0,0,0.56); z-index: 10004; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; animation: vpFadeIn 0.2s ease;`;
-            const modal = document.createElement('div');
-            modal.style.cssText = `background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #383860); border-radius: 12px; padding: 18px 20px; max-width: 520px; width: min(92vw, 520px); box-shadow: 0 12px 48px rgba(0,0,0,0.72); display:flex; flex-direction:column; gap:10px;`;
-
-            const titleEl = document.createElement('div');
-            titleEl.style.cssText = `color: var(--text-primary, #cdd6f4); font-size: 15px; font-weight: 700;`;
-            titleEl.textContent = title;
-            modal.appendChild(titleEl);
-
-            if (message) {
-                const msgEl = document.createElement('div');
-                msgEl.style.cssText = `color: var(--text-secondary, #a6adc8); font-size: 12px; line-height: 1.45; white-space: pre-wrap;`;
-                msgEl.textContent = message;
-                modal.appendChild(msgEl);
-            }
-
-            const input = document.createElement(multiline ? 'textarea' : 'input');
-            if (!multiline) input.type = 'text';
-            input.value = String(value ?? '');
-            input.placeholder = placeholder || '';
-            if (maxLength > 0) input.maxLength = maxLength;
-            input.style.cssText = `width:100%; ${multiline ? 'min-height:110px; resize:vertical;' : 'height:32px;'} background: var(--bg-tertiary, #252540); color: var(--text-primary, #cdd6f4); border:1px solid rgba(255,255,255,.14); border-radius:7px; padding:7px 9px; font: 12px ${multiline ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' : 'system-ui, sans-serif'}; outline:none; box-sizing:border-box;`;
-            input.addEventListener('focus', () => { input.style.borderColor = 'var(--accent,#6c5fa6)'; });
-            input.addEventListener('blur', () => { input.style.borderColor = 'rgba(255,255,255,.14)'; });
-            modal.appendChild(input);
-
-            const hintEl = document.createElement('div');
-            hintEl.style.cssText = `min-height:14px; color: var(--error,#e05555); font-size: 11px;`;
-            modal.appendChild(hintEl);
-
-            const btnsEl = document.createElement('div');
-            btnsEl.style.cssText = `display:flex; justify-content:flex-end; gap:8px; margin-top:2px;`;
-            const cancelBtn = document.createElement('button');
-            cancelBtn.className = 'vp-btn vp-btn-ghost';
-            cancelBtn.textContent = cancelLabel;
-            const okBtn = document.createElement('button');
-            okBtn.className = 'vp-btn';
-            okBtn.textContent = confirmLabel;
-            btnsEl.appendChild(cancelBtn);
-            btnsEl.appendChild(okBtn);
-            modal.appendChild(btnsEl);
-
-            let done = false;
-            let onKey = null;
-            const finish = (result) => {
-                if (done) return;
-                done = true;
-                if (onKey) document.removeEventListener('keydown', onKey);
-                backdrop.style.animation = 'vpFadeOut 0.15s ease forwards';
-                setTimeout(() => { backdrop.remove(); resolve(result); }, 150);
-            };
-            const submit = () => {
-                const raw = String(input.value ?? '');
-                const result = trim ? raw.trim() : raw;
-                if (required && !result) {
-                    hintEl.textContent = 'Value is required.';
-                    input.focus();
-                    return;
-                }
-                finish(result);
-            };
-
-            cancelBtn.addEventListener('click', () => finish(null));
-            okBtn.addEventListener('click', submit);
-            backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) finish(null); });
-            onKey = (e) => {
-                if (e.key === 'Escape') { e.preventDefault(); finish(null); return; }
-                if (e.key === 'Enter' && (!multiline || e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); }
-            };
-            document.addEventListener('keydown', onKey);
-
-            backdrop.appendChild(modal);
-            document.body.appendChild(backdrop);
-            setTimeout(() => { input.focus(); if (!multiline) input.select(); }, 0);
-        });
-    }
-
-    function showPromptPreview(title, content) {
-        const backdrop = document.createElement('div');
-        backdrop.style.cssText = `position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 10003; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; animation: vpFadeIn 0.2s ease;`;
-        const modal = document.createElement('div');
-        modal.style.cssText = `background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #383860); border-radius: 10px; padding: 16px 20px; max-width: 600px; max-height: 70vh; width: 90%; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 12px 48px rgba(0,0,0,0.7);`;
-        modal.innerHTML = `
-            <div style="color: var(--text-primary, #cdd6f4); font-size: 13px; font-weight: 600;">${title}</div>
-            <pre style="background: var(--bg-tertiary, #252540); border: 1px solid var(--border, #383860); border-radius: 4px; padding: 10px; font-family: 'Consolas','Monaco',monospace; font-size: 11px; line-height: 1.4; color: var(--text-primary, #cdd6f4); overflow: auto; max-height: 50vh; margin: 0; white-space: pre-wrap; word-wrap: break-word;"></pre>
-            <div style="display: flex; justify-content: flex-end;"><button class="vp-btn" id="vp-preview-close">Close</button></div>`;
-        modal.querySelector('pre').textContent = content;
-        backdrop.appendChild(modal);
-        document.body.appendChild(backdrop);
-        const close = () => { backdrop.style.animation = 'vpFadeOut 0.15s ease forwards'; setTimeout(() => backdrop.remove(), 150); };
-        modal.querySelector('#vp-preview-close').addEventListener('click', close);
-        backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
-        document.addEventListener('keydown', function onKey(e) { if (e.key === 'Escape') { document.removeEventListener('keydown', onKey); close(); } });
-    }
+    function showConfirm(...a) { return window.VP_DIALOGS?.showConfirm ? window.VP_DIALOGS.showConfirm(...a) : Promise.resolve('cancel'); }
+    function showPrompt(...a) { return window.VP_DIALOGS?.showPrompt ? window.VP_DIALOGS.showPrompt(...a) : Promise.resolve(null); }
+    function showPromptPreview(...a) { return window.VP_DIALOGS?.showPromptPreview ? window.VP_DIALOGS.showPromptPreview(...a) : undefined; }
 
     // ════════════════════════════════════════════════════════════════
     //  UTILS  (toast + escapeRegex)
@@ -4283,6 +2340,26 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
         } catch (e) {}
     }
 
+    // ── Focus Mode as the default mode (v10, opt-in flag) ─────────────────
+    // When config.focusModeDefault is set, enable the camera viewport at boot.
+    // Enabled-but-NOT-dirty: the camera starts at the default wide view — no
+    // forced crop capture until the model/user actually moves it. Everything
+    // downstream (glide, depth lock, UI appendices) is owned by
+    // projector-focus.js; without that satellite this is a safe no-op.
+    // Projector snapshots intentionally don't carry the viewport, so no later
+    // restore can clobber this. Flip the flag at runtime, e.g. from the dev
+    // console: VP.state.config.focusModeDefault = true; VP.schedulePersist();
+    function applyFocusModeBootDefault() {
+        try {
+            if (!State.config || !State.config.focusModeDefault) return false;
+            setProjectorViewport({ enabled: true }, 'boot-default');
+            return !!getProjectorViewportState().enabled;
+        } catch (err) {
+            console.warn('[VP] focusModeDefault boot-apply failed:', err);
+            return false;
+        }
+    }
+
     async function init() {
         if (_coreInitDone) return coreReady;
         if (_coreInitStarted) return coreReady;
@@ -4295,6 +2372,7 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
             applyAssetCornerRadius();
             syncPlaybackSpeedUI();
             updateProjectorUI();
+            applyFocusModeBootDefault(); // v10 — opt-in "focus as the main mode"
             // Studio 2.0: Network interceptor removed. 
             // The frontend now controls playback explicitly.
             _coreInitDone = true;
@@ -4557,6 +2635,11 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
         getProjectorViewportState, setProjectorViewport, panProjectorViewport, resetProjectorViewport,
         setProjectorViewportZoom, toggleProjectorViewportZoom, captureFocusViewportDataUrl,
         getProjectorDepthState, setProjectorDepthMode, setProjectorDepthStrength, setProjectorDepthZoomBoost,
+        // v15 Gaze Attention Layer — read-only attention channel (facade-safe
+        // delegates: degrade to null/empty until projector-focus.js registers)
+        getGazeState: () => window.VP_FOCUS?.getGazeState?.() ?? null,
+        getGazeDwell: () => window.VP_FOCUS?.getGazeDwell?.() ?? 0,
+        getGazeTrail: (limit) => window.VP_FOCUS?.getGazeTrail?.(limit) ?? [],
         updateProjectorUI, updatePlayerBar, syncPlaybackSpeedUI,
         applyAssetCornerRadius,
         getProjectorSnapshot: buildProjectorSnapshot,
@@ -4578,8 +2661,9 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
         // geometry helpers (gallery prefers these)
         getElementScale, viewportPointToCssSpace, viewportRectToCssSpace,
         getNormalizedElementPlacement,
-        // template constants
-        DEFAULT_MANIFEST_TEMPLATE, DEFAULT_FRAME_TEMPLATE,
+        // template constants (live in vp-templates.js since v07 — lazy getters)
+        get DEFAULT_MANIFEST_TEMPLATE() { return getDefaultManifestTemplate(); },
+        get DEFAULT_FRAME_TEMPLATE() { return getDefaultFrameTemplate(); },
         // lightweight module registries
         registerPanel, unregisterPanel, getPanels, getPanel,
         registerPromptProvider, unregisterPromptProvider, getPromptProviders, buildPromptProviderContext,
@@ -4608,6 +2692,7 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
         get FX() { return window.FX; },
         _subtitle: null, // populated by vp-subtitles.js after load
         _maybeShowEmptyHint: maybeShowEmptyHint,
+        _applyFocusModeBootDefault: applyFocusModeBootDefault, // internal/test hook (v10)
         playback: Playback,
         _playback: Playback, // legacy alias
         // gallery attaches itself here on load:
