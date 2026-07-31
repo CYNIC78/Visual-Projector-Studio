@@ -236,6 +236,7 @@ VP Studio/
 | `docs/fsm-audit.md` | Аудит FSM: найденные дыры и их закрытие, по билдам |
 | `docs/agentic-loop-design.md` | Замкнутый цикл «действие → наблюдение» для модели |
 | `docs/visual-composition-strategy.md` | Границы системы: почему плоские ассеты, композит на этапе генерации |
+| `docs/activity-layer-design.md` | Слой активностей и ввода мышью: что есть, куда идём |
 | `docs/focus-vision.md` | Focus Mode и зрение модели |
 | `CHANGELOG.md` | Журнал рабочих сессий |
 
