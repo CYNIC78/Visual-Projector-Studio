@@ -229,10 +229,14 @@ Frame: {{tag}} ({{source}})`;
         let readyCount = 0;
         let pendingCount = 0;
 
+        // Token diet (04/05): the navigation grammar is worth teaching only
+        // when there is at least one NAVIGABLE scene — a non-locked tab that
+        // actually holds assets. Locked or empty tabs are not navigable, so a
+        // gallery of only empty scaffolding should not pay the ~84-token lesson.
         const hasCollapsibles = State.config.allowDirectoryCommands && State.galleryData &&
-            (State.galleryData.categories.some(c => c.state !== 'locked') || State.galleryData.tabs.some(t => t.state !== 'locked'));
+            State.galleryData.tabs.some(t => t.state !== 'locked' && allAssets.some(a => a.tabId === t.id));
         if (hasCollapsibles) {
-            treeList += `# GALLERY NAVIGATION\nSome gallery categories and tabs are collapsed below; enter scenes like rooms. [TAB:open:Name] pulls that tab's assets into your NEXT turn and closes the other tabs for you (one scene open at a time). [CAT:open:Name] reveals a whole pack of scenes at once; [CAT:close:Name] packs it away.\n`;
+            treeList += `# GALLERY NAVIGATION\nSome gallery categories and tabs are collapsed below; enter scenes like rooms. [TAB:open:Name] pulls that tab's assets into your NEXT turn and closes the other tabs for you (one scene open at a time). [CAT:open:Name] reveals a whole pack of scenes at once; [CAT:close:Name] packs it away when the story moves on.\n`;
         }
 
         const processedTags = new Set();
@@ -247,6 +251,12 @@ Frame: {{tag}} ({{source}})`;
                 const catTabs = State.galleryData.tabs.filter(t => {
                     if (t.categoryId === cat.id) {
                         if (t.state === 'locked') { allAssets.filter(a => a.tabId === t.id).forEach(a => processedTags.add(a.tag)); return false; }
+                        // Token diet (05): an empty tab has zero content and zero
+                        // navigation value for the model — suppress it entirely
+                        // (it reappears automatically once assets land). Kills the
+                        // misleading "0 asset(s) hidden; name kept as a navigation
+                        // hint" lines that empty tabs used to emit.
+                        if (!allAssets.some(a => a.tabId === t.id)) return false;
                         return true;
                     }
                     return false;
@@ -262,9 +272,21 @@ Frame: {{tag}} ({{source}})`;
                     });
                     if (State.config.allowDirectoryCommands) {
                         catTabs.forEach(tab => { allAssets.filter(a => a.tabId === tab.id).forEach(a => isAssetReady(a) ? readyCount++ : pendingCount++); });
-                        treeList += `\n# 📦 Category: ${cat.name} — collapsed (${catTabs.length} tabs, ${catAssetsTotal} assets)${cat.desc ? ' — '+cat.desc : ''}. Request with [CAT:open:${cat.name}].\n`;
+                        treeList += `\n# 📦 Category: ${cat.name} — collapsed${cat.desc ? ' — '+cat.desc : ''}. Request with [CAT:open:${cat.name}].\n`;
                     }
                     continue;
+                }
+
+                // FSM manifest tiers (07): when a showcase filter is active, an open
+                // category whose every tab is invisible to the model (all open but not
+                // part of the Gallery View) would render as a bare empty header — skip
+                // it entirely, like an empty category.
+                if ((State.coverTag === '__SCENERY_COLLAGE__') && hasActiveCollageFilter) {
+                    const hasVisibleTab = catTabs.some(t => {
+                        if (t.state === 'collapsed') return true;
+                        return allAssets.some(a => a.tabId === t.id && isInActiveCollage(a));
+                    });
+                    if (!hasVisibleTab) continue;
                 }
 
                 treeList += `\n# 📁 Category: ${cat.name}${cat.desc ? ' — '+cat.desc : ''}\n`;
@@ -274,49 +296,48 @@ Frame: {{tag}} ({{source}})`;
                         tabAssets.forEach(a => processedTags.add(a.tag));
                         if (State.config.allowDirectoryCommands) {
                             tabAssets.forEach(a => isAssetReady(a) ? readyCount++ : pendingCount++);
-                            treeList += `  ▸ Tab: ${tab.name} — collapsed (${tabAssets.length} assets)${tab.desc ? ' — '+tab.desc : ''}. Request with [TAB:open:${tab.name}].\n`;
+                            treeList += `  ▸ Tab: ${tab.name} — collapsed${tab.desc ? ' — '+tab.desc : ''}. Request with [TAB:open:${tab.name}].\n`;
                         }
                     } else {
                         const isCollageActive = (State.coverTag === '__SCENERY_COLLAGE__');
                         const visibleTabAssets = tabAssets.filter(isInActiveCollage);
                         const tabIsRepresentedInCollage = hasActiveCollageFilter && visibleTabAssets.length > 0;
-                        const tabHiddenByContactSheet = isCollageActive && hasActiveCollageFilter && !tabIsRepresentedInCollage;
 
-                        if (tabHiddenByContactSheet) {
-                            // The tab is open in the gallery UI, but not part of the current
-                            // Gallery View. Do not leak even its tab name unless directory
-                            // navigation hints are explicitly enabled.
+                        // FSM manifest tiers (07): an OPEN tab that is NOT part of the
+                        // active showcase is the user's workshop — the model neither sees
+                        // it in the collage image nor needs its name to navigate (only
+                        // collapsed/marked tabs are navigable). Suppress it entirely:
+                        // its assets are still excluded from stray, so no leakage.
+                        // Visibility for the model is now exactly three tiers:
+                        //   marked → visible (image) · collapsed → enterable (menu) · locked → hidden.
+                        if (isCollageActive && hasActiveCollageFilter && !tabIsRepresentedInCollage) {
                             tabAssets.forEach(a => processedTags.add(a.tag));
-                            if (State.config.allowDirectoryCommands) {
-                                treeList += `  ▸ Tab: ${tab.name}:${tab.desc ? ' '+tab.desc : ''}\n`;
-                                treeList += `    [not part of the current Gallery View — ${tabAssets.length} asset(s) hidden; name kept as a navigation hint]\n`;
-                            }
+                            continue;
+                        }
+                        treeList += `  ▸ Tab: ${tab.name}:${tab.desc ? ' '+tab.desc : ''}\n`;
+                        // v27 active-state law fallback (docs/tab-fsm-design.md §8): the collage's
+                        // text companion carries rules only while a Gallery View is on display —
+                        // without it, the open tab's rules ride the manifest instead.
+                        // Exclusive-or by design: no double pay in tokens.
+                        // FSM audit (2026-07-31): cap the fallback at 300 chars like the
+                        // collage-note (COLLAGE_RULES_TAB_CAP) and entry-observation caps,
+                        // so a long rules field cannot blow up the permanent manifest.
+                        if (!isCollageActive && String(tab.rules || '').trim()) {
+                            const _rules = String(tab.rules).trim();
+                            treeList += `    [RULES: ${_rules.length > 300 ? _rules.slice(0, 299) + '…' : _rules}]\n`;
+                        }
+                        if (tabAssets.length === 0) treeList += `    (empty)\n`;
+                        else if (isCollageActive && tabIsRepresentedInCollage) {
+                            tabAssets.forEach(a => processedTags.add(a.tag));
+                            visibleTabAssets.forEach(a => { if (isAssetReady(a)) readyCount++; else pendingCount++; });
+                            treeList += `    [current scene — visible in the Gallery View]\n`;
                         } else {
-                            treeList += `  ▸ Tab: ${tab.name}:${tab.desc ? ' '+tab.desc : ''}\n`;
-                            // v27 active-state law fallback (docs/tab-fsm-design.md §8): the collage's
-                            // text companion carries rules only while a Gallery View is on display —
-                            // without it, the open tab's rules ride the manifest instead.
-                            // Exclusive-or by design: no double pay in tokens.
-                            // FSM audit (2026-07-31): cap the fallback at 300 chars like the
-                            // collage-note (COLLAGE_RULES_TAB_CAP) and entry-observation caps,
-                            // so a long rules field cannot blow up the permanent manifest.
-                            if (!isCollageActive && String(tab.rules || '').trim()) {
-                                const _rules = String(tab.rules).trim();
-                                treeList += `    [RULES: ${_rules.length > 300 ? _rules.slice(0, 299) + '…' : _rules}]\n`;
-                            }
-                            if (tabAssets.length === 0) treeList += `    (empty)\n`;
-                            else if (isCollageActive && tabIsRepresentedInCollage) {
-                                tabAssets.forEach(a => processedTags.add(a.tag));
-                                visibleTabAssets.forEach(a => { if (isAssetReady(a)) readyCount++; else pendingCount++; });
-                                treeList += `    [GALLERY VIEW ACTIVE — use the visible preview-card [IMG:tag] labels in the current Gallery View]\n`;
-                            } else {
-                                for (const a of tabAssets) {
-                                    processedTags.add(a.tag);
-                                    if (isAssetReady(a)) {
-                                        treeList += State.config.manifestDescriptions ? `    ${a.tag} — ${a.description}\n` : `    ${a.tag}\n`;
-                                        readyCount++;
-                                    } else { treeList += `    ${a.tag}\n`; pendingCount++; }
-                                }
+                            for (const a of tabAssets) {
+                                processedTags.add(a.tag);
+                                if (isAssetReady(a)) {
+                                    treeList += State.config.manifestDescriptions ? `    ${a.tag} — ${a.description}\n` : `    ${a.tag}\n`;
+                                    readyCount++;
+                                } else { treeList += `    ${a.tag}\n`; pendingCount++; }
                             }
                         }
                     }
@@ -384,7 +405,7 @@ Frame: {{tag}} ({{source}})`;
             collageNavNote: State.config.allowDirectoryCommands
                 ? (hasCollapsibles
                     ? '(Scene navigation: [TAB:open:name] / [CAT:open:name] / [CAT:close:name] — described in GALLERY NAVIGATION above.)'
-                    : "You may enter scenes like rooms: [TAB:open:name] steps into a tab's scene — its assets join your NEXT turn and the other tabs close for you (one scene open at a time). [CAT:open:name] reveals a whole pack of scenes at once, and [CAT:close:name] packs it away.")
+                    : "You may enter scenes like rooms: [TAB:open:name] steps into a tab's scene — its assets join your NEXT turn and the other tabs close for you (one scene open at a time). [CAT:open:name] reveals a whole pack of scenes at once, and [CAT:close:name] packs it away when the story moves on.")
                 : '',
         };
 

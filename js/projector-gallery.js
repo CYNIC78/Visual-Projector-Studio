@@ -463,7 +463,7 @@
                             const existing = S.galleryData.tabs.find(t => t.categoryId === catId && t.name === parentFolderName);
                             targetTabId = existing ? existing.id
                                 : 'tab_' + Date.now() + Math.random().toString(36).substr(2, 5);
-                            if (!existing) S.galleryData.tabs.push({ id: targetTabId, categoryId: catId, name: parentFolderName, desc: '', state: 'open' });
+                            if (!existing) S.galleryData.tabs.push({ id: targetTabId, categoryId: catId, name: parentFolderName, desc: '', state: 'collapsed' });
                             createdTabs.set(tabKey, targetTabId);
                         }
 
@@ -853,12 +853,32 @@
         return tab;
     }
 
+    /**
+     * LEGACY / back-compat only (FSM mark-derivation, build 12).
+     * `markedForCollage` is no longer an independent axis — it is a pure
+     * consequence of the GREEN active scene, owned by `TabsManager._soloOpenTab`.
+     * Setting a mark on a tab that is not the active scene would desync the
+     * manifest from the collage image, so it is refused here. Callers that want
+     * a tab on the showcase must make it the scene instead (dot click /
+     * `[TAB:open:Name]`). Unmarking is likewise refused: dissolve the showcase
+     * via the collage menu, don't strip the scene of its picture.
+     */
     function setGalleryTabCollageMark(tabId, marked = true) {
         const id = String(tabId || '').trim();
         if (!id) throw new Error('gallery:set-tab-collage-mark requires payload.id');
         const tab = S.galleryData?.tabs?.find?.(t => t.id === id);
         if (!tab) throw new Error(`Unknown gallery tab: ${id}`);
-        tab.markedForCollage = !!marked;
+        const wantMark = !!marked;
+        if (wantMark !== !!tab.markedForCollage) {
+            const isScene = tab.state === 'open';
+            if (wantMark && !isScene) {
+                throw new Error(`Tab "${tab.name || id}" is not the active scene — открой его как сцену ([TAB:open] / зелёный дот), метка выставляется автоматически`);
+            }
+            if (!wantMark && isScene) {
+                throw new Error(`Tab "${tab.name || id}" is the active scene — метку нельзя снять, смените сцену или удалите Gallery View`);
+            }
+        }
+        tab.markedForCollage = wantMark;
         TabsManager.renderSidebar();
         persistGalleryData();
         markVisualInventoryDirty(tab.markedForCollage ? 'tab-added-to-collage' : 'tab-removed-from-collage');

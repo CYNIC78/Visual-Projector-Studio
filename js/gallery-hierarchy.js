@@ -133,6 +133,18 @@
             addItem('➕ Создать таб здесь', () => TabsManager.createTab(id));
         }
 
+        // FSM helper (07): batch-pack/unpack a whole category for the model —
+        // one click instead of clicking each tab's state dot. Collapsed tabs
+        // become navigable menu items; open tabs become invisible workshop.
+        if (type === 'category' && target) {
+            addSeparator();
+            // FSM runtime (10): only "collapse all" is valid — "open" for a tab
+            // now means ACTIVE SCENE (green), and a batch can never open several
+            // scenes at once. Unpacking happens by clicking a name (management)
+            // or a dot (activate one scene).
+            addItem('📁 Свернуть все табы (показать модели)', () => TabsManager.setCategoryTabsState(id, 'collapsed'));
+        }
+
         if (target) {
             addSeparator();
 
@@ -194,33 +206,33 @@
                 });
             }
 
-            if (type === 'tab') {
-                const isMarked = !!target.markedForCollage;
-                addItem(isMarked ? '➖ Убрать из Gallery View' : '🖼️ Добавить в Gallery View', () => {
-                    target.markedForCollage = !isMarked;
-                    markVisualInventoryDirty(target.markedForCollage ? 'tab-added-to-collage' : 'tab-removed-from-collage');
-                    TabsManager.renderSidebar();
-                    persistGalleryData();
+            // FSM mark-derivation (12): the manual "🖼️ Добавить в Gallery View"
+            // item used to flip `markedForCollage` DIRECTLY, bypassing the FSM.
+            // Since builds 09–11 the mark is no longer an independent axis: it
+            // is a PURE CONSEQUENCE of the green (active scene) tab, owned by
+            // `_soloOpenTab()`. A hand-set mark on a yellow tab produced a
+            // manifest contradiction (model told "collapsed — request with
+            // [TAB:open:X]" while already seeing X's cards in the collage) and
+            // was silently wiped by the next scene switch anyway. Retired —
+            // making a tab green is the one and only way onto the showcase.
+            // Multi-tab panoramas stay deferred (docs/fsm-audit.md §12).
+
+            // FSM runtime (10): the context menu is the ONLY place that reaches
+            // the red (locked) state — "рабочий таб/категория для экспериментов
+            // или ручного управления". Unlock returns to yellow (collapsed),
+            // ready for work again.
+            addSeparator();
+            const entityType = type === 'category' ? 'CAT' : 'TAB';
+            const kindRu = type === 'category' ? 'категорию' : 'таб';
+            if (target.state !== 'locked') {
+                addItem(`🔒 Скрыть ${kindRu} от модели (Locked)`, () => {
+                    TabsManager.setEntityState(entityType, id, 'locked');
+                });
+            } else {
+                addItem('🟡 Разлочить (вернуть в работу)', () => {
+                    TabsManager.setEntityState(entityType, id, 'collapsed');
                 });
             }
-
-            const states = [
-                { s: 'open',      label: '👁 Открыт (Full Context)' },
-                { s: 'collapsed', label: '📁 Свернут (Name + Desc only)' },
-                { s: 'locked',    label: '🔒 Залочен (Hidden from LLM)' },
-            ];
-
-            addSeparator();
-            states.forEach(({ s, label }) => {
-                if (target.state !== s) {
-                    addItem(`Переключить в: ${label}`, () => {
-                        target.state = s;
-                        markVisualInventoryDirty(`${type}-state-${s}`);
-                        TabsManager.renderSidebar();
-                        persistGalleryData();
-                    });
-                }
-            });
 
             addSeparator();
             addItem('🗑️ Удалить', async () => {
@@ -292,6 +304,30 @@
             for (const asset of S.gallery.values()) {
                 if (!asset.tabId) asset.tabId = null;
             }
+            // FSM coherence (11): boot-time repair of the invariant "the active
+            // scene's category is always open". Handles stale states persisted
+            // before 11 (a green scene inside a collapsed/locked category):
+            // the category is widened to open. Never hides anything.
+            try {
+                const cats = Array.isArray(S.galleryData.categories) ? S.galleryData.categories : [];
+                const tabs = Array.isArray(S.galleryData.tabs) ? S.galleryData.tabs : [];
+                for (const t of tabs) {
+                    if (t.state === 'open' && t.markedForCollage) {
+                        const cat = cats.find(c => c.id === t.categoryId);
+                        if (cat && cat.state !== 'open') cat.state = 'open';
+                    }
+                }
+                // FSM mark-derivation (12): the mark is a consequence of the
+                // GREEN scene. Sessions saved before 12 may carry hand-set
+                // marks on yellow/red tabs (the retired "🖼️ Добавить в Gallery
+                // View" menu item) — those made the manifest contradict the
+                // collage image. Drop them; the scene keeps its own mark.
+                for (const t of tabs) {
+                    if (t.markedForCollage && t.state !== 'open') t.markedForCollage = false;
+                }
+            } catch (err) {
+                console.warn('[VP Gallery] FSM coherence boot-repair failed (degrading):', err);
+            }
         },
 
         /** Resolve a home tab for a brand-new asset, creating one if needed. */
@@ -305,7 +341,7 @@
                     catId = S.galleryData.categories[0].id;
                 }
                 const tabId = 'tab_' + Date.now() + Math.random().toString(36).substr(2, 3);
-                S.galleryData.tabs.push({ id: tabId, categoryId: catId, name: 'Assets', desc: '', state: 'open' });
+                S.galleryData.tabs.push({ id: tabId, categoryId: catId, name: 'Assets', desc: '', state: 'collapsed' });
                 S.galleryData.activeTabId = tabId;
                 S.ui.lastAssetTabId = tabId;
                 this.renderSidebar();
@@ -339,7 +375,7 @@
             S.galleryData.categories.push({ id, name: finalName, desc: '', state: 'open' });
             // Auto-create a default tab so the newcomer sees where to drop assets.
             const tabId = 'tab_' + Date.now() + Math.random().toString(36).substr(2, 3);
-            S.galleryData.tabs.push({ id: tabId, categoryId: id, name: 'Assets', desc: '', state: 'open' });
+            S.galleryData.tabs.push({ id: tabId, categoryId: id, name: 'Assets', desc: '', state: 'collapsed' });
             if (!S.galleryData.activeTabId || S.galleryData.activeTabId === 'effects') {
                 S.galleryData.activeTabId = tabId;
                 S.ui.lastAssetTabId = tabId;
@@ -353,7 +389,7 @@
             const id = 'tab_' + Date.now() + Math.random().toString(36).substr(2, 3);
             const existing = S.galleryData.tabs.filter(t => t.categoryId === categoryId).map(t => t.name);
             const finalName = name || this.getUniqueName('New Tab', existing);
-            S.galleryData.tabs.push({ id, categoryId, name: finalName, desc: '', state: 'open' });
+            S.galleryData.tabs.push({ id, categoryId, name: finalName, desc: '', state: 'collapsed' });
             this.renderSidebar();
             persistGalleryData();
             return id;
@@ -372,6 +408,11 @@
         },
 
         deleteTab(id, skipRender = false) {
+            // FSM runtime (10): if the deleted tab was the active scene (green),
+            // never leave an empty hall — auto-activate the next non-empty
+            // yellow tab afterwards (same no-empty-hall rule as closing the
+            // active scene).
+            const wasScene = !!(S.galleryData.tabs.find(t => t.id === id)?.markedForCollage);
             S.galleryData.tabs = S.galleryData.tabs.filter(t => t.id !== id);
             // Cascade: delete every asset that lived in this tab (handles IDB too).
             const orphans = [];
@@ -385,6 +426,17 @@
                 S.galleryData.activeTabId = S.galleryData.tabs[0]?.id || null;
                 if (S.galleryData.activeTabId && S.galleryData.activeTabId !== 'effects') {
                     S.ui.lastAssetTabId = S.galleryData.activeTabId;
+                }
+            }
+            if (wasScene) {
+                const next = S.galleryData.tabs.find(t =>
+                    t.state === 'collapsed' &&
+                    (S.galleryData.categories || []).find(c => c.id === t.categoryId)?.state !== 'locked' &&
+                    Array.from(S.gallery.values()).some(a => a.tabId === t.id)
+                );
+                if (next) {
+                    const res = this._soloOpenTab(next.id, 'auto-pick-after-delete');
+                    if (res.changed) markVisualInventoryDirty('tab-scene-auto-picked');
                 }
             }
             if (!skipRender) {
@@ -401,12 +453,153 @@
                 ? S.galleryData.categories.find(c => c.id === id)
                 : S.galleryData.tabs.find(t => t.id === id);
             if (!target) return;
-            if (target.state === 'open')      target.state = 'collapsed';
-            else if (target.state === 'collapsed') target.state = 'locked';
+
+            // FSM runtime (10): the dot is a TWO-state toggle for the model's
+            // view — nothing else:
+            //   green  (open)      = active scene (tab) / expanded pack (category)
+            //   yellow (collapsed) = menu candidate / packed line
+            // RED (locked) is deliberately NOT on the dot. Locking ("рабочий
+            // таб/категория для экспериментов или ручного управления") is a
+            // context-menu action only, so hiding from the model is always a
+            // deliberate choice. Unlock also lives in the context menu.
+            if (entityType === 'TAB') {
+                if (target.state === 'open') {
+                    showToast('🎬 Это активная сцена — смените её, сделав зелёной другую вкладку', 'info');
+                    return;
+                }
+                if (target.state === 'locked') {
+                    showToast('🔒 Таб скрыт от модели — разлок через контекстное меню (правая кнопка)', 'info');
+                    return;
+                }
+                // yellow → green: activate as the scene. An EMPTY tab cannot be
+                // a scene — it stays yellow (nothing to build a collage from);
+                // hiding it is a context-menu action.
+                const cat = (S.galleryData.categories || []).find(c => c.id === target.categoryId);
+                if (cat?.state === 'locked') {
+                    showToast('🔒 Категория скрыта от модели — разлок через контекстное меню', 'info');
+                    return;
+                }
+                const hasAssets = Array.from(S.gallery.values()).some(a => a.tabId === target.id);
+                if (!hasAssets) {
+                    showToast('В пустом табе нечего собирать — добавьте ассеты', 'info');
+                    return;
+                }
+                const res = this._soloOpenTab(target.id, 'user-dot-activate');
+                if (res.changed) {
+                    this.renderSidebar();
+                    renderGalleryGrid();
+                    updateGalleryFooter();
+                    persistGalleryData();
+                }
+                showToast(`🎬 Таб "${target.name}" — активная сцена`, 'success');
+                return;
+            }
+
+            // Categories: green (open) ↔ yellow (collapsed); red via menu only.
+            // FSM coherence (11): a category holding the ACTIVE SCENE cannot be
+            // collapsed — the scene's category is always open.
+            if (target.state === 'open') {
+                const hasScene = S.galleryData.tabs.some(t =>
+                    t.categoryId === target.id && t.state === 'open' && t.markedForCollage
+                );
+                if (hasScene) {
+                    showToast('🎬 В этой категории активная сцена — она не может быть свёрнута', 'info');
+                    return;
+                }
+                target.state = 'collapsed';
+            }
+            else if (target.state === 'locked') {
+                showToast('🔒 Категория скрыта от модели — разлок через контекстное меню', 'info');
+                return;
+            }
             else                              target.state = 'open';
             markVisualInventoryDirty(`${entityType.toLowerCase()}-state-${target.state}`);
             this.renderSidebar();
             persistGalleryData();
+        },
+
+        /**
+         * Explicit, deliberate state set — used ONLY by context-menu actions
+         * (lock / unlock). The dot handles green↔yellow; the menu is the only
+         * place that reaches RED, so hiding from the model is always conscious.
+         * Unlock always lands on yellow (collapsed), never straight to green —
+         * an unlock must not silently switch the active scene. For tabs, "open"
+         * via the menu routes through the solo scene switch (same as the dot).
+         */
+        setEntityState(entityType, id, state) {
+            const target = entityType === 'CAT'
+                ? S.galleryData.categories.find(c => c.id === id)
+                : S.galleryData.tabs.find(t => t.id === id);
+            if (!target) return false;
+            // FSM coherence (11): the ACTIVE SCENE and its category can never be
+            // locked — locking would hide from the model exactly what the
+            // collage keeps showing. Refuse with a clear toast.
+            if (state === 'locked') {
+                if (entityType === 'TAB' && target.state === 'open' && target.markedForCollage) {
+                    showToast('🎬 Нельзя скрыть активную сцену — сначала сделайте зелёной другую вкладку', 'info');
+                    return false;
+                }
+                if (entityType === 'CAT' && S.galleryData.tabs.some(t =>
+                    t.categoryId === target.id && t.state === 'open' && t.markedForCollage
+                )) {
+                    showToast('🎬 В этой категории активная сцена — её нельзя скрыть', 'info');
+                    return false;
+                }
+            }
+            if (state === 'open') {
+                if (entityType !== 'TAB') {
+                    if (target.state === 'open') return false;
+                    target.state = 'open';
+                } else {
+                    const hasAssets = Array.from(S.gallery.values()).some(a => a.tabId === id);
+                    if (!hasAssets) return false;
+                    const res = this._soloOpenTab(id, 'context-menu-activate');
+                    if (res.changed) {
+                        this.renderSidebar();
+                        renderGalleryGrid();
+                        updateGalleryFooter();
+                        persistGalleryData();
+                    }
+                    return res.changed;
+                }
+            } else {
+                const next = state === 'locked' ? 'locked' : 'collapsed';
+                if (target.state === next) return false;
+                target.state = next;
+                markVisualInventoryDirty(`${entityType.toLowerCase()}-state-${next}`);
+            }
+            this.renderSidebar();
+            persistGalleryData();
+            return true;
+        },
+
+        /**
+         * Batch-set the model-facing state of EVERY tab in a category (07).
+         * One click packs (collapsed → navigable menu items for the model) or
+         * unpacks (open → invisible workshop) a whole category, instead of
+         * clicking each tab's state dot. Same semantics as single-tab
+         * toggleState — no FSM change, just less click-tedium.
+         */
+        setCategoryTabsState(categoryId, state) {
+            // FSM runtime (10): only "collapse all" is valid — "open" for a tab
+            // means ACTIVE SCENE (green), and a batch can never open several
+            // scenes. The active scene (green, marked) is never collapsed by the
+            // batch — it stays the room; everything else becomes a yellow menu
+            // candidate (no-empty-hall rule).
+            if (state !== 'collapsed') return false;
+            const tabs = S.galleryData.tabs.filter(t => t.categoryId === categoryId);
+            let changed = false;
+            for (const t of tabs) {
+                if (t.state === 'open' && t.markedForCollage) continue; // keep the scene
+                if (t.state !== 'collapsed') { t.state = 'collapsed'; changed = true; }
+            }
+            if (!changed) return false;
+            markVisualInventoryDirty('category-collapsed-all');
+            this.renderSidebar();
+            renderGalleryGrid();
+            updateGalleryFooter();
+            persistGalleryData();
+            return true;
         },
 
         /** Drag-move a tab onto another tab or a category header. */
@@ -437,6 +630,53 @@
                 this.renderSidebar();
                 persistGalleryData();
             }
+        },
+
+        /**
+         * Solo scene switch — the single FSM transition shared by the model
+         * ([TAB:open:X]) and the user (green dot). One green scene at a time:
+         * X becomes open+marked, every other open tab collapses and unmarks,
+         * the collage rebuilds once, and the gallery UI focus follows.
+         * Mutates + triggers the collage; the CALLER renders/persists.
+         */
+        _soloOpenTab(tabId, reason = 'solo-switch') {
+            const gd = S.galleryData;
+            const find = gd.tabs.find(t => t.id === tabId);
+            if (!find) return { changed: false, soloClosed: 0, blocked: 'missing' };
+            // FSM coherence (11): a scene can never live inside a LOCKED
+            // category (the model must not see it while the collage would
+            // show it) — refuse; the caller decides the feedback.
+            const cat = (gd.categories || []).find(c => c.id === find.categoryId);
+            if (cat?.state === 'locked') return { changed: false, soloClosed: 0, blocked: 'locked-category' };
+            let changed = false;
+            let soloClosed = 0;
+            if (find.state !== 'open') { find.state = 'open'; changed = true; }
+            // FSM coherence (11): the ACTIVE SCENE's category is always open —
+            // a green tab must never hide inside a collapsed pack (the model
+            // would see the collage but no [TAB:open] door in the tree).
+            if (cat && cat.state !== 'open') { cat.state = 'open'; changed = true; }
+            gd.tabs.forEach(t => {
+                if (t.id !== find.id && t.state === 'open') { t.state = 'collapsed'; soloClosed++; }
+            });
+            if (soloClosed) changed = true;
+            let marksChanged = false;
+            gd.tabs.forEach(t => {
+                const next = (t.id === find.id);
+                if (!!t.markedForCollage !== next) marksChanged = true;
+                t.markedForCollage = next;
+            });
+            if (marksChanged) changed = true;
+            if (gd.activeTabId !== find.id) {
+                gd.activeTabId = find.id;
+                if (find.id !== 'effects') S.ui.lastAssetTabId = find.id;
+                changed = true;
+            }
+            if (changed) {
+                generateCollageFromMarkedTabs({ reason }).catch(err =>
+                    console.warn('[VP Gallery] collage generation failed:', err)
+                );
+            }
+            return { changed, soloClosed, blocked: null };
         },
 
         /**
@@ -482,6 +722,9 @@
             if (find && !effectivelyLocked && (normalizedAction === 'open' || normalizedAction === 'collapsed')) {
                 const actionLabelRu = normalizedAction === 'collapsed' ? 'свернуто' : 'открыто';
                 const fuzzyMatched = find.name.toLowerCase() !== targetName;
+                // FSM runtime (09): a close aimed at the ACTIVE scene must not
+                // produce an empty hall — capture that BEFORE the state flips.
+                const wasActiveScene = entityType === 'TAB' && normalizedAction === 'collapsed' && find.state === 'open';
                 const stateChanged = find.state !== normalizedAction;
                 let soloClosed = 0;
 
@@ -491,52 +734,41 @@
                 }
 
                 // v17 solo scene switch: [TAB:open:X] = X open, EVERY other tab
-                // collapsed, collage marks follow X. Downstream cost stays one
-                // batch (1×collage regen, 1×persist, 1×renderSidebar), not N.
+                // collapsed, collage marks follow X. One batch downstream.
                 // The sweep runs even when X was already open, so repeating
                 // open X is idempotent and heals stray open tabs left over from
                 // manual sidebar clicks (which bypass executeCommand on purpose).
                 if (entityType === 'TAB' && normalizedAction === 'open') {
-                    gd.tabs.forEach(t => {
-                        if (t.id !== find.id && t.state === 'open') {
-                            t.state = 'collapsed';
-                            soloClosed++;
-                        }
-                    });
-                    if (soloClosed) changed = true;
-
-                    // Auto-generate the contact sheet collage and apply as cover.
-                    // Mark changes are part of galleryData and must persist even
-                    // if the tab was already open.
-                    let marksChanged = false;
-                    gd.tabs.forEach(t => {
-                        const next = (t.id === find.id);
-                        if (!!t.markedForCollage !== next) marksChanged = true;
-                        t.markedForCollage = next;
-                    });
-                    if (marksChanged) changed = true;
-                    generateCollageFromMarkedTabs({ reason: 'directory-command' }).catch(err =>
-                        console.warn('[VP Gallery] AI-triggered collage generation failed:', err)
+                    const res = this._soloOpenTab(find.id, 'directory-command');
+                    changed = changed || res.changed;
+                    soloClosed = res.soloClosed;
+                } else if (entityType === 'TAB' && normalizedAction === 'collapsed' && wasActiveScene) {
+                    // Closing the ACTIVE scene: never leave an empty hall — auto-pick
+                    // the next non-empty yellow tab as the new scene. If there is
+                    // none, keep the current scene (a green tab cannot be collapsed
+                    // on its own).
+                    const next = gd.tabs.find(t =>
+                        t.id !== find.id && t.state === 'collapsed' &&
+                        (gd.categories || []).find(c => c.id === t.categoryId)?.state !== 'locked' &&
+                        Array.from(S.gallery.values()).some(a => a.tabId === t.id)
                     );
-
-                    // FSM audit: keep the gallery UI focus in sync with the FSM
-                    // state — the grid follows activeTabId, the model follows
-                    // tab.state; without this they drift apart.
-                    if (gd.activeTabId !== find.id) {
-                        gd.activeTabId = find.id;
-                        if (find.id !== 'effects') S.ui.lastAssetTabId = find.id;
-                        changed = true;
+                    if (next) {
+                        const res = this._soloOpenTab(next.id, 'auto-pick-after-close');
+                        changed = changed || res.changed;
+                    } else {
+                        find.state = 'open'; // revert — keep the scene alive
+                        changed = false;
                     }
                 } else if (entityType === 'TAB' && normalizedAction === 'collapsed' && gd.activeTabId === find.id) {
-                    // Stepped back out of the scene that had UI focus — move the
-                    // grid to the first remaining tab (same policy as deleteTab).
+                    // Stepped back out of a non-active scene that had UI focus —
+                    // move the grid to the first remaining tab (deleteTab policy).
                     const nextTab = gd.tabs.find(t => t.id !== find.id) || null;
                     gd.activeTabId = nextTab ? nextTab.id : null;
                     S.ui.lastAssetTabId = nextTab ? nextTab.id : null;
                     changed = true;
                 }
 
-                if (stateChanged || soloClosed) {
+                if (changed || soloClosed) {
                     const soloNote = soloClosed ? ` — соло: свёрнуты ещё ${soloClosed}` : '';
                     if (fuzzyMatched) {
                         showToast(`📂 ИИ сопоставил "${name}" ➜ "${find.name}" (${actionLabelRu}${soloNote})`, 'info');

@@ -1238,15 +1238,12 @@
             }
         }));
 
-        // 4. Clear collage marks from all tabs
-        menu.appendChild(mkItem('🧹 Очистить пометки табов', null, () => {
-            if (S.galleryData && S.galleryData.tabs) {
-                S.galleryData.tabs.forEach(t => t.markedForCollage = false);
-                getTabsManager().renderSidebar();
-                persistGalleryData();
-                showToast('Пометки табов очищены', 'info');
-            }
-        }));
+        // 4. (retired in 12) "🧹 Очистить пометки табов" wiped `markedForCollage`
+        // on every tab, including the GREEN active scene — the tab stayed green
+        // and the manifest kept announcing "current scene" while the showcase
+        // was gone. Marks are a consequence of the active scene now, so there is
+        // nothing standalone to clear; "❌ Удалить Gallery View" below is the
+        // honest way to dissolve the showcase.
 
         // 5. Delete Gallery View
         const hasCollage = S.gallery.has('__SCENERY_COLLAGE__');
