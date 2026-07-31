@@ -30,6 +30,19 @@
     }
 
     const S  = VP.state;          // shared state (by reference)
+
+    // FSM audit (2026-07-31): shared "effectively locked" check for the
+    // collage domain. A tab hidden by its own lock or by a locked parent
+    // category must never render into the LLM-visible collage (and must not
+    // be counted in the pill/popup section lists) — the manifest already
+    // hides such tags, the image must not leak them back in.
+    function _collageTabEffectivelyLocked(tab) {
+        if (!tab) return true;
+        if (tab.state === 'locked') return true;
+        const gd = S.galleryData || {};
+        const cat = (gd.categories || []).find(c => c.id === tab.categoryId);
+        return !!cat && cat.state === 'locked';
+    }
     const DB = window.VP_DB;      // storage layer (vp-storage.js)
 
     const showToast         = VP.showToast         || ((m) => console.warn('[toast]', m));
@@ -302,13 +315,13 @@
         const gd = S.galleryData;
         if (!gd) return { ok: false, reason: 'Нет данных галереи' };
 
-        let markedTabs = (gd.tabs || []).filter(t => t.markedForCollage === true);
+        let markedTabs = (gd.tabs || []).filter(t => t.markedForCollage === true && !_collageTabEffectivelyLocked(t));
 
         // Fallback: if no tabs are marked, use the currently active tab (if it's not effects).
         if (markedTabs.length === 0 && allowActiveTabFallback) {
             const activeTabId = gd.activeTabId;
             if (activeTabId && activeTabId !== 'effects') {
-                const activeTab = (gd.tabs || []).find(t => t.id === activeTabId);
+                const activeTab = (gd.tabs || []).find(t => t.id === activeTabId && !_collageTabEffectivelyLocked(t));
                 if (activeTab) markedTabs = [activeTab];
             }
         }
@@ -501,7 +514,7 @@
             pill = ensureCollagePill();
             if (!pill) return;
             const meta = collage.collageMeta || {};
-            const markedTabs = (S?.galleryData?.tabs || []).filter(t => t.markedForCollage);
+            const markedTabs = (S?.galleryData?.tabs || []).filter(t => t.markedForCollage && !_collageTabEffectivelyLocked(t));
             const sections = Number.isFinite(meta.sectionCount) ? meta.sectionCount : markedTabs.length;
             const assetsCount = Number.isFinite(meta.assetsCount) ? meta.assetsCount : null;
             const isLive = S?.coverTag === COLLAGE_TAG;
@@ -591,7 +604,7 @@
             // Section list mirrors the CURRENT marks (fresh view of the showcase).
             const info = document.createElement('div');
             info.className = 'vp-collage-popup-info';
-            const markedTabs = (S?.galleryData?.tabs || []).filter(t => t.markedForCollage);
+            const markedTabs = (S?.galleryData?.tabs || []).filter(t => t.markedForCollage && !_collageTabEffectivelyLocked(t));
             const allAssets = S?.gallery ? Array.from(S.gallery.values()) : [];
             const cats = (S?.galleryData?.categories) || [];
             const parts = markedTabs.map(t => {

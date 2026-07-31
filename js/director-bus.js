@@ -413,8 +413,22 @@
         const TM = window.VisualProjector?.gallery?.TabsManager;
         if (!TM?.executeCommand) return { ok: false, error: 'Gallery TabsManager is not ready' };
         const { entityType, action, name } = cmd.payload || {};
-        TM.executeCommand(entityType || cmd.type, action, name);
-        return { ok: true, entityType: entityType || cmd.type, action, name, delayMs: 0 };
+        // FSM audit (2026-07-31): executeCommand returns a small result, so the
+        // bus logs an HONEST outcome — a miss or a lock is not a silent success.
+        // ok stays true (the command RAN); `matched: false` is the honesty flag
+        // for the command log, loop observers and any future feedback channel.
+        const res = TM.executeCommand(entityType || cmd.type, action, name) || {};
+        return {
+            ok: true,
+            entityType: entityType || cmd.type,
+            action,
+            name,
+            matched: res.matched !== false,
+            changed: !!res.changed,
+            opened: !!res.opened,
+            closed: !!res.closed,
+            delayMs: 0,
+        };
     }
 
     VPCommandBus.register('CAT', {

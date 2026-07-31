@@ -296,8 +296,12 @@ Frame: {{tag}} ({{source}})`;
                             // text companion carries rules only while a Gallery View is on display —
                             // without it, the open tab's rules ride the manifest instead.
                             // Exclusive-or by design: no double pay in tokens.
+                            // FSM audit (2026-07-31): cap the fallback at 300 chars like the
+                            // collage-note (COLLAGE_RULES_TAB_CAP) and entry-observation caps,
+                            // so a long rules field cannot blow up the permanent manifest.
                             if (!isCollageActive && String(tab.rules || '').trim()) {
-                                treeList += `    [RULES: ${String(tab.rules).trim()}]\n`;
+                                const _rules = String(tab.rules).trim();
+                                treeList += `    [RULES: ${_rules.length > 300 ? _rules.slice(0, 299) + '…' : _rules}]\n`;
                             }
                             if (tabAssets.length === 0) treeList += `    (empty)\n`;
                             else if (isCollageActive && tabIsRepresentedInCollage) {

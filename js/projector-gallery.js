@@ -1107,6 +1107,17 @@
             hub.handle('gallery:get-state', () => getGalleryPublicState(), { moduleId: 'gallery' });
         }
 
+        // FSM audit (2026-07-31): read-only FSM snapshot — "where are we and
+        // what is the law" (open tab, hall menu, locked-hidden count). The
+        // neutral seam for games/FSM modules to query the tab automaton
+        // without reaching into galleryData (docs/fsm-audit.md).
+        if (!hasCommand('gallery:get-fsm-state')) {
+            hub.handle('gallery:get-fsm-state', () => ({
+                ok: true,
+                state: window.VisualProjector?.gallery?.TabsManager?.getFsmSnapshot?.() || null,
+            }), { moduleId: 'gallery' });
+        }
+
         if (!hasCommand('gallery:list-assets')) {
             hub.handle('gallery:list-assets', (payload = {}) => listPublicAssets(payload), { moduleId: 'gallery' });
         }

@@ -444,6 +444,14 @@
          * v17 semantics: [TAB:open:X] is a SOLO scene switch — X opens, every
          * other tab collapses and the collage marks follow X, in ONE batch.
          * CAT open/close stays a pack reveal and never touches tab states.
+         *
+         * FSM audit (2026-07-31): lock is INHERITED — a tab inside a locked
+         * category is effectively locked (the manifest already hides it), so
+         * the executor refuses it too and says so honestly. Opening a tab also
+         * syncs the gallery UI focus (activeTabId/lastAssetTabId) to the FSM
+         * state so the user's grid never drifts from what the model sees.
+         * Returns a small result object so the command bus can log an honest
+         * matched/miss outcome (docs/fsm-audit.md).
          */
         executeCommand(entityType, action, name) {
             const gd = S.galleryData;
@@ -462,7 +470,16 @@
                 ? fuzzyMatch(name, gd.categories, c => c.name)
                 : fuzzyMatch(name, gd.tabs, t => t.name);
 
-            if (find && find.state !== 'locked' && (normalizedAction === 'open' || normalizedAction === 'collapsed')) {
+            // A lock on a category is inherited by every tab inside it:
+            // "locked" = "hidden from the LLM", and that must hold in the
+            // executor, not just in the manifest tree.
+            const catOf = (tab) => (gd.categories || []).find(c => c.id === tab?.categoryId);
+            const effectivelyLocked = !!find && (
+                find.state === 'locked' ||
+                (entityType === 'TAB' && catOf(find)?.state === 'locked')
+            );
+
+            if (find && !effectivelyLocked && (normalizedAction === 'open' || normalizedAction === 'collapsed')) {
                 const actionLabelRu = normalizedAction === 'collapsed' ? 'свернуто' : 'открыто';
                 const fuzzyMatched = find.name.toLowerCase() !== targetName;
                 const stateChanged = find.state !== normalizedAction;
@@ -501,6 +518,22 @@
                     generateCollageFromMarkedTabs({ reason: 'directory-command' }).catch(err =>
                         console.warn('[VP Gallery] AI-triggered collage generation failed:', err)
                     );
+
+                    // FSM audit: keep the gallery UI focus in sync with the FSM
+                    // state — the grid follows activeTabId, the model follows
+                    // tab.state; without this they drift apart.
+                    if (gd.activeTabId !== find.id) {
+                        gd.activeTabId = find.id;
+                        if (find.id !== 'effects') S.ui.lastAssetTabId = find.id;
+                        changed = true;
+                    }
+                } else if (entityType === 'TAB' && normalizedAction === 'collapsed' && gd.activeTabId === find.id) {
+                    // Stepped back out of the scene that had UI focus — move the
+                    // grid to the first remaining tab (same policy as deleteTab).
+                    const nextTab = gd.tabs.find(t => t.id !== find.id) || null;
+                    gd.activeTabId = nextTab ? nextTab.id : null;
+                    S.ui.lastAssetTabId = nextTab ? nextTab.id : null;
+                    changed = true;
                 }
 
                 if (stateChanged || soloClosed) {
@@ -514,9 +547,62 @@
                     showToast(`📂 ИИ сопоставил "${name}" ➜ "${find.name}"`, 'info');
                 }
             } else {
-                console.warn(`[VP AI command] No matching active ${entityType} found for "${name}"`);
+                if (effectivelyLocked) {
+                    const lockReason = entityType === 'TAB' && catOf(find)?.state === 'locked'
+                        ? 'залочена (родительская категория залочена)'
+                        : 'залочена';
+                    console.warn(`[VP AI command] ${entityType} "${name}" is locked — command refused`);
+                    showToast(`📂 🔒 ${entityType === 'CAT' ? 'Категория' : 'Таб'} "${name}" ${lockReason} — команда не выполнена`, 'info');
+                } else {
+                    console.warn(`[VP AI command] No matching active ${entityType} found for "${name}"`);
+                    showToast(`📂 ${entityType === 'CAT' ? 'Категория' : 'Таб'} "${name}" не найдена — команда не выполнена`, 'info');
+                }
             }
-            if (changed) { this.renderSidebar(); persistGalleryData(); }
+            if (changed) {
+                this.renderSidebar();
+                renderGalleryGrid();
+                updateGalleryFooter();
+                persistGalleryData();
+            }
+            return {
+                matched: !!(find && !effectivelyLocked && (normalizedAction === 'open' || normalizedAction === 'collapsed')),
+                entityType,
+                action: normalizedAction,
+                name: find?.name || String(name || ''),
+                opened: entityType === 'TAB' && normalizedAction === 'open' && !!find && !effectivelyLocked,
+                closed: entityType === 'TAB' && normalizedAction === 'collapsed' && !!find && !effectivelyLocked,
+                changed,
+            };
+        },
+
+        /**
+         * Read-only FSM snapshot for games/other modules (FSM audit,
+         * 2026-07-31): "where are we and what is the law" without reaching
+         * into galleryData. The collage/FSM layer answers "где мы", games.js
+         * answers "кто считает тяжёлую механику" — this is the neutral seam
+         * between them. Never mutates anything.
+         */
+        getFsmSnapshot() {
+            const gd = S.galleryData || { categories: [], tabs: [] };
+            const cats = Array.isArray(gd.categories) ? gd.categories : [];
+            const tabs = Array.isArray(gd.tabs) ? gd.tabs : [];
+            const catStateOf = (t) => cats.find(c => c.id === t?.categoryId)?.state || 'open';
+            const effectivelyLocked = (t) => !t || t.state === 'locked' || catStateOf(t) === 'locked';
+            const visible = tabs.filter(t => !effectivelyLocked(t));
+            const openTabs = visible.filter(t => t.state === 'open');
+            const openTab = openTabs[openTabs.length - 1] || null;
+            const catName = (t) => cats.find(c => c.id === t?.categoryId)?.name || null;
+            return {
+                activeTabId: gd.activeTabId || null,
+                openTabs: openTabs.map(t => ({ id: t.id, name: t.name, category: catName(t), rules: t.rules || null })),
+                openTab: openTab
+                    ? { id: openTab.id, name: openTab.name, category: catName(openTab), desc: openTab.desc || null, rules: openTab.rules || null }
+                    : null,
+                hall: visible.filter(t => t.state === 'collapsed').map(t => ({ id: t.id, name: t.name, desc: t.desc || null, category: catName(t) })),
+                lockedHiddenCount: tabs.length - visible.length,
+                markedForCollage: visible.filter(t => t.markedForCollage).map(t => t.name),
+                categories: cats.map(c => ({ id: c.id, name: c.name, state: c.state })),
+            };
         },
 
         /** Fly-to-textarea animation when an asset is dropped into the composer. */
