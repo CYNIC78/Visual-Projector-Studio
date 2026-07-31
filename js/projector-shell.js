@@ -1712,6 +1712,20 @@
                 background: rgba(108,95,166,0.08) !important;
             }
 
+            /* Focus Mode: делаем split/close кнопки серыми, чтоб случайно не нажать */
+            .vp-shell-area.maximized .vp-shell-area-btn[data-act="split-right"],
+            .vp-shell-area.maximized .vp-shell-area-btn[data-act="split-down"],
+            .vp-shell-area.maximized .vp-shell-area-btn[data-act="close"] {
+                opacity: 0.25;
+                pointer-events: none;
+                filter: grayscale(1);
+            }
+            .vp-shell-area.maximized .vp-shell-area-btn[data-act="focus"] {
+                opacity: 1;
+                pointer-events: auto;
+                filter: none;
+            }
+
             /* ── Вариант A: оптимизация перетаскивания сплиттеров ── */
             /* Класс вешается на body во время drag для изоляции тяжелого контента */
             body.vp-shell-resizing {
@@ -2141,7 +2155,8 @@
                 e.preventDefault();
                 gutter.classList.add('dragging');
                 document.body.classList.add('vp-shell-resizing');
-                gutter.setPointerCapture?.(e.pointerId);
+                const capturePointerId = e.pointerId;
+                gutter.setPointerCapture?.(capturePointerId);
                 const rect = wrap.getBoundingClientRect();
                 let rafId = null;
                 let lastEv = null;
@@ -2206,6 +2221,20 @@
 
                 document.addEventListener('pointermove', onMove);
                 document.addEventListener('pointerup', onUp);
+                document.addEventListener('pointercancel', onUp);
+            });
+            // Safety net: if the pointer capture is lost (Alt+Tab, etc.),
+            // make sure we don't leave the body in a frozen state.
+            gutter.addEventListener('lostpointercapture', () => {
+                if (gutter.classList.contains('dragging')) {
+                    gutter.classList.remove('dragging');
+                    document.body.classList.remove('vp-shell-resizing');
+                    try { gutter.releasePointerCapture?.(capturePointerId); } catch {}
+                    document.removeEventListener('pointermove', onMove);
+                    document.removeEventListener('pointerup', onUp);
+                    document.removeEventListener('pointercancel', onUp);
+                    try { saveShellState(); } catch {}
+                }
             });
             renderNode(node.a, aWrap);
             renderNode(node.b, bWrap);
