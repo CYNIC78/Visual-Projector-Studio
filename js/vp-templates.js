@@ -76,7 +76,7 @@ GUIDELINES:
 This image shows the current gallery view available for choosing scene frames.
 It may change when tabs are opened or collapsed.
 Preview cards are grouped by "TAB: <Name>". Use a preview card's [IMG:tag] label only when you want to switch the visible scene frame.
-{{#if allowDirectoryCommands}}You may enter scenes like rooms: [TAB:open:name] steps into a tab's scene — its assets join your NEXT turn and the other tabs close for you. [TAB:close:name] steps back out into the hall. [CAT:open:name] reveals a whole pack of scenes at once, and [CAT:close:name] packs it away.{{/if}}
+{{#if allowDirectoryCommands}}{{collageNavNote}}{{/if}}
 {{/if}}
 
 {{/if}}{{#if hasEffects}}VISUAL EFFECTS:
@@ -86,7 +86,7 @@ Available effects:
 {{/if}}{{#if hasTransient}}{{effectsList}}
 {{/if}}{{#if hasMood}}{{moodList}}
 {{/if}}{{#if hasGallery}}
-Currently showing: {{currentTag}}
+Projector frame: {{currentTag}}
 {{/if}}[/SCENE CONTROL]`;
 
     const DEFAULT_FRAME_TEMPLATE =
@@ -130,7 +130,8 @@ Frame: {{tag}} ({{source}})`;
 
     const TEMPLATE_VARS = {
         manifest: {
-            '{{currentTag}}':   'tag of the currently shown asset',
+            '{{currentTag}}':   'tag of the asset currently on the projector frame',
+            '{{collageNavNote}}': 'scene-navigation hint for the collage block (short pointer when GALLERY NAVIGATION preamble is present, full grammar otherwise)',
             '{{assetsList}}':   'list of tagged assets (with descriptions if enabled)',
             '{{pendingList}}':  'list of untagged assets',
             '{{galleryCount}}': 'total number of assets',
@@ -288,7 +289,7 @@ Frame: {{tag}} ({{source}})`;
                             tabAssets.forEach(a => processedTags.add(a.tag));
                             if (State.config.allowDirectoryCommands) {
                                 treeList += `  ▸ Tab: ${tab.name}:${tab.desc ? ' '+tab.desc : ''}\n`;
-                                treeList += `    [not in current Gallery View — ${tabAssets.length} asset(s) hidden from current gallery view]\n`;
+                                treeList += `    [not part of the current Gallery View — ${tabAssets.length} asset(s) hidden; name kept as a navigation hint]\n`;
                             }
                         } else {
                             treeList += `  ▸ Tab: ${tab.name}:${tab.desc ? ' '+tab.desc : ''}\n`;
@@ -375,6 +376,16 @@ Frame: {{tag}} ({{source}})`;
             collageDescription,
             collageSections,
             allowDirectoryCommands: !!State.config.allowDirectoryCommands,
+            // Manifest diet (2026-07-31): the GALLERY NAVIGATION preamble already
+            // teaches the 4 scene verbs when any collapsible exists — repeating
+            // them in the collage block was ~200 chars of pure duplication in
+            // every request. When the tree preamble is absent we still teach the
+            // full grammar here; otherwise a one-line pointer suffices.
+            collageNavNote: State.config.allowDirectoryCommands
+                ? (hasCollapsibles
+                    ? '(Scene navigation: [TAB:open:name] / [TAB:close:name] / [CAT:open:name] / [CAT:close:name] — described in GALLERY NAVIGATION above.)'
+                    : "You may enter scenes like rooms: [TAB:open:name] steps into a tab's scene — its assets join your NEXT turn and the other tabs close for you. [TAB:close:name] steps back out into the hall. [CAT:open:name] reveals a whole pack of scenes at once, and [CAT:close:name] packs it away.")
+                : '',
         };
 
         const template = (templateOverride ?? State.config.prompts?.manifest) || DEFAULT_MANIFEST_TEMPLATE;
