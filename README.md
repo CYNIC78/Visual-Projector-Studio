@@ -235,6 +235,7 @@ VP Studio/
 | `docs/tab-fsm-design.md` | Дизайн галереи как конечного автомата |
 | `docs/fsm-audit.md` | Аудит FSM: найденные дыры и их закрытие, по билдам |
 | `docs/agentic-loop-design.md` | Замкнутый цикл «действие → наблюдение» для модели |
+| `docs/visual-composition-strategy.md` | Границы системы: почему плоские ассеты, композит на этапе генерации |
 | `docs/focus-vision.md` | Focus Mode и зрение модели |
 | `CHANGELOG.md` | Журнал рабочих сессий |
 

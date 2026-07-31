@@ -1,0 +1,1241 @@
+﻿#,file,line,kind,RU,EN (fill me),context
+1,js/projector-gallery.js,268,ui,Не удалось загрузить: ${file.name},,reject(new Error(`Не удалось загрузить: ${file.name}`));
+2,js/projector-gallery.js,426,toast,Нет изображений в папке,,"if (!files.length) { showToast('Нет изображений в папке', 'error'); return; }"
+3,js/projector-gallery.js,428,toast,Загружаю ${files.length} файлов...,,"showToast(`Загружаю ${files.length} файлов...`, 'info');"
+4,js/projector-gallery.js,494,console,[VP Gallery] Ошибка: ${file.name},,"console.error(`[VP Gallery] Ошибка: ${file.name}`, err);"
+5,js/projector-gallery.js,515,toast,Загружено ${loaded} ассетов,,"showToast(`Загружено ${loaded} ассетов`, 'success');"
+6,js/projector-gallery.js,875,ui,"Tab ""${tab.name || id}"" is not the active scene — открой его как сцену ([TAB:open] / зелёный дот), метка выставляется автоматически",,"throw new Error(`Tab ""${tab.name || id}"" is not the active scene — открой его как сцену ([TAB:open] / зелёный дот), метк"
+7,js/projector-gallery.js,878,ui,"Tab ""${tab.name || id}"" is the active scene — метку нельзя снять, смените сцену или удалите Gallery View",,"throw new Error(`Tab ""${tab.name || id}"" is the active scene — метку нельзя снять, смените сцену или удалите Gallery Vie"
+8,js/projector-gallery.js,1380,toast,Пустой тег — отмена,,"if (!newTag) { showToast('Пустой тег — отмена', 'error'); return false; }"
+9,js/projector-gallery.js,1382,toast,"Тег ""${newTag}"" уже занят",,"if (S.gallery.has(newTag)) { showToast(`Тег ""${newTag}"" уже занят`, 'error'); return false; }"
+10,js/projector-gallery.js,1469,toast,Удалить все ${drafts.length} черновик(ов)? Они не сохранены на диск.,,"message: `Удалить все ${drafts.length} черновик(ов)? Они не сохранены на диск.`,"
+11,js/projector-gallery.js,1542,toast,Перемещено в «${targetTab.name}»: ${moved.length} ассет${moved.length === 1 ? '' : 'ов'},,"showToast(`Перемещено в «${targetTab.name}»: ${moved.length} ассет${moved.length === 1 ? '' : 'ов'}`, 'success');"
+12,js/projector-gallery.js,1560,toast,Галерея пуста — нечего сохранять,,"if (S.gallery.size === 0) { showToast('Галерея пуста — нечего сохранять', 'error'); return; }"
+13,js/projector-gallery.js,1564,toast,Нечего экспортировать — выделение пустое,,"if (assets.length === 0) { showToast('Нечего экспортировать — выделение пустое', 'error'); return; }"
+14,js/projector-gallery.js,1593,toast,Сохранено ${data.assets.length} ассет${data.assets.length === 1 ? '' : 'ов'},,"showToast(`Сохранено ${data.assets.length} ассет${data.assets.length === 1 ? '' : 'ов'}`, 'success');"
+15,js/projector-gallery.js,1607,toast,Неверный формат файла,,"if (!Array.isArray(data.assets)) { showToast('Неверный формат файла', 'error'); return; }"
+16,js/projector-gallery.js,1682,toast,"Импорт: ${loaded} ок, ${failed} пропущено",,"showToast(failed > 0 ? `Импорт: ${loaded} ок, ${failed} пропущено` : `Загружено ${loaded} ассетов`,"
+17,js/projector-gallery.js,1682,toast,Загружено ${loaded} ассетов,,"showToast(failed > 0 ? `Импорт: ${loaded} ок, ${failed} пропущено` : `Загружено ${loaded} ассетов`,"
+18,js/projector-gallery.js,1685,console,Ошибка чтения файла,,"showToast('Ошибка чтения файла', 'error');"
+19,js/projector-gallery.js,1846,toast,Cover установлен: ${tag},,"showToast(`Cover установлен: ${tag}`, 'success');"
+20,js/projector-gallery.js,1882,label,↩ Назад,,trashBtn.textContent = showDeleted ? '↩ Назад' : `🗑 Корзина (${deletedNames.length})`;
+21,js/projector-gallery.js,1882,label,🗑 Корзина (${deletedNames.length}),,trashBtn.textContent = showDeleted ? '↩ Назад' : `🗑 Корзина (${deletedNames.length})`;
+22,js/projector-gallery.js,1883,tooltip,Вернуться к списку эффектов,,trashBtn.title = showDeleted ? 'Вернуться к списку эффектов' : 'Показать удалённые эффекты';
+23,js/projector-gallery.js,1883,tooltip,Показать удалённые эффекты,,trashBtn.title = showDeleted ? 'Вернуться к списку эффектов' : 'Показать удалённые эффекты';
+24,js/projector-gallery.js,1906,label,В корзине ничего не найдено,,? (filterVal ? 'В корзине ничего не найдено' : 'Корзина пуста 🎉')
+25,js/projector-gallery.js,1906,label,Корзина пуста 🎉,,? (filterVal ? 'В корзине ничего не найдено' : 'Корзина пуста 🎉')
+26,js/projector-gallery.js,1907,label,Эффекты не найдены,,: (filterVal ? 'Эффекты не найдены' : 'В реестре FX пока нет эффектов');
+27,js/projector-gallery.js,1907,label,В реестре FX пока нет эффектов,,: (filterVal ? 'Эффекты не найдены' : 'В реестре FX пока нет эффектов');
+28,js/projector-gallery.js,1909,label,${deletedNames.length} в корзине,,countLabel.textContent = showDeleted ? `${deletedNames.length} в корзине` : '0 эффектов';
+29,js/projector-gallery.js,1909,label,0 эффектов,,countLabel.textContent = showDeleted ? `${deletedNames.length} в корзине` : '0 эффектов';
+30,js/projector-gallery.js,1912,label,${effects.length} в корзине,,countLabel.textContent = showDeleted ? `${effects.length} в корзине` : `${effects.length} эффект${effects.length === 1 ?
+31,js/projector-gallery.js,1912,label,${effects.length} эффект${effects.length === 1 ? '' : 'ов'},,countLabel.textContent = showDeleted ? `${effects.length} в корзине` : `${effects.length} эффект${effects.length === 1 ?
+32,js/projector-gallery.js,1934,tooltip,"«${name}» в корзине — восстановите, чтобы использовать",,"item.title = deleted ? `«${name}» в корзине — восстановите, чтобы использовать` : `Перетащите, чтобы вставить [FX:${name"
+33,js/projector-gallery.js,1934,tooltip,"Перетащите, чтобы вставить [FX:${name}]",,"item.title = deleted ? `«${name}» в корзине — восстановите, чтобы использовать` : `Перетащите, чтобы вставить [FX:${name"
+34,js/projector-gallery.js,1956,label,🙈 скрыт,,hideTag.textContent = '🙈 скрыт';
+35,js/projector-gallery.js,1964,ui,Восстановить эффект,,"actions.appendChild(mkBtn('↩', 'Восстановить эффект', () => {"
+36,js/projector-gallery.js,1965,toast,Восстановлен: ${name},,"FX.restoreEffect(name); showToast(`Восстановлен: ${name}`, 'success'); renderGalleryGrid();"
+37,js/projector-gallery.js,1968,toast,Показать боту,,"actions.appendChild(mkBtn(hidden ? '👁' : '👁‍🗨', hidden ? 'Показать боту' : 'Скрыть от бота', () => {"
+38,js/projector-gallery.js,1968,toast,Скрыть от бота,,"actions.appendChild(mkBtn(hidden ? '👁' : '👁‍🗨', hidden ? 'Показать боту' : 'Скрыть от бота', () => {"
+39,js/projector-gallery.js,1970,toast,Скрыт от бота: ${name},,"showToast(now ? `Скрыт от бота: ${name}` : `Виден боту: ${name}`, 'info'); renderGalleryGrid();"
+40,js/projector-gallery.js,1970,toast,Виден боту: ${name},,"showToast(now ? `Скрыт от бота: ${name}` : `Виден боту: ${name}`, 'info'); renderGalleryGrid();"
+41,js/projector-gallery.js,1972,toast,Удалить (можно восстановить),,"actions.appendChild(mkBtn('🗑', isBuiltin ? 'Удалить (можно восстановить)' : 'Удалить (в корзину)', () => {"
+42,js/projector-gallery.js,1972,toast,Удалить (в корзину),,"actions.appendChild(mkBtn('🗑', isBuiltin ? 'Удалить (можно восстановить)' : 'Удалить (в корзину)', () => {"
+43,js/projector-gallery.js,1973,toast,Удалён: ${name} (см. Корзину),,"FX.deleteEffect(name); showToast(`Удалён: ${name} (см. Корзину)`, 'info'); renderGalleryGrid();"
+44,js/projector-gallery.js,1989,label,Без описания,,descEl.textContent = (fx && fx.description) ? fx.description : 'Без описания';
+45,js/projector-gallery.js,1996,tooltip,Встроенный эффект (из fx-core.js),,srcBadge.title = isBuiltin ? 'Встроенный эффект (из fx-core.js)' : `Импортирован из пака: ${source}`;
+46,js/projector-gallery.js,1996,tooltip,Импортирован из пака: ${source},,srcBadge.title = isBuiltin ? 'Встроенный эффект (из fx-core.js)' : `Импортирован из пака: ${source}`;
+47,js/projector-gallery.js,2002,label,🧹 удалить пак,,purgeBtn.textContent = '🧹 удалить пак';
+48,js/projector-gallery.js,2003,tooltip,Полностью удалить пак «${source}» из памяти (необратимо),,purgeBtn.title = `Полностью удалить пак «${source}» из памяти (необратимо)`;
+49,js/projector-gallery.js,2008,dialog,Удалить пак «${source}»?,,"title: `Удалить пак «${source}»?`,"
+50,js/projector-gallery.js,2009,dialog,"Все эффекты из этого пака будут удалены, а сам пак стёрт из памяти. Повторно появится только при повторном импорте файла.",,"message: `Все эффекты из этого пака будут удалены, а сам пак стёрт из памяти. Повторно появится только при повторном имп"
+51,js/projector-gallery.js,2010,dialog,Отмена,,"buttons: [ { id: 'cancel', label: 'Отмена', ghost: true }, { id: 'ok', label: 'Удалить пак' } ],"
+52,js/projector-gallery.js,2010,label,Удалить пак,,"buttons: [ { id: 'cancel', label: 'Отмена', ghost: true }, { id: 'ok', label: 'Удалить пак' } ],"
+53,js/projector-gallery.js,2014,toast,Пак «${source}» удалён (${removed.length} эффект${removed.length === 1 ? '' : 'ов'}),,"showToast(`Пак «${source}» удалён (${removed.length} эффект${removed.length === 1 ? '' : 'ов'})`, 'success');"
+54,js/projector-gallery.js,2108,tooltip,Галерея (${count} ассетов),,if (btn) btn.title = `Галерея (${count} ассетов)`;
+55,js/projector-gallery.js,2112,label,${count} ассет${count === 1 ? '' : 'ов'},,const text = count > 0 ? `${count} ассет${count === 1 ? '' : 'ов'}` : 'Галерея пуста';
+56,js/projector-gallery.js,2112,label,Галерея пуста,,const text = count > 0 ? `${count} ассет${count === 1 ? '' : 'ов'}` : 'Галерея пуста';
+57,js/projector-gallery.js,2162,label,0 ассетов,,countLabel.textContent = '0 ассетов';
+58,js/projector-gallery.js,2168,label,"<div class=""vp-gallery-empty"">Таб пуст. Загрузите файлы или перетащите сюда ассеты.</div>",,"grid.innerHTML = '<div class=""vp-gallery-empty"">Таб пуст. Загрузите файлы или перетащите сюда ассеты.</div>';"
+59,js/projector-gallery.js,2169,label,0 ассетов,,countLabel.textContent = '0 ассетов';
+60,js/projector-gallery.js,2174,label,${sorted.length} ассет${sorted.length === 1 ? '' : 'ов'},,countLabel.textContent = `${sorted.length} ассет${sorted.length === 1 ? '' : 'ов'}`;
+61,js/projector-gallery.js,2175,label,"<div class=""vp-gallery-empty"">Ничего не найдено</div>",,"if (sorted.length === 0) { grid.innerHTML = '<div class=""vp-gallery-empty"">Ничего не найдено</div>'; return; }"
+62,js/projector-gallery.js,2227,tooltip,Входит в Gallery View (таб помечен 🖼️),,cm.title = 'Входит в Gallery View (таб помечен 🖼️)';
+63,js/projector-gallery.js,2241,tooltip,Удалить,,xBtn.title = 'Удалить';
+64,js/projector-gallery.js,2247,dialog,"Удалить ассет ""${tag}""?",,"message: `Удалить ассет ""${tag}""?`,"
+65,js/projector-gallery.js,2354,menu,✏️ Переименовать,,"menu.appendChild(mkItem('✏️ Переименовать', null, () => {"
+66,js/projector-gallery.js,2366,menu,📝 Изменить описание,,"menu.appendChild(mkItem('📝 Изменить описание', null, async () => {"
+67,js/projector-gallery.js,2369,dialog,"Описание ассета ""${tag}"".",,"message: `Описание ассета ""${tag}"".`,"
+68,js/projector-gallery.js,2405,dialog,"Удалить черновик ""${tag}""? Он не сохранён на диск.",,"message: `Удалить черновик ""${tag}""? Он не сохранён на диск.`,"
+69,js/projector-gallery.js,2415,menu,🗑️ Удалить,,"menu.appendChild(mkItem('🗑️ Удалить', 'var(--error,#e05555)', async () => {"
+70,js/projector-gallery.js,2418,dialog,"Удалить ассет ""${tag}""?",,"message: `Удалить ассет ""${tag}""?`,"
+71,js/gallery-hierarchy.js,130,menu,➕ Создать категорию,,"addItem('➕ Создать категорию', () => TabsManager.createCategory());"
+72,js/gallery-hierarchy.js,133,menu,➕ Создать таб здесь,,"addItem('➕ Создать таб здесь', () => TabsManager.createTab(id));"
+73,js/gallery-hierarchy.js,145,menu,📁 Свернуть все табы (показать модели),,"addItem('📁 Свернуть все табы (показать модели)', () => TabsManager.setCategoryTabsState(id, 'collapsed'));"
+74,js/gallery-hierarchy.js,151,menu,✏️ Переименовать,,"addItem('✏️ Переименовать', async () => {"
+75,js/gallery-hierarchy.js,154,dialog,Введите новое имя:,,"message: 'Введите новое имя:',"
+76,js/gallery-hierarchy.js,170,menu,📝 Изменить описание,,"addItem('📝 Изменить описание', async () => {"
+77,js/gallery-hierarchy.js,173,dialog,"Описание видно модели, когда категория/таб свернут.",,"message: 'Описание видно модели, когда категория/таб свернут.',"
+78,js/gallery-hierarchy.js,190,menu,⚖️ Правила таба (закон для модели),,"addItem('⚖️ Правила таба (закон для модели)', async () => {"
+79,js/gallery-hierarchy.js,192,dialog,Tab rules — закон активного состояния,,"title: 'Tab rules — закон активного состояния',"
+80,js/gallery-hierarchy.js,193,dialog,"Читается моделью, пока таб на витрине (текст-спутник коллажа) и в момент входа. Без коллажа — строкой в манифесте. Пустое = без закона.",,"message: 'Читается моделью, пока таб на витрине (текст-спутник коллажа) и в момент входа. Без коллажа — строкой в манифе"
+81,js/gallery-hierarchy.js,195,label,Напр.: используй [IMG:] только из этого набора; позы только сидя,,"placeholder: 'Напр.: используй [IMG:] только из этого набора; позы только сидя',"
+82,js/gallery-hierarchy.js,226,ui,категорию,,const kindRu = type === 'category' ? 'категорию' : 'таб';
+83,js/gallery-hierarchy.js,226,ui,таб,,const kindRu = type === 'category' ? 'категорию' : 'таб';
+84,js/gallery-hierarchy.js,228,menu,🔒 Скрыть ${kindRu} от модели (Locked),,"addItem(`🔒 Скрыть ${kindRu} от модели (Locked)`, () => {"
+85,js/gallery-hierarchy.js,232,menu,🟡 Разлочить (вернуть в работу),,"addItem('🟡 Разлочить (вернуть в работу)', () => {"
+86,js/gallery-hierarchy.js,238,menu,🗑️ Удалить,,"addItem('🗑️ Удалить', async () => {"
+87,js/gallery-hierarchy.js,240,menu,категорию и ВСЕ табы/ассеты внутри,,? 'категорию и ВСЕ табы/ассеты внутри'
+88,js/gallery-hierarchy.js,241,menu,таб и ВСЕ ассеты внутри,,: 'таб и ВСЕ ассеты внутри';
+89,js/gallery-hierarchy.js,244,dialog,Удалить ${label}?,,"message: `Удалить ${label}?`,"
+90,js/gallery-hierarchy.js,467,toast,"🎬 Это активная сцена — смените её, сделав зелёной другую вкладку",,"showToast('🎬 Это активная сцена — смените её, сделав зелёной другую вкладку', 'info');"
+91,js/gallery-hierarchy.js,471,toast,🔒 Таб скрыт от модели — разлок через контекстное меню (правая кнопка),,"showToast('🔒 Таб скрыт от модели — разлок через контекстное меню (правая кнопка)', 'info');"
+92,js/gallery-hierarchy.js,479,toast,🔒 Категория скрыта от модели — разлок через контекстное меню,,"showToast('🔒 Категория скрыта от модели — разлок через контекстное меню', 'info');"
+93,js/gallery-hierarchy.js,484,toast,В пустом табе нечего собирать — добавьте ассеты,,"showToast('В пустом табе нечего собирать — добавьте ассеты', 'info');"
+94,js/gallery-hierarchy.js,494,toast,"🎬 Таб ""${target.name}"" — активная сцена",,"showToast(`🎬 Таб ""${target.name}"" — активная сцена`, 'success');"
+95,js/gallery-hierarchy.js,506,toast,🎬 В этой категории активная сцена — она не может быть свёрнута,,"showToast('🎬 В этой категории активная сцена — она не может быть свёрнута', 'info');"
+96,js/gallery-hierarchy.js,512,toast,🔒 Категория скрыта от модели — разлок через контекстное меню,,"showToast('🔒 Категория скрыта от модели — разлок через контекстное меню', 'info');"
+97,js/gallery-hierarchy.js,539,toast,🎬 Нельзя скрыть активную сцену — сначала сделайте зелёной другую вкладку,,"showToast('🎬 Нельзя скрыть активную сцену — сначала сделайте зелёной другую вкладку', 'info');"
+98,js/gallery-hierarchy.js,545,toast,🎬 В этой категории активная сцена — её нельзя скрыть,,"showToast('🎬 В этой категории активная сцена — её нельзя скрыть', 'info');"
+99,js/gallery-hierarchy.js,699,ui,е,,"const actionKey = String(action || '').trim().toLowerCase().replace(/ё/g, 'е').replace(/[\s\-]+/g, '_');"
+100,js/gallery-hierarchy.js,723,ui,свернуто,,const actionLabelRu = normalizedAction === 'collapsed' ? 'свернуто' : 'открыто';
+101,js/gallery-hierarchy.js,723,ui,открыто,,const actionLabelRu = normalizedAction === 'collapsed' ? 'свернуто' : 'открыто';
+102,js/gallery-hierarchy.js,772,ui, — соло: свёрнуты ещё ${soloClosed},,const soloNote = soloClosed ? ` — соло: свёрнуты ещё ${soloClosed}` : '';
+103,js/gallery-hierarchy.js,774,toast,"📂 ИИ сопоставил ""${name}"" ➜ ""${find.name}"" (${actionLabelRu}${soloNote})",,"showToast(`📂 ИИ сопоставил ""${name}"" ➜ ""${find.name}"" (${actionLabelRu}${soloNote})`, 'info');"
+104,js/gallery-hierarchy.js,776,toast,"📂 ${entityType === 'CAT' ? 'Категория' : 'Таб'} ""${find.name}"" ${actionLabelRu} по команде ИИ${soloNote}",,"showToast(`📂 ${entityType === 'CAT' ? 'Категория' : 'Таб'} ""${find.name}"" ${actionLabelRu} по команде ИИ${soloNote}`, 'i"
+105,js/gallery-hierarchy.js,779,toast,"📂 ИИ сопоставил ""${name}"" ➜ ""${find.name}""",,"showToast(`📂 ИИ сопоставил ""${name}"" ➜ ""${find.name}""`, 'info');"
+106,js/gallery-hierarchy.js,784,ui,залочена (родительская категория залочена),,? 'залочена (родительская категория залочена)'
+107,js/gallery-hierarchy.js,785,console,залочена,,: 'залочена';
+108,js/gallery-hierarchy.js,787,console,"📂 🔒 ${entityType === 'CAT' ? 'Категория' : 'Таб'} ""${name}"" ${lockReason} — команда не выполнена",,"showToast(`📂 🔒 ${entityType === 'CAT' ? 'Категория' : 'Таб'} ""${name}"" ${lockReason} — команда не выполнена`, 'info');"
+109,js/gallery-hierarchy.js,790,console,"📂 ${entityType === 'CAT' ? 'Категория' : 'Таб'} ""${name}"" не найдена — команда не выполнена",,"showToast(`📂 ${entityType === 'CAT' ? 'Категория' : 'Таб'} ""${name}"" не найдена — команда не выполнена`, 'info');"
+110,js/gallery-hierarchy.js,937,tooltip,"<span style=""font-size:10px; color:#f0b450; margin-left:4px;"" title=""Помечен для Gallery View"">🖼️</span>",,"const collageIcon = tab.markedForCollage ? `<span style=""font-size:10px; color:#f0b450; margin-left:4px;"" title=""Помечен"
+111,js/gallery-collage.js,316,ui,Нет данных галереи,,"if (!gd) return { ok: false, reason: 'Нет данных галереи' };"
+112,js/gallery-collage.js,330,ui,Нет выбранных вкладок для Gallery View!,,"return { ok: false, reason: 'Нет выбранных вкладок для Gallery View!' };"
+113,js/gallery-collage.js,356,ui,В выбранных вкладках нет ассетов для объединения!,,"return { ok: false, reason: 'В выбранных вкладках нет ассетов для объединения!' };"
+114,js/gallery-collage.js,532,tooltip,Gallery View: ${sections} таб(ов)${assetsCount != null ? ' · ' + assetsCount + ' кадр(ов)' : ''}\n,,pill.title = `Gallery View: ${sections} таб(ов)${assetsCount != null ? ' · ' + assetsCount + ' кадр(ов)' : ''}\n` +
+115,js/gallery-collage.js,533,ui,Витрина сейчас — кадр проектора.,,(isLive ? 'Витрина сейчас — кадр проектора.' : 'Витрина в кулуарах — на экране другой кадр.') +
+116,js/gallery-collage.js,533,ui,Витрина в кулуарах — на экране другой кадр.,,(isLive ? 'Витрина сейчас — кадр проектора.' : 'Витрина в кулуарах — на экране другой кадр.') +
+117,js/gallery-collage.js,534,ui,\nСекции: ${partNames.join(' · ')},,(partNames.length ? `\nСекции: ${partNames.join(' · ')}` : '') +
+118,js/gallery-collage.js,535,ui,\nСобрана в ${when},,(when ? `\nСобрана в ${when}` : '') +
+119,js/gallery-collage.js,536,ui,\nКлик — показать/скрыть витрину глазами модели.,,'\nКлик — показать/скрыть витрину глазами модели.';
+120,js/gallery-collage.js,581,label,✕ закрыть,,closeBtn.textContent = '✕ закрыть';
+121,js/gallery-collage.js,596,tooltip,Клик — натуральный размер с прокруткой / обратно во весь экран,,img.title = 'Клик — натуральный размер с прокруткой / обратно во весь экран';
+122,js/gallery-collage.js,616,label,Витрина: ${parts.join(' · ')},,info.textContent = (parts.length ? `Витрина: ${parts.join(' · ')}` : 'Витрина без помеченных табов (собрана из активного
+123,js/gallery-collage.js,616,label,Витрина без помеченных табов (собрана из активного таба).,,info.textContent = (parts.length ? `Витрина: ${parts.join(' · ')}` : 'Витрина без помеченных табов (собрана из активного
+124,js/gallery-collage.js,617,label,\nСобрана в ${when},,(when ? `\nСобрана в ${when}` : '');
+125,js/gallery-collage.js,622,label,Так эту витрину видит модель в своём контексте. Клик по картинке — прокрутка в натуральном размере; по фону или ✕ — закрыть.,,hint.textContent = 'Так эту витрину видит модель в своём контексте. Клик по картинке — прокрутка в натуральном размере; 
+126,js/gallery-collage.js,673,toast,Gallery View расформирован: метки с табов сняты,,"showToast('Gallery View расформирован: метки с табов сняты', 'info');"
+127,js/gallery-collage.js,676,toast,Обновляю visual inventory…,,"showToast('Обновляю visual inventory…', 'info');"
+128,js/gallery-collage.js,1076,toast,Gallery View уже собирается — новая версия поставлена в очередь.,,"showToast('Gallery View уже собирается — новая версия поставлена в очередь.', 'info');"
+129,js/gallery-collage.js,1078,toast,Gallery View уже собирается…,,"showToast('Gallery View уже собирается…', 'info');"
+130,js/gallery-collage.js,1088,toast,Gallery View уже актуален — использую готовую версию.,,"showToast('Gallery View уже актуален — использую готовую версию.', 'info');"
+131,js/gallery-collage.js,1098,toast,"Собираю Gallery View: ${plan.totalAssetsCount} ассет(ов), ${plan.sections.length} таб(ов)…",,"showToast(`Собираю Gallery View: ${plan.totalAssetsCount} ассет(ов), ${plan.sections.length} таб(ов)…`, 'info');"
+132,js/gallery-collage.js,1103,toast,Не удалось собрать Gallery View,,"showToast('Не удалось собрать Gallery View', 'error');"
+133,js/gallery-collage.js,1112,toast,Данные Gallery View изменились во время сборки — пересоберу свежую версию.,,"showToast('Данные Gallery View изменились во время сборки — пересоберу свежую версию.', 'info');"
+134,js/gallery-collage.js,1146,console,Gallery View обновлён: ${plan.totalAssetsCount} ассет(ов).,,"showToast(`Gallery View обновлён: ${plan.totalAssetsCount} ассет(ов).`, 'success');"
+135,js/gallery-collage.js,1150,console,Ошибка при сборке Gallery View,,"showToast('Ошибка при сборке Gallery View', 'error');"
+136,js/gallery-collage.js,1200,menu,🖼️ Собрать Gallery View,,"menu.appendChild(mkItem('🖼️ Собрать Gallery View', null, generateCollageFromMarkedTabs));"
+137,js/gallery-collage.js,1203,menu,✏️ Название Gallery View,,"menu.appendChild(mkItem('✏️ Название Gallery View', null, async () => {"
+138,js/gallery-collage.js,1206,dialog,Короткое название текущей Gallery View.,,"message: 'Короткое название текущей Gallery View.',"
+139,js/gallery-collage.js,1221,toast,📝 Заметка Gallery View,,"menu.appendChild(mkItem('📝 Заметка Gallery View', null, async () => {"
+140,js/gallery-collage.js,1223,toast,Сначала соберите Gallery View!,,"if (!collage) { showToast('Сначала соберите Gallery View!', 'warning'); return; }"
+141,js/gallery-collage.js,1226,toast,Короткая заметка будет видна модели рядом с картинкой Gallery View.,,"message: 'Короткая заметка будет видна модели рядом с картинкой Gallery View.',"
+142,js/gallery-collage.js,1251,menu,❌ Удалить Gallery View,,"menu.appendChild(mkItem('❌ Удалить Gallery View', 'var(--error,#e05555)', () => {"
+143,js/gallery-collage.js,1253,toast,Gallery View удалён,,"showToast('Gallery View удалён', 'success');"
+144,js/projector-shell.js,1284,label,"
+                        <div class=""vp-shell-empty-log"">
+                            <div style=""font-size:26px; margin-bottom:8px;"">💬</div>
+                            <b>Session log</b>
+                            <span>Пока это легкий placeholder. Следующий модуль projector-session.js даст ввод, API и красивый лог.</span>
+                        </div>",,wrap.innerHTML = `
+145,js/projector-shell.js,1314,label,"
+                    <textarea class=""vp-shell-input"" placeholder=""Stage input будет подключен в projector-session.js. Пока fetch pipeline не трогаем.""></textarea>
+                    <div class=""vp-shell-input-actions"">
+                        <button class=""vp-btn"" disabled>▶ Send</button>
+                        <span>UI shell готов; session/API модуль — следующий шаг.</span>
+                    </div>",,wrap.innerHTML = `
+146,js/projector-shell.js,1334,label,"
+                    <div class=""vp-shell-form-title"">🤖 Model connection</div>
+                    <label>Endpoint <input data-k=""endpoint"" placeholder=""http://localhost:1234/v1/chat/completions""></label>
+                    <label>API key <input data-k=""apiKey"" type=""password"" placeholder=""optional""></label>
+                    <label>Model <input data-k=""model"" placeholder=""local-model-name""></label>
+                    <label>Temperature <input data-k=""temperature"" type=""number"" min=""0"" max=""2"" step=""0.05""></label>
+                    <label>Max tokens <input data-k=""maxTokens"" type=""number"" min=""1"" step=""1""></label>
+                    <label class=""vp-shell-check"">Stream <input data-k=""stream"" type=""checkbox""></label>
+                    <div class=""vp-shell-note"">Настройки сохраняются локально, но отправка будет подключена в projector-session.js.</div>",,wrap.innerHTML = `
+147,js/projector-shell.js,1832,dialog,Новое название workspace:,,"message: 'Новое название workspace:',"
+148,js/projector-shell.js,2412,dialog,Название рабочего пространства:,,"message: 'Название рабочего пространства:',"
+149,js/projector-shell.js,2443,dialog,Новое название workspace:,,"message: 'Новое название workspace:',"
+150,js/projector-shell.js,2472,dialog,Удалить workspace «${title}»?,,"message: `Удалить workspace «${title}»?`,"
+151,js/projector-shell.js,2527,toast,Название нового мира:,,"message: 'Название нового мира:',"
+152,js/projector-shell.js,2646,dialog,Новое название мира:,,"message: 'Новое название мира:',"
+153,js/projector-shell.js,2665,dialog,Название копии мира:,,"message: 'Название копии мира:',"
+154,js/projector-shell.js,2699,dialog,Удалить мир «${w.title || w.id}»?\n\nПапка мира будет удалена. Это действие нельзя отменить.,,"message: `Удалить мир «${w.title || w.id}»?\n\nПапка мира будет удалена. Это действие нельзя отменить.`,"
+155,js/projector-shell.js,2818,label,"
+			<div class=""vp-shell-topbar"">
+				<div class=""vp-shell-brand"">👁 VP Studio</div>
+				<span class=""vp-shell-section-label"">Worlds:</span>
+				<div class=""vp-shell-worldbar"">
+					<span id=""vp-world-label"" class=""vp-shell-world-label"">🌍</span>
+					<select id=""vp-world-select"" class=""vp-shell-world-select"" title=""Current world""></select>
+					<button class=""vp-shell-tool-btn"" id=""vp-world-new"" title=""Create new isolated world"">＋</button>
+					<button class=""vp-shell-tool-btn"" id=""vp-world-manager"" title=""World Manager"">⋯</button>
+					<button class=""vp-shell-tool-btn"" id=""vp-world-folder"" title=""Open current world folder"">📂</button>
+				</div>
+				<span class=""vp-shell-section-label"">Workspaces:</span>
+				<div class=""vp-shell-workspaces""></div>
+                <div class=""vp-shell-savebox"" style=""display:flex;align-items:center;gap:7px;margin-left:auto;padding:0 6px"">
+                    <span id=""vp-save-status"" style=""font-size:11px;opacity:.72;white-space:nowrap"">Сохранено</span>
+                    <button class=""vp-shell-tool-btn"" id=""vp-save-button"" title=""Сохранить изменения (Ctrl+S)"" style=""width:auto;min-width:74px;padding:0 10px"">💾 Save</button>
+                </div>
+				<div class=""vp-shell-window-controls"" title=""Window controls"">
+					<button class=""vp-shell-tool-btn"" id=""vp-win-minimize"" title=""Minimize"">—</button>
+					<button class=""vp-shell-tool-btn"" id=""vp-win-maximize"" title=""Maximize"">▢</button>
+					<button class=""vp-shell-tool-btn vp-win-close"" id=""vp-win-close"" title=""Close"">×</button>
+				</div>
+			</div>
+			<div class=""vp-shell-canvas""></div>
+            <div id=""vp-window-resize-grip"" title=""Resize window"" aria-label=""Resize window""
+                 style=""position:fixed;right:0;bottom:0;width:18px;height:18px;z-index:2147483646;cursor:nwse-resize;touch-action:none"">
+                <svg viewBox=""0 0 18 18"" width=""18"" height=""18"" aria-hidden=""true"" style=""display:block;pointer-events:none"">
+                    <path d=""M17 5L5 17M17 10L10 17M17 15L15 17"" stroke=""rgba(166,173,200,.62)"" stroke-width=""1.5""/>
+                </svg>
+            </div>",,root.innerHTML = `
+156,js/projector-shell.js,2858,label,Не сохранено${DB?.getDirtyCount?.() ? ,,saveStatus.textContent = dirty ? `Не сохранено${DB?.getDirtyCount?.() ? ` · ${DB.getDirtyCount()}` : ''}` : 'Сохранено';
+157,js/projector-shell.js,2858,label,Сохранено,,saveStatus.textContent = dirty ? `Не сохранено${DB?.getDirtyCount?.() ? ` · ${DB.getDirtyCount()}` : ''}` : 'Сохранено';
+158,js/projector-shell.js,2869,label,Сохраняю…,,if (saveStatus) saveStatus.textContent = 'Сохраняю…';
+159,js/projector-shell.js,2873,toast,Изменения сохранены,,"VP.showToast?.('Изменения сохранены', 'success');"
+160,js/projector-shell.js,2876,toast,Ошибка сохранения: ${err.message || err},,"VP.showToast?.(`Ошибка сохранения: ${err.message || err}`, 'error');"
+161,js/visual-projector.js,187,ui,"]+$/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        },
+        normalizeType(type) {
+            const t = String(type || '').normalize('NFKC').trim().toUpperCase().replace(/[\s\-]+/g, '_');
+            return this._IMAGE_TYPES.has(t) ? 'IMG' : t;
+        },
+        normalizeAction(action) {
+            const a = String(action || '')
+                .normalize('NFKC')
+                .trim()
+                .toLowerCase()
+                .replace(/ё/g, 'е')
+                .replace(/[\s\-]+/g, '_');
+            return this._ACTION_ALIASES[a] || a;
+        },
+        normalizeLookup(value) {
+            return String(value || '')
+                .normalize('NFKC')
+                .trim()
+                .toLowerCase()
+                .replace(/ё/g, 'е')
+                .replace(/[\s\-]+/g, '_')
+                .replace(/[^\p{L}\p{N}_]+/gu, '')
+                .replace(/_+/g, '_')
+                .replace(/^_+|_+$/g, '');
+        },
+        sanitizeLooseTag(value) {
+            return this.normalizeLookup(value)
+                .replace(/[^a-z0-9_]+/g, '')
+                .replace(/^_+|_+$/g, '');
+        },
+        distance(a, b) {
+            a = String(a || ''); b = String(b || '');
+            if (a === b) return 0;
+            if (!a) return b.length;
+            if (!b) return a.length;
+            const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+            const curr = new Array(b.length + 1);
+            for (let i = 1; i <= a.length; i++) {
+                curr[0] = i;
+                for (let j = 1; j <= b.length; j++) {
+                    curr[j] = a[i - 1] === b[j - 1]
+                        ? prev[j - 1]
+                        : Math.min(prev[j - 1] + 1, prev[j] + 1, curr[j - 1] + 1);
+                }
+                for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+            }
+            return prev[b.length];
+        },
+
+        parseMatch(match) {
+            if (!match) return null;
+            const type = this.normalizeType(match[1] || '');
+            if (!type || !new RegExp(",,".replace(/^['""`]+|['""`]+$/g, '')"
+162,js/visual-projector.js,1912,label,";
+    }
+
+    
+    
+    
+
+    async function loadConfig() {
+        let saved = null;
+        const db = window.VP_DB;
+        if (db?.getConfig) {
+            try { saved = await db.getConfig(); }
+            catch (e) { console.warn('[VP] Не удалось загрузить конфиг из storage:', e); }
+        }
+        if (!saved) {
+            try { saved = JSON.parse(localStorage.getItem('vp-config-v3') || 'null'); }
+            catch (e) { console.warn('[VP] Не удалось загрузить конфиг из localStorage:', e); }
+        }
+        if (saved) {
+            State.config = { ...State.config, ...saved };
+            if (!State.config.prompts) State.config.prompts = { manifest: null, frameContext: null };
+        }
+    }
+
+    
+
+
+    function applyAssetCornerRadius(px) {
+        let v = Number(px);
+        if (!Number.isFinite(v)) v = Number(State.config.assetCornerRadius ?? State.config.screenCornerRadius);
+        if (!Number.isFinite(v)) v = 8;
+        v = Math.max(0, Math.min(32, Math.round(v)));
+        State.config.assetCornerRadius = v;
+        try { document.documentElement.style.setProperty('--vp-asset-radius', v + 'px'); } catch (e) {}
+        const screen = State.ui?.screen || document.getElementById('vp-screen');
+        if (screen) screen.querySelectorAll('img').forEach(img => img.style.setProperty('border-radius', v + 'px', 'important'));
+        return v;
+    }
+
+	function saveConfig() {
+		const db = window.VP_DB;
+		if (db?.setConfig) {
+			db.setConfig(State.config).catch(err => console.warn('[VP] IDB config save failed:', err));
+		}
+		
+		try { 
+			localStorage.setItem('vp-config-v3', JSON.stringify(State.config)); 
+		} catch (err) {
+			console.warn('[VP] localStorage config save failed:', err);
+		}
+	}
+
+    
+
+
+
+    function schedulePersist() {
+        const g = window.VisualProjector?.gallery;
+        if (g && typeof g.persistConfig === 'function') { g.persistConfig(); return; }
+        saveConfig();
+    }
+
+    
+    
+    
+    
+
+    function createUI() {
+        
+        (function () {
+            if (document.querySelector('link[href*=""visual-projector.css""]')) return;
+            const script = document.currentScript || document.querySelector('script[src*=""visual-projector.js""]');
+            if (!script) return;
+            const base = script.src.substring(0, script.src.lastIndexOf('/') + 1);
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = base + 'visual-projector.css';
+            document.head.appendChild(link);
+        })();
+
+        const vpWindow = document.createElement('div');
+        vpWindow.id = 'visual-projector';
+        
+        
+        vpWindow.style.visibility = 'hidden';
+        vpWindow.innerHTML = ",,if (speedLabel)  speedLabel.textContent = `${speed.toFixed(1)}x`;
+163,js/visual-projector.js,2003,tooltip,Текущий кадр,,"<span class=""vp-tag-label"" id=""vp-tag-label"" title=""Текущий кадр""></span>"
+164,js/visual-projector.js,2005,tooltip,Галерея,,"<button class=""vp-btn vp-btn-ghost"" id=""vp-toggle-gallery""  title=""Галерея"">📚</button>"
+165,js/visual-projector.js,2006,tooltip,Настройки,,"<button class=""vp-btn vp-btn-ghost"" id=""vp-toggle-settings"" title=""Настройки"">⚙️</button>"
+166,js/visual-projector.js,2007,tooltip,Свернуть,,"<button class=""vp-btn vp-btn-ghost"" id=""vp-minimize""        title=""Свернуть"">−</button>"
+167,js/visual-projector.js,2015,tooltip,Вставить из буфера,,"<button class=""vp-btn vp-btn-ghost"" id=""vp-paste-clipboard"" title=""Вставить из буфера"">📋</button>"
+168,js/visual-projector.js,2016,tooltip,Очистить экран,,"<button class=""vp-btn vp-btn-ghost vp-clear-btn"" id=""vp-clear-current""   title=""Очистить экран"">✕</button>"
+169,js/visual-projector.js,2139,toast,", 'error'); }
+                };
+                reader.readAsText(jsFile);
+                return;
+            }
+
+            
+            const files = allFiles.filter(f => f.type.startsWith('image/'));
+            const G = window.VisualProjector?.gallery;
+            if (!G || typeof G.addImageFromBlob !== 'function') {
+                showToast('Gallery module not loaded', 'error'); return;
+            }
+            if (files.length === 0) { showToast('Поддерживаются только изображения и .js файлы', 'error'); return; }
+            if (files.length === 1) {
+                const tag = await G.addImageFromBlob(files[0], { source: 'user', suggestedName: files[0].name, setAsCurrent: true });
+                if (tag) showToast(",,"} catch (err) { showToast(`Ошибка загрузки FX: ${err.message}`, 'error'); }"
+170,js/visual-projector.js,2159,toast,", 'success');
+                await G.maybeOfferAutoTag?.();
+            }
+        });
+    }
+
+    
+    function setupUIEvents(vpWindow) {
+        const $ = id => vpWindow.querySelector(id);
+
+        
+        $('#vp-toggle-gallery').addEventListener('click', () => window.VisualProjector?.gallery?.toggleMode?.());
+        $('#vp-toggle-settings').addEventListener('click', () => window.VisualProjector?.gallery?.toggleSettings?.());
+
+        
+        $('#vp-paste-clipboard').addEventListener('click', () => window.VisualProjector?.gallery?.pasteFromClipboard?.());
+        $('#vp-clear-current').addEventListener('click', () => { clearCurrent(); showToast('Экран очищен', 'info'); });
+
+        setupDragAndDrop(vpWindow);
+
+        
+        $('#vp-first').addEventListener('click', () => {
+            if (State.playback.messages.length === 0) {
+                if (State.coverTag) {
+                    const cover = State.gallery.get(State.coverTag);
+                    if (cover) { State.playback.cursor = 0; setCurrent(cover.tag, 'replay', true); }
+                }
+                return;
+            }
+            Playback.goTo(0);
+        });
+        $('#vp-prev').addEventListener('click', () => {
+            const { cursor, messages } = State.playback;
+            if (messages.length === 0) {
+                if (cursor === 1 && State.coverTag) {
+                    const cover = State.gallery.get(State.coverTag);
+                    if (cover) { setCurrent(cover.tag, 'replay', true); State.playback.cursor = 0; updatePlayerBar(); }
+                }
+                return;
+            }
+            if (cursor === -1) Playback.goTo(messages.length - 1);
+            else if (cursor > 0) Playback.goTo(cursor - 1);
+        });
+        $('#vp-play').addEventListener('click', () => {
+            if (State.playback.mode === 'playing') Playback.pause(); else Playback.play();
+        });
+        $('#vp-next').addEventListener('click', () => {
+            const { cursor, messages } = State.playback;
+            if (messages.length === 0) {
+                if (cursor === 0 && State.coverTag) {
+                    if (State.preparedTag) {
+                        const prep = State.gallery.get(State.preparedTag);
+                        if (prep) { setCurrent(prep.tag, 'replay', true); State.playback.cursor = 1; }
+                    }
+                    return;
+                }
+                return;
+            }
+            if (cursor === -1) return;
+            if (cursor === 0 && State.coverTag) {
+                State.playback.cursor = 1;
+                const firstMsg = messages[0];
+                if (firstMsg && firstMsg.frameTagAtStart && State.gallery.has(firstMsg.frameTagAtStart)) setCurrent(firstMsg.frameTagAtStart, 'replay', true);
+                else updatePlayerBar();
+                return;
+            }
+            const maxMsgCursor = messages.length - 1 + (State.coverTag ? 1 : 0);
+            if (cursor >= maxMsgCursor) Playback.goLive();
+            else Playback.goTo(cursor + 1);
+        });
+        $('#vp-last').addEventListener('click', () => Playback.goLive());
+
+        $('#vp-toggle-fx').addEventListener('click', () => {
+            State.config.effectsEnabled = !State.config.effectsEnabled;
+            updatePlayerBar();
+            if (!State.config.effectsEnabled && typeof FX !== 'undefined' && FX.clearMood) FX.clearMood();
+            schedulePersist();
+        });
+
+        $('#vp-toggle-focus')?.addEventListener('click', () => {
+            const current = getProjectorViewportState();
+            setProjectorViewportMode({ enabled: !current.enabled, aspect: '4:3' });
+            updatePlayerBar();
+            showToast?.(current.enabled ? 'Focus Mode off' : 'Focus Mode on', current.enabled ? 'info' : 'success');
+        });
+        $('#vp-toggle-focus-zoom')?.addEventListener('click', () => {
+            if (!getProjectorViewportState().enabled) return;
+            const next = toggleProjectorViewportZoom('focus-zoom-toggle');
+            updatePlayerBar();
+            showToast?.(next.zoom > 1 ? ",,"showToast(`📥 Added ${files.length} images`, 'success');"
+171,js/visual-projector.js,2248,toast," : 'Focus Zoom off', 'info');
+        });
+        $('#vp-toggle-autogaze')?.addEventListener('click', () => {
+            const active = State.config.gazeAutoReaction !== false;
+            State.config.gazeAutoReaction = !active;
+            updatePlayerBar();
+            showToast?.(State.config.gazeAutoReaction ? 'Авто-взгляд включен' : 'Авто-взгляд выключен', 'info');
+            schedulePersist?.();
+            requestGallerySettingsSync('projector-settings-autogaze');
+        });
+
+        
+        const timeline = $('#vp-timeline');
+        if (timeline) {
+            const track = timeline.querySelector('.vp-timeline-track');
+            let isDragging = false;
+            const getPercent = (e) => { const rect = track.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)); };
+            const jumpToPercent = (pct) => {
+                const total = State.playback.messages.length + (State.coverTag ? 1 : 0);
+                if (total === 0) return;
+                Playback.goTo(Math.round(pct * (total - 1)));
+            };
+            timeline.addEventListener('mousedown', (e) => {
+                if (State.playback.messages.length === 0) return;
+                e.preventDefault(); isDragging = true; timeline.classList.add('is-dragging');
+                if (State.playback.mode === 'playing') Playback.pause();
+                jumpToPercent(getPercent(e));
+            });
+            document.addEventListener('mousemove', (e) => { if (isDragging) jumpToPercent(getPercent(e)); });
+            document.addEventListener('mouseup', () => { if (!isDragging) return; isDragging = false; timeline.classList.remove('is-dragging'); });
+        }
+
+        
+        const speedSlider = $('#vp-speed-slider');
+        const speedLabel  = $('#vp-speed-label');
+        if (speedSlider) {
+            syncPlaybackSpeedUI();
+            speedSlider.addEventListener('input', e => {
+                const val = Math.max(0.5, Math.min(2.0, parseFloat(e.target.value) || 1.0));
+                State.config.subtitleSpeed = val;
+                if (speedLabel) speedLabel.textContent = ",,"showToast?.(next.zoom > 1 ? `Focus Zoom ${next.zoom.toFixed(1)}×` : 'Focus Zoom off', 'info');"
+172,js/projector-asset-studio.js,1200,label,"
+                <div class=""vp-as-layout"">
+                    <div class=""vp-as-sidebar"">
+                        <section class=""vp-as-sidebar-section"" data-section=""nodes"">
+                            <button class=""vp-as-section-title vp-as-section-toggle"" type=""button"" data-section-toggle=""nodes"">
+                                <span class=""vp-as-section-caret"">▾</span><span>📦 Nodes</span>
+                            </button>
+                            <div class=""vp-as-section-body"">
+                                <div class=""vp-as-node-palette""></div>
+                            </div>
+                        </section>
+                        <section class=""vp-as-sidebar-section"" data-section=""presets"">
+                            <button class=""vp-as-section-title vp-as-section-toggle"" type=""button"" data-section-toggle=""presets"">
+                                <span class=""vp-as-section-caret"">▾</span><span>⚡ Presets</span>
+                            </button>
+                            <div class=""vp-as-section-body vp-as-side-actions"">
+                                <button class=""vp-btn vp-btn-sm vp-as-preset"" data-preset=""t2i"">Load T2I Preset</button>
+                                <button class=""vp-btn vp-btn-sm vp-as-preset"" data-preset=""dit"">Load DiT Preset</button>
+                                <button class=""vp-btn vp-btn-sm vp-as-preset"" data-preset=""clear"">Clear Canvas</button>
+                            </div>
+                        </section>
+                        <section class=""vp-as-sidebar-section"" data-section=""workflows"">
+                            <button class=""vp-as-section-title vp-as-section-toggle"" type=""button"" data-section-toggle=""workflows"">
+                                <span class=""vp-as-section-caret"">▾</span><span>💾 Workflows</span>
+                            </button>
+                            <div class=""vp-as-section-body"">
+                                <div class=""vp-as-side-actions"">
+                                    <button class=""vp-btn vp-btn-sm"" id=""vp-as-save-current"">Save Current</button>
+                                    <button class=""vp-btn vp-btn-sm"" id=""vp-as-save-as-new"">Save As New</button>
+                                </div>
+                                <div class=""vp-as-workflow-selected"" id=""vp-as-selected-workflow"">Selected: none</div>
+                                <div class=""vp-as-workflow-list"" id=""vp-as-workflow-list""></div>
+                            </div>
+                        </section>
+                        <section class=""vp-as-sidebar-section"" data-section=""file"">
+                            <button class=""vp-as-section-title vp-as-section-toggle"" type=""button"" data-section-toggle=""file"">
+                                <span class=""vp-as-section-caret"">▾</span><span>📁 File</span>
+                            </button>
+                            <div class=""vp-as-section-body vp-as-side-actions"">
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-export-workflow"">Export JSON</button>
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-import-workflow"">Import JSON</button>
+                            </div>
+                        </section>
+                    </div>
+                    <div class=""vp-as-canvas-wrap"">
+                        <div class=""vp-as-canvas"" id=""vp-as-canvas"">
+                            <svg class=""vp-as-links"" id=""vp-as-links""></svg>
+                            <div class=""vp-as-empty-hint"" id=""vp-as-empty-hint"">
+                                <h3>Canvas Ready</h3>
+                                <p>Перетащите ноды из левой панели или используйте пресет</p>
+                                <div class=""vp-as-canvas-hints"">
+                                    <span>🖱 wheel = zoom</span>
+                                    <span>🖱 middle drag / Space+drag = pan</span>
+                                    <span>⌨ F = frame all</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class=""vp-as-canvas-overlay vp-as-canvas-overlay-tools"">
+                            <span class=""vp-as-tool-group vp-as-tool-left"">
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-toggle-sidebar"" title=""Toggle Nodes sidebar"">☰</button>
+                            </span>
+                            <span class=""vp-as-tool-group vp-as-tool-center"">
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-zoom-out"" title=""Zoom out"">−</button>
+                                <span id=""vp-as-zoom-label"">100%</span>
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-zoom-in"" title=""Zoom in"">+</button>
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-frame-all"" title=""Frame all"">⊡</button>
+                                <span class=""vp-as-mode-sep""></span>
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-import-cli"" title=""Import CLI command"">CLI+</button>
+                                <select id=""vp-as-engine-mode"" class=""vp-as-engine-mode"" title=""Generation engine mode"">
+                                    <option value=""cli"">CLI</option>
+                                    <option value=""server"">Server — stub</option>
+                                </select>
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-vram-steward"" title=""VRAM-дворецкий (LM Studio)"">🧹</button>
+                                <div id=""vp-as-vram-pop"" style=""display:none; position:fixed; z-index:10000; width:308px; padding:12px 14px; border-radius:10px; font-size:12px; line-height:1.5; background:var(--bg-secondary,#1d212b); color:var(--text-primary,#e8e8e8); border:1px solid var(--border,#3a3f4d); box-shadow:0 10px 34px rgba(0,0,0,.55);"">
+                                    <div style=""display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"">
+                                        <b>🧹 VRAM-дворецкий (LM Studio)</b>
+                                        <button class=""vp-btn vp-btn-ghost vp-btn-sm"" data-role=""close"">×</button>
+                                    </div>
+                                    <label style=""display:flex; gap:8px; align-items:flex-start; cursor:pointer;"">
+                                        <input type=""checkbox"" data-role=""enable"" style=""margin-top:2px;"">
+                                        <span>Выгружать модели перед генерацией<br><code style=""opacity:.75"">lms unload --all</code></span>
+                                    </label>
+                                    <div style=""margin-top:8px;"">
+                                        Путь к lms.exe <span style=""opacity:.6"">(пусто = из PATH)</span>
+                                        <input type=""text"" data-role=""lms-path"" placeholder=""lms"" style=""width:100%; box-sizing:border-box; margin-top:3px; padding:4px 8px; border-radius:6px; border:1px solid var(--border,#3a3f4d); background:var(--bg-primary,#12151c); color:inherit;"">
+                                    </div>
+                                    <label style=""display:flex; gap:8px; align-items:flex-start; cursor:pointer; margin-top:10px;"">
+                                        <input type=""checkbox"" data-role=""reload"" style=""margin-top:2px;"">
+                                        <span>Вернуть модель после генерации<br><code style=""opacity:.75"">lms load … --ttl 600</code></span>
+                                    </label>
+                                    <div style=""margin-top:6px;"">
+                                        Модель (идентификатор lms)
+                                        <input type=""text"" data-role=""reload-model"" placeholder=""напр. gemma-3-12b-it"" style=""width:100%; box-sizing:border-box; margin-top:3px; padding:4px 8px; border-radius:6px; border:1px solid var(--border,#3a3f4d); background:var(--bg-primary,#12151c); color:inherit;"">
+                                    </div>
+                                    <div style=""margin-top:10px; opacity:.65;"">💡 LM Studio с JIT вернёт модель сама на первом сообщении чата — «вернуть модель» нужно, только если JIT у тебя выключен.</div>
+                                </div>
+                            </span>
+                            <span class=""vp-as-tool-group vp-as-tool-right"">
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-toggle-inspector"" title=""Toggle Inspector"">📋</button>
+                            </span>
+                        </div>
+                        <div class=""vp-as-canvas-controls"">
+                            <div class=""vp-as-primary-actions"">
+                                <button class=""vp-btn vp-btn-primary"" id=""vp-as-produce"">🎨 Produce</button>
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-produce-all"" title=""Generate all variants"">▶▶ All</button>
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-stop"" style=""display:none; color:#ff6b6b; border-color:rgba(255,60,60,0.3);"">⏹</button>
+                                <span class=""vp-as-mode-sep""></span>
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-copy-cli"" title=""Copy CLI"">📋</button>
+                                <button class=""vp-btn vp-btn-sm"" id=""vp-as-gallery-btn"" title=""Open gallery"">📚</button>
+                            </div>
+                            <div class=""vp-as-progress-wrap"">
+                                <div class=""vp-as-progress-label"" id=""vp-as-progress-label""></div>
+                                <div class=""vp-as-progress-bar""><div class=""fill"" id=""vp-as-progress-fill"" style=""width:0%""></div></div>
+                            </div>
+                            <div class=""vp-as-status"" id=""vp-as-status"">Ready · 0 nodes · CLI</div>
+                        </div>
+                    </div>
+                    <div class=""vp-as-inspector collapsed"">
+                        <div class=""vp-as-inspector-head"">
+                            <div>
+                                <div class=""vp-as-section-title"" style=""margin-bottom:2px"">👁 Inspector</div>
+                                <div class=""vp-as-inspector-sub"">Preview + CLI stream</div>
+                            </div>
+                            <button class=""vp-btn vp-btn-sm"" id=""vp-as-hide-inspector"" title=""Hide Inspector"">×</button>
+                        </div>
+                        <div class=""vp-as-preview-box"" id=""vp-as-preview-box"">
+                            <div class=""vp-as-preview-placeholder"">No result yet</div>
+                        </div>
+                        <div class=""vp-as-cli-log"" id=""vp-as-cli-log""></div>
+                    </div>
+                </div>
+            ",,container.innerHTML = `
+173,js/projector-asset-studio.js,1528,ui,VRAM-дворецкий: ВКЛ — lms unload перед каждой генерацией,,? 'VRAM-дворецкий: ВКЛ — lms unload перед каждой генерацией'
+174,js/projector-asset-studio.js,1529,ui,VRAM-дворецкий (LM Studio): выкл,,: 'VRAM-дворецкий (LM Studio): выкл';
+175,js/projector-asset-studio.js,2000,label,<b>🧹 VRAM:</b> Neutralino недоступен — выгрузи/загрузи модель вручную (<code>${cmd}</code>),,write(`<b>🧹 VRAM:</b> Neutralino недоступен — выгрузи/загрузи модель вручную (<code>${cmd}</code>)`);
+176,js/projector-asset-studio.js,2010,ui,"<b style=""color:var(--error)"">🧹 VRAM:</b> не удалось (${String(err?.message || err).replace(/</g, '&lt;')}). Сделай вручную.",,"write(`<b style=""color:var(--error)"">🧹 VRAM:</b> не удалось (${String(err?.message || err).replace(/</g, '&lt;')}). Сдел"
+177,js/projector-asset-studio.js,2011,toast,VRAM-дворецкий: lms не ответил — управляй моделью вручную,,"VP.showToast?.('VRAM-дворецкий: lms не ответил — управляй моделью вручную', 'warn');"
+178,js/projector-asset-studio.js,2020,ui,<b>🧹 VRAM:</b> модели выгружены. LM Studio вернёт модель сама (JIT) на первом сообщении чата.,,'<b>🧹 VRAM:</b> модели выгружены. LM Studio вернёт модель сама (JIT) на первом сообщении чата.');
+179,js/projector-asset-studio.js,2029,ui,"<b>🧹 VRAM:</b> модель ${model.replace(/</g, '&lt;')} загружена обратно (TTL 600с).",,"`<b>🧹 VRAM:</b> модель ${model.replace(/</g, '&lt;')} загружена обратно (TTL 600с).`);"
+180,js/projector-asset-studio.js,2520,label,"
+                <div class=""vp-shell-settings-form"">
+                    <label><span>Executable Path</span><input type=""text"" data-k=""executablePath"" value=""${this.config.executablePath}""></label>
+                    <label><span>Temp Preview Directory</span><input type=""text"" data-k=""outputDir"" value=""${this.config.outputDir}""></label>
+                    <label><span>Engine Mode</span>
+                        <select data-k=""engineMode"">
+                            <option value=""cli"" ${this.config.engineMode === 'cli' ? 'selected' : ''}>CLI (sd-cli.exe)</option>
+                            <option value=""server"" ${this.config.engineMode === 'server' ? 'selected' : ''}>Server (sd-server.exe)</option>
+                        </select>
+                    </label>
+                </div>
+                <div class=""vp-shell-settings-note"">CLI = запуск на каждый рендер. Server = заглушка, модель держится в памяти.</div>
+                <div class=""vp-as-lib-section"">
+                    <div class=""vp-as-lib-title"">Model Libraries</div>
+                    <div class=""vp-as-lib-note"">Configure absolute paths for model libraries. One folder path per line. Studio will scan these folders and show a picker instead of raw file browsing.</div>
+                    ${rows}
+                    <div class=""vp-as-lib-actions"">
+                        <button class=""vp-btn vp-btn-sm"" data-act=""rescan-all-libs"">↻ Rescan Libraries</button>
+                    </div>
+                </div>
+            ",,container.innerHTML = `
+181,js/projector-focus.js,760,toast,Фокус заблокирован на глубине ${depthVal.toFixed(2)},,"showToast(`Фокус заблокирован на глубине ${depthVal.toFixed(2)}`, 'success');"
+182,js/projector-focus.js,785,label,"
+            <!-- LEFT SIDE: FOCUS HUD CONTROLS (COLLAPSIBLE WITH ANCHORED TOGGLE) -->
+            <div style=""position: absolute; left: 12px; bottom: 12px; pointer-events: none; display: flex; align-items: center; gap: 8px; z-index: 100;"">
+                
+                <!-- ANCHORED TOGGLE BUTTON -->
+                <button id=""vp-focus-pivot-toggle-btn"" style=""pointer-events: auto; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: rgba(20,20,32,0.76); border: 1px solid rgba(255,255,255,0.16); border-radius: 6px; color: #cdd6f4; backdrop-filter: blur(6px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; outline: none; padding: 0; transition: background 0.15s ease, transform 0.1s ease;"" title=""Свернуть настройки камеры"">◀</button>
+
+                <!-- SLIDERS PANEL -->
+                <div id=""vp-focus-pivot-panel"" style=""pointer-events: auto; display: flex; flex-direction: column; gap: 6px; background: rgba(20,20,32,0.76); border: 1px solid rgba(255,255,255,0.16); border-radius: 10px; padding: 6px 10px; color: #cdd6f4; backdrop-filter: blur(6px); box-shadow: 0 4px 16px rgba(0,0,0,0.4); transition: width 0.15s ease, padding 0.15s ease, opacity 0.15s ease, border-color 0.15s ease, gap 0.15s ease;"">
+                    <!-- STRENGTH/FOV SLIDER (v14: the only honest slider left —
+                         pivot plane was a mock on the WebGL2 shader, vignette
+                         was cut by owner as FX-engine territory) -->
+                    <div class=""vp-focus-row"" style=""display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600;"">
+                        <span style=""min-width: 48px;"">🔍 FOV Scale:</span>
+                        <input type=""range"" id=""vp-focus-strength-slider"" min=""0.0"" max=""2.5"" step=""0.05"" style=""width: 65px; height: 3px; accent-color: #6c5fa6; cursor: pointer; background: rgba(255,255,255,0.12); border-radius: 2px; outline: none; margin: 0; padding: 0;"">
+                        <span id=""vp-focus-strength-val"" style=""min-width: 22px; font-family: monospace; text-align: right;"">1.0x</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT SIDE: SNAPSHOT BUTTON -->
+            <div style=""position: absolute; right: 12px; bottom: 12px; pointer-events: auto; z-index: 100;"">
+                <button class=""vp-btn"" id=""vp-focus-capture-btn"" title=""Сделать снимок угла обзора и прикрепить его как взгляд персонажа к следующему сообщению"" style=""height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 11px; border-radius: 999px; background: rgba(20,20,32,0.76); border: 1px solid rgba(255,255,255,0.16); color: #cdd6f4; backdrop-filter: blur(6px); box-shadow: 0 4px 16px rgba(0,0,0,0.4); cursor: pointer; transition: transform 0.1s ease, background 0.15s ease;"">
+                    <span style=""font-size: 11px;"">📷</span>
+                    <span>Snapshot Focus</span>
+                </button>
+            </div>
+        ",,controls.innerHTML = `
+183,js/projector-focus.js,831,tooltip,Развернуть настройки камеры,,btn.title = 'Развернуть настройки камеры';
+184,js/projector-focus.js,842,tooltip,Свернуть настройки камеры,,btn.title = 'Свернуть настройки камеры';
+185,js/projector-focus.js,907,toast,Не удалось сделать снимок фокуса,,"showToast('Не удалось сделать снимок фокуса', 'error');"
+186,js/projector-focus.js,921,toast,Снимок фокуса прикреплен к следующему сообщению!,,"showToast('Снимок фокуса прикреплен к следующему сообщению!', 'success');"
+187,js/projector-focus.js,924,console,Ошибка снимка: ,,"showToast('Ошибка снимка: ' + (err.message || err), 'error');"
+188,js/projector-focus.js,1096,tooltip,Gaze attention: куда на кадре сейчас смотрит пользователь (регион · x/y/zoom · dwell),,chip.title = 'Gaze attention: куда на кадре сейчас смотрит пользователь (регион · x/y/zoom · dwell)';
+189,js/fx-core.js,38,ui,<имя пака>,,"_effectSource: {},        // name -> 'builtin' | '<имя пака>'"
+190,js/fx-core.js,53,console,[VP FX] ⚠️ Не удалось сохранить настройки эффектов:,,"} catch (e) { console.warn('[VP FX] ⚠️ Не удалось сохранить настройки эффектов:', e); }"
+191,js/fx-core.js,74,ui,скрыт,,"this._hidden.delete(name);   // удалённому флаг ""скрыт"" уже не нужен"
+192,js/fx-core.js,112,console,[VP FX] ⚠️ Не удалось обновить хранилище паков:,,"} catch (e) { console.warn('[VP FX] ⚠️ Не удалось обновить хранилище паков:', e); }"
+193,js/fx-core.js,113,console,"[VP FX] 🗑️ Удалён пак ""${packName}"" (${removed.length} эффект(ов))",,"console.log(`[VP FX] 🗑️ Удалён пак ""${packName}"" (${removed.length} эффект(ов))`);"
+194,js/projector-chats.js,1084,dialog,Название нового чата:,,"message: 'Название нового чата:',"
+195,js/projector-chats.js,1110,dialog,Новое название чата:,,"message: 'Новое название чата:',"
+196,js/projector-chats.js,1130,dialog,Удалить чат «${getChatDisplayTitle(chat)}»?,,"message: `Удалить чат «${getChatDisplayTitle(chat)}»?`,"
+197,js/projector-chats.js,1790,label,"<div class=""vp-chats-empty""><div style=""font-size:28px;margin-bottom:8px;"">💬</div><b>Chats</b><br>Здесь будет список разговоров. Пока можно создать новый чат на базе текущего assistant profile.</div>",,"list.innerHTML = `<div class=""vp-chats-empty""><div style=""font-size:28px;margin-bottom:8px;"">💬</div><b>Chats</b><br>Здес"
+198,js/projector-chats.js,1904,label,"<div class=""vp-chats-empty""><div style=""font-size:28px;margin-bottom:8px;"">👤</div><b>Profiles</b><br>Создайте профиль персонажа/роли для текущего мира.</div>",,"grid.innerHTML = `<div class=""vp-chats-empty""><div style=""font-size:28px;margin-bottom:8px;"">👤</div><b>Profiles</b><br>С"
+199,js/projector-tagger.js,66,ui,Настройте Endpoint в панели Model (настройки модели).,,throw new Error('Настройте Endpoint в панели Model (настройки модели).');
+200,js/projector-tagger.js,142,toast,Настройте Endpoint в панели Model (настройки модели).,,"VP.showToast('Настройте Endpoint в панели Model (настройки модели).', 'error');"
+201,js/projector-tagger.js,216,toast,Настройте Endpoint в панели Model,,"if (!api) { VP.showToast('Настройте Endpoint в панели Model', 'error'); return; }"
+202,js/projector-tagger.js,513,toast,"💡 Настройте Endpoint в панели Model, чтобы запустить ✨ Auto-tag",,"VP.showToast('💡 Настройте Endpoint в панели Model, чтобы запустить ✨ Auto-tag', 'info');"
+203,js/gallery-panel.js,152,ui,"
+            <div class=""vp-panel-header"" id=""vp-panel-header"">
+                <div class=""vp-panel-tabs"">
+                    <div class=""vp-panel-tab vp-panel-tab-active"" data-section=""gallery"">📚 Gallery</div>
+                    <div class=""vp-panel-tab"" data-section=""settings"">⚙️ Settings</div>
+                </div>
+                <button class=""vp-btn vp-btn-ghost vp-btn-sm"" id=""vp-panel-close"" title=""Закрыть"">✕</button>
+            </div>
+            <div class=""vp-panel-body"">
+                <!-- ═══ GALLERY SECTION ═══ -->
+                <div class=""vp-panel-section vp-panel-section-active"" id=""vp-panel-gallery"">
+                    <div id=""vp-gallery-sidebar"" style=""padding:8px; background:var(--bg-tertiary,#252540); border-bottom:1px solid var(--border,#383860); max-height:35%; overflow-y:auto; flex-shrink:0;""></div>
+                    <div style=""flex:1; display:flex; flex-direction:column; overflow:hidden; background:var(--bg-primary,#11111b);"">
+                        <div class=""vp-gallery-tabs"" style=""display:flex; gap:6px; padding:6px 8px; align-items:center; border-bottom:1px solid var(--border,#383860);"">
+                            <span id=""vp-current-tab-name"" style=""font-weight:600; color:var(--text-primary,#cdd6f4); font-size:13px;"">Assets</span>
+                            <div style=""flex:1;""></div>
+                            <div id=""vp-fx-controls"" style=""display:none; align-items:center; gap:6px; font-size:11px; color:var(--text-secondary,#a6adc8); white-space:nowrap;"">
+                                <span id=""vp-fx-hidden-stat""></span>
+                                <button class=""vp-fx-trash-toggle vp-btn vp-btn-ghost"" style=""padding:2px 8px; height:22px; font-size:11px;""></button>
+                            </div>
+                            <input class=""vp-search-input"" name=""search"" id=""vp-search"" type=""text"" placeholder=""🔍"" style=""max-width:80px;"">
+                            <input name=""galleryGridSize"" type=""range"" id=""vp-gallery-size"" min=""60"" max=""180"" step=""10"" value=""100"" style=""width:50px;"" title=""Размер превью"">
+                        </div>
+                        <div class=""vp-gallery-grid"" id=""vp-gallery-grid"" style=""flex:1; overflow-y:auto;"">
+                            <div class=""vp-gallery-empty"">Загрузите папку или файлы</div>
+                        </div>
+                        <div class=""vp-gallery-footer"" id=""vp-gallery-footer-normal"">
+                            <div style=""display:flex; gap:6px;"">
+                                <button class=""vp-btn"" id=""vp-gallery-load-folder"" title=""Загрузить папку"">📂</button>
+                                <button class=""vp-btn"" id=""vp-gallery-load-file"" title=""Загрузить файл"">📎</button>
+                                <button class=""vp-btn"" id=""vp-gallery-paste-clipboard"" title=""Вставить из буфера"">📋</button>
+                                <button class=""vp-btn"" id=""vp-gallery-autotag"" title=""Auto-tag with AI"">✨</button>
+                                <button class=""vp-btn"" id=""vp-gallery-collage"" title=""Собрать Gallery View из помеченных табов"" style=""background:var(--accent,#6c5fa6); color:white;"">🖼️</button>
+                                <button class=""vp-btn"" id=""vp-gallery-apply-drafts"" title=""Apply all drafts"" style=""display:none;"">✅ Apply All</button>
+                                <button class=""vp-btn vp-btn-danger"" id=""vp-gallery-discard-drafts"" title=""Discard all drafts"" style=""display:none;"">🗑️ Discard All</button>
+                            </div>
+                            <span class=""vp-gallery-footer-count"" id=""vp-gallery-count-footer"">0 ассетов</span>
+                            <div style=""display:flex; gap:6px;"">
+                                <button class=""vp-btn vp-btn-ghost"" id=""vp-gallery-export"" title=""Экспорт"">💾</button>
+                                <button class=""vp-btn vp-btn-ghost"" id=""vp-gallery-import"" title=""Импорт"">📥</button>
+                            </div>
+                        </div>
+                        <div class=""vp-gallery-footer"" id=""vp-gallery-footer-selection"" style=""display:none;"">
+                            <div style=""display:flex; gap:6px;"">
+                                <button class=""vp-btn"" id=""vp-sel-clear"" title=""Снять выделение"">✕</button>
+                                <button class=""vp-btn vp-btn-danger"" id=""vp-sel-delete"" title=""Удалить выделенные"">🗑</button>
+                                <button class=""vp-btn"" id=""vp-sel-tag"" title=""Auto-tag"">✨</button>
+                            </div>
+                            <span class=""vp-gallery-footer-count"" id=""vp-sel-count"">0 selected</span>
+                            <div style=""display:flex; gap:6px;"">
+                                <button class=""vp-btn vp-btn-ghost"" id=""vp-sel-export"" title=""Экспорт"">💾</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ═══ SETTINGS SECTION ═══ -->
+                <div class=""vp-panel-section"" id=""vp-panel-settings"" style=""overflow-y:auto;"">
+                    <div style=""padding:8px;"">
+                        <label class=""vp-setting-row""><span>Visual Context Depth</span><input class=""vp-depth-input"" id=""vp-depth"" type=""number"" min=""0"" max=""30"" value=""3"" title=""Кол-во кадров в контексте LLM""></label>
+                        <label class=""vp-setting-row""><span>Max History</span><input class=""vp-depth-input"" id=""vp-max-history"" type=""number"" min=""5"" max=""200"" value=""20""></label>
+                        <label class=""vp-setting-row""><span>Fade duration (s)</span><input class=""vp-depth-input"" id=""vp-fade-duration"" type=""number"" min=""0"" max=""5.0"" step=""0.1"" value=""0.3""></label>
+                        <label class=""vp-setting-row""><span>Transition</span>
+                            <select id=""vp-transition-style"" style=""background:var(--bg-tertiary); color:#fff; border:1px solid var(--border); border-radius:3px; font-size:11px; padding:2px;"">
+                                <option value=""fade"">Sequential Fade</option><option value=""crossfade"">Crossfade</option>
+                                <option value=""slide_left"">Slide Left</option><option value=""slide_up"">Slide Up</option>
+                                <option value=""zoom"">Zoom</option><option value=""pop"">Pop</option>
+                                <option value=""flip"">3D Flip</option><option value=""random"">🎲 Random</option>
+                            </select>
+                        </label>
+                        <label class=""vp-setting-row"" title=""Подпись текущего кадра в шапке проектора""><span>Frame label</span>
+                            <select class=""vp-depth-input"" id=""vp-frame-label-mode"" style=""width:auto;"">
+                                <option value=""title"">Asset title</option>
+                                <option value=""debug"">Debug [IMG:tag]</option>
+                                <option value=""hidden"">Hidden</option>
+                            </select>
+                        </label>
+                        <label class=""vp-setting-row"" title=""Скругление углов ассета (картинки) на экране проектора""><span>Asset corner radius</span>
+                            <span style=""display:flex; align-items:center; gap:6px;"">
+                                <input id=""vp-screen-radius"" type=""range"" min=""0"" max=""32"" step=""1"" value=""8"" style=""width:90px;"">
+                                <span id=""vp-screen-radius-label"" style=""min-width:34px; text-align:right; font-size:11px; color:var(--text-secondary,#8888aa);"">8px</span>
+                            </span>
+                        </label>
+                        <label class=""vp-setting-row""><span>Debug Tags</span><input type=""checkbox"" id=""vp-debug-tags""></label>
+                        <label class=""vp-setting-row""><span>Descriptions in manifest</span><input type=""checkbox"" id=""vp-manifest-desc""></label>
+                        <label class=""vp-setting-row""><span>Gallery Navigation</span><input type=""checkbox"" id=""vp-allow-dir-cmds""></label>
+                        <label class=""vp-setting-row""><span>Auto-tag on load</span>
+                            <select class=""vp-depth-input"" id=""vp-autotag-mode"" style=""width:auto;""><option value=""ask"">Ask</option><option value=""always"">Always</option><option value=""never"">Never</option></select>
+                        </label>
+                        <label class=""vp-setting-row""><span>Base subtitle speed (WPM)</span><input class=""vp-depth-input"" id=""vp-subtitle-wpm"" type=""number"" min=""60"" max=""400"" step=""10"" value=""160""></label>
+                        <label class=""vp-setting-row""><span>Max Long Side (px)</span><input class=""vp-depth-input"" id=""vp-max-long-side"" type=""number"" min=""256"" max=""4096"" value=""1024""></label>
+                        <label class=""vp-setting-row""><span>JPEG Quality</span><input class=""vp-depth-input"" id=""vp-jpeg-quality"" type=""number"" min=""0.1"" max=""1.0"" step=""0.01"" value=""0.92""></label>
+                        <div style=""font-size:11px; color:var(--text-secondary,#8888aa); margin-top:8px; line-height:1.5;"">
+                            Prompt templates: <code>{{#if hasReady}}...{{/if}}</code>
+                        </div>
+                        <div class=""vp-prompt-section"" style=""margin-top:6px;"">
+                            <div class=""vp-prompt-label""><span>Manifest</span>
+                                <button class=""vp-btn vp-btn-ghost"" id=""vp-manifest-reset"" title=""Reset"">↻</button>
+                                <button class=""vp-btn vp-btn-ghost"" id=""vp-manifest-preview"" title=""Preview"">👁</button>
+                            </div>
+                            <textarea class=""vp-prompt-textarea"" id=""vp-manifest-template"" placeholder=""(default)"" spellcheck=""false""></textarea>
+                            <div class=""vp-prompt-hints"" id=""vp-manifest-hints""></div>
+                        </div>
+                        <div class=""vp-prompt-section"" style=""margin-top:6px;"">
+                            <div class=""vp-prompt-label""><span>Frame context</span>
+                                <button class=""vp-btn vp-btn-ghost"" id=""vp-frame-reset"" title=""Reset"">↻</button>
+                                <button class=""vp-btn vp-btn-ghost"" id=""vp-frame-preview"" title=""Preview"">👁</button>
+                            </div>
+                            <textarea class=""vp-prompt-textarea"" id=""vp-frame-template"" placeholder=""(default)"" spellcheck=""false""></textarea>
+                            <div class=""vp-prompt-hints"" id=""vp-frame-hints""></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class=""vp-resize-handle"" id=""vp-panel-resize-handle""></div>
+        ",,return `
+204,js/gallery-panel.js,301,dialog,Удалить ${tags.length} ассет${tags.length === 1 ? '' : 'ов'}?,,"message: `Удалить ${tags.length} ассет${tags.length === 1 ? '' : 'ов'}?`,"
+205,js/gallery-panel.js,314,toast,Удалено: ${tags.length},,"showToast(`Удалено: ${tags.length}`, 'success');"
+206,js/projector-session.js,1125,console,");
+
+                        
+                        preparedBody.messages.push({
+                            role: ""assistant"",
+                            content: result.fullText || null,
+                            tool_calls: result.tool_calls
+                        });
+
+                        const toolResults = [];
+                        for (const tc of result.tool_calls) {
+                            const args = safeParseJson(tc.function?.arguments);
+                            const toolResult = await executeToolForSession(tc.function?.name, args, { role: 'assistant', source: 'tool-stream-loop' });
+                            const rawResultData = toolResult.ok ? toolResult.data : toolResult;
+                            const resultData = sanitizeToolResultData(rawResultData); // v25: no base64 in model JSON / persisted results
+                            toolResults.push(resultData);
+
+                            
+                            const summary = summarizeToolForSession(tc.function?.name, toolResult);
+                            requestPlaybackPush(summary);
+
+                            preparedBody.messages.push({
+                                role: ""tool"",
+                                tool_call_id: tc.id,
+                                name: tc.function?.name,
+                                content: JSON.stringify(resultData)
+                            });
+
+                            
+                            const visionMsg = buildToolVisionMessage(rawResultData);
+                            if (visionMsg) preparedBody.messages.push(visionMsg);
+                        }
+                        
+                        
+                        const currentMsg = getActiveMessages().find(m => m.id === assistant.id);
+                        if (currentMsg) {
+                            const oldCalls = currentMsg.tool_calls || [];
+                            const oldResults = currentMsg.tool_results || [];
+                            updateMessage(assistant.id, { 
+                                tool_calls: [...oldCalls, ...result.tool_calls],
+                                tool_results: [...oldResults, ...toolResults]
+                            });
+                        }
+
+                        if (loops >= loopLimit) {
+                            preparedBody.messages.push({ role: 'system', content: 'Loop limit reached. Finalize now.' });
+                        }
+                        continue; // Next round in loop
+                    }
+                    
+                    
+                    
+                    
+                    
+                    if (S.modelConfig.agenticLoop && !sceneLoopUsed && result && result.fullText) {
+                        const dirNotes = detectDirTransitions(result.fullText);
+                        if (dirNotes.length) {
+                            sceneLoopUsed = true;
+                            loops++;
+                            console.log('[VP Session] 🔁 Agentic micro-loop: executing', dirNotes.length, 'dir transition(s), one continuation follows');
+                            for (const n of dirNotes) {
+                                await VP.commands?.execute?.(n.raw, { source: 'agentic-loop', showToast: true });
+                            }
+                            preparedBody.messages.push({ role: 'assistant', content: result.fullText });
+                            preparedBody.messages.push({ role: 'system', content: buildSceneTransitionObservation(dirNotes) });
+                            updateMessage(assistant.id, { status: '👁 осматривается… (agent loop)' });
+                            requestPlaybackPush('\n\n');
+                            continue;
+                        }
+                    }
+                    
+                    break; 
+                }
+
+                
+                const data = await response.json();
+                const choice = data.choices?.[0];
+                if (!choice) throw new Error('Model returned no choices');
+
+                
+                if (toolsEnabled && choice.finish_reason === 'tool_calls' && choice.message?.tool_calls?.length) {
+                    toolCallDetected = true;
+                    loops++;
+                    
+                    const callDetails = choice.message.tool_calls.map(tc => {
+                        const def = VP.tools?.get(tc.function?.name);
+                        return (def?.icon || '🔧') + ' ' + (tc.function?.name || 'tool');
+                    }).join(', ');
+
+                    
+                    updateMessage(assistant.id, { status: ",,console.log(`[VP Tools] 🤖 Detected tool calls in stream (loop ${loops}): ${callNames}`);
+207,js/projector-session.js,1313,toast,", 'error');
+            }
+            return false;
+        } finally {
+            S.session.running = false;
+            S.session.abortController = null;
+            persistSession();
+            renderRegisteredPanels();
+        }
+    }
+
+    async function readStreamingResponse(response, assistantId) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = """";
+        
+        
+        
+        
+        
+        
+        const seededRaw = String(getActiveMessages().find(x => x.id === assistantId)?.raw || '');
+        let full = seededRaw;
+        let own = """";
+        let lastRender = 0;
+
+        const toolCallAccumulator = [];
+        let finishReason = null;
+
+        const applyDelta = (delta) => {
+            if (!delta) return;
+            if (!own && seededRaw && !/\n\s*$/.test(seededRaw)) full += ""\n\n""; // seam between loop generations
+            full += delta;
+            own += delta;
+            requestPlaybackPush(delta);
+
+            const m = getActiveMessages().find(x => x.id === assistantId);
+            if (m) {
+                m.raw = full;
+                m.clean = stripVpCommands(full);
+                m.status = ""streaming"";
+            }
+            const now = Date.now();
+            if (now - lastRender > 80) {
+                lastRender = now;
+                updateVisibleMessage(assistantId);
+            }
+        };
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split(""\n"");
+            buffer = lines.pop() || """";
+
+            for (const lineRaw of lines) {
+                const line = lineRaw.trim();
+                if (!line || !line.startsWith(""data:"")) continue;
+                const data = line.slice(5).trim();
+                if (!data || data === ""[DONE]"") continue;
+                try {
+                    const json = JSON.parse(data);
+                    const choice = json.choices?.[0];
+                    if (choice?.finish_reason) finishReason = choice.finish_reason;
+
+                    if (choice?.delta?.tool_calls) {
+                        for (const tc of choice.delta.tool_calls) {
+                            const idx = tc.index || 0;
+                            if (!toolCallAccumulator[idx]) {
+                                toolCallAccumulator[idx] = { id: """", type: ""function"", function: { name: """", arguments: """" } };
+                            }
+                            if (tc.id) toolCallAccumulator[idx].id = tc.id;
+                            if (tc.function?.name) toolCallAccumulator[idx].function.name += tc.function.name;
+                            if (tc.function?.arguments) toolCallAccumulator[idx].function.arguments += tc.function.arguments;
+                        }
+                    } else {
+                        const delta = choice?.delta?.content ?? choice?.message?.content ?? """";
+                        applyDelta(delta);
+                    }
+                } catch {
+                    applyDelta(data);
+                }
+            }
+        }
+
+        if (finishReason === ""tool_calls"" || toolCallAccumulator.length > 0) {
+            return { tool_calls: toolCallAccumulator, fullText: own };
+        }
+
+        updateMessage(assistantId, { raw: full, clean: stripVpCommands(full), status: ""done"" });
+        processActivityCommandsViaBus(own, { role: ""assistant"", source: ""session"" });
+        requestPlaybackCommit(own);
+        
+        
+        updateVisibleMessage(assistantId);
+        
+        return { fullText: full };
+    }
+    function stop() {
+        if (S.session?.abortController) {
+            emitSessionEvent('session:stop-requested', { activeChatId: chatApi()?.getActiveChat?.()?.id || null });
+            S.session.abortController.abort();
+        }
+    }
+
+    async function clearSession() {
+        const ans = await VP.showConfirm?.({
+            title: 'Clear session log?',
+            message: 'Очистить session log? Это удалит сообщения текущего чата/сессии.',
+            buttons: [
+                { id: 'cancel', label: 'Cancel', ghost: true },
+                { id: 'ok', label: 'Clear', danger: true },
+            ],
+        });
+        if (ans !== 'ok') return;
+        replaceActiveMessages([]);
+        renderRegisteredPanels();
+    }
+
+    function regenerateLast() {
+        if (S.session.running) return;
+        const msgs = getActiveMessages();
+        let lastAssistantIdx = -1;
+        for (let i = msgs.length - 1; i >= 0; i--) {
+            if (msgs[i].role === 'assistant') { lastAssistantIdx = i; break; }
+        }
+        if (lastAssistantIdx === -1) { VP.showToast?.('No assistant message to regenerate', 'error'); return; }
+
+        const lastAssistant = msgs[lastAssistantIdx];
+
+        
+        
+        if (lastAssistant.internalPrompt) {
+            const prompt = lastAssistant.internalPrompt;
+            replaceActiveMessages(msgs.slice(0, lastAssistantIdx));
+            send(prompt, { skipUserAppend: true });
+            return;
+        }
+
+        let userIdx = -1;
+        for (let i = lastAssistantIdx - 1; i >= 0; i--) {
+            if (msgs[i].role === 'user') { userIdx = i; break; }
+        }
+
+        if (userIdx !== -1) {
+            const userText = msgText(msgs[userIdx]);
+            replaceActiveMessages(msgs.slice(0, lastAssistantIdx));
+            send(userText, { skipUserAppend: true });
+        } else {
+            replaceActiveMessages(msgs.slice(0, lastAssistantIdx));
+            const hasChatMessages = msgs.slice(0, lastAssistantIdx).some(m => m.role === 'assistant' || m.role === 'user');
+            const prompt = hasChatMessages
+                ? 'Continue the scene naturally.'
+                : 'Begin the scene naturally.';
+            send(prompt, { skipUserAppend: true });
+        }
+    }
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    if (!window.VP_SESSION_PANELS?.init) {
+        throw new Error(
+            '[VP Session] js/session-panels.js is missing or loaded out of order.\n' +
+            'Script order must be: js/session-panels.js BEFORE js/projector-session.js (see index.html).'
+        );
+    }
+    const {
+        injectStyles, clearContainer,
+        renderInputPanel, renderInputSettings,
+        renderLogPanel, renderLogSettings, renderModelPanel,
+        showContextInspector, makeInspectorSection,
+        estimateTextTokens, sumMessageTokens,
+    } = window.VP_SESSION_PANELS.init({
+        buildProfileSystemMessage, buildRequestMessages, chatApi, deleteMessage,
+        ensureState, escapeHtml, getActiveDraft, getActiveMessages, getMessageSpeakerLabel,
+        isNearBottom, isSceneEventMessage, msgText, parseSceneEvent, persistModel, persistSession,
+        removePendingManifestAt, renderMessageAvatar, renderRegisteredPanels, sceneEventIcon,
+        send, setActiveDraft, setMessageBodyContent, showManifestsModal, stop, stripVpCommands,
+        updateMessage, regenerateLast, clearSession,
+        DEFAULT_SESSION,
+    });
+
+    
+    
+    
+    
+    
+    
+    if (!window.VP_SESSION_BUS_PANEL?.init) {
+        throw new Error(
+            '[VP Session] js/session-bus-panel.js is missing or loaded out of order.\n' +
+            'Script order must be: js/session-bus-panel.js BEFORE js/projector-session.js (see index.html).'
+        );
+    }
+    const renderBusPanel = window.VP_SESSION_BUS_PANEL.init({ clearContainer }).renderBusPanel;
+
+    function registerPanels() {
+        VP.registerPanel({
+            id: 'input', title: 'Input', icon: '⌨️', order: 40, create: renderInputPanel,
+            settings: {
+                title: 'Input Settings', icon: '⌨️', mode: 'auto', minWidth: 250, minHeight: 150, width: 360,
+                create: renderInputSettings,
+            },
+        });
+        VP.registerPanel({ 
+            id: 'log', title: 'Log', icon: '💬', order: 30, create: renderLogPanel,
+            settings: {
+                title: 'Log Settings', icon: '💬', mode: 'auto', minWidth: 340, minHeight: 230, width: 420,
+                create: renderLogSettings,
+            },
+        });
+        VP.registerPanel({ id: 'model', title: 'Model', icon: '🤖', order: 50, create: renderModelPanel });
+        VP.registerPanel({ id: 'bus', title: 'Commands', icon: '🔧', order: 55, create: renderBusPanel });
+    }
+
+    function getSessionPublicState() {
+        ensureState();
+        const activeChat = chatApi()?.getActiveChat?.() || null;
+        const activeSpeaker = chatApi()?.getActiveSpeaker?.() || null;
+        const messages = getActiveMessages();
+        const draft = getActiveDraft();
+        return {
+            running: !!S.session.running,
+            draft,
+            draftLength: String(draft || '').length,
+            activeChat: activeChat ? {
+                id: activeChat.id || null,
+                title: activeChat.title || null,
+                messageCount: Array.isArray(activeChat.messages) ? activeChat.messages.length : 0,
+                participantCount: Array.isArray(activeChat.participants) ? activeChat.participants.length : 0,
+                activeSpeakerId: activeChat.activeSpeakerId || null,
+            } : null,
+            activeSpeaker: activeSpeaker ? {
+                id: activeSpeaker.id || null,
+                profileId: activeSpeaker.profileId || null,
+                name: chatApi()?.getParticipantDisplayName?.(activeSpeaker) || activeSpeaker.name || null,
+            } : null,
+            messages: Array.isArray(messages) ? messages.slice(-10).map(message => ({
+                id: message.id || null,
+                role: message.role || null,
+                timestamp: message.timestamp || null,
+                textPreview: String(msgText(message) || '').slice(0, 240),
+                textLength: String(msgText(message) || '').length,
+            })) : [],
+            model: {
+                endpoint: S.modelConfig.endpoint || '',
+                model: S.modelConfig.model || '',
+                temperature: Number(S.modelConfig.temperature),
+                maxTokens: Number(S.modelConfig.maxTokens),
+                toolsMode: S.modelConfig.toolsMode || 'off',
+            },
+            input: {
+                clearAfterSend: S.session.input?.clearAfterSend !== false,
+                enterToSend: !!S.session.input?.enterToSend,
+                fontSize: Number(S.session.input?.fontSize) || 13,
+            },
+            pendingManifestCount: Array.isArray(S.session.pendingManifests) ? S.session.pendingManifests.length : 0,
+        };
+    }
+
+    function emitSessionEvent(eventName, payload = {}) {
+        try {
+            window.VP_HUB?.emit?.(eventName, payload, { moduleId: 'session' });
+        } catch (err) {
+            console.warn(",,"VP.showToast?.(`Model error: ${err.message.slice(0, 120)}`, 'error');"
+208,js/projector-session.js,1880,toast,Персонаж заметил ваш взгляд...,,"VP.showToast?.('Персонаж заметил ваш взгляд...', 'info');"
+209,js/session-panels.js,702,label," : 'Направить сцену / написать сообщение... (Ctrl+Enter to send)'}""></textarea>
+                <div class=""vp-session-input-actions"">
+                    <button class=""vp-btn"" data-act=""primary"">▶ Send</button>
+                    <button class=""vp-btn vp-btn-ghost"" data-act=""regen"">↻ Regen</button>
+                    <span class=""spacer""></span>
+                </div>
+            </div>
+            ${pendingHtml}
+            <div class=""vp-session-scenario-bar"" data-role=""scenario-bar""></div>
+            ",,"<textarea class=""vp-session-input"" name=""messageInput"" placeholder=""${speakerName ? `Message (→ ${speakerName}) or type "
+210,js/session-panels.js,1262,label,"<div class=""vp-session-empty""><div style=""font-size:28px;margin-bottom:8px;"">💬</div><b>Session log</b><br>Здесь появятся сообщения локальной сессии. Это красивый лог/консоль, не центр сцены.</div>",,"list.innerHTML = `<div class=""vp-session-empty""><div style=""font-size:28px;margin-bottom:8px;"">💬</div><b>Session log</b>"
+211,js/session-panels.js,1646,label,"
+            <div class=""vp-session-model-title"">🤖 Local OpenAI-compatible model</div>
+            <label>Endpoint <input name=""endpoint"" data-k=""endpoint"" placeholder=""http://127.0.0.1:1234/v1/chat/completions""></label>
+            <label>Model <input name=""model"" data-k=""model"" placeholder=""local-model"" list=""vp-model-options""></label>
+            <datalist id=""vp-model-options""></datalist>
+            <label>API key <input name=""apiKey"" data-k=""apiKey"" type=""password"" placeholder=""optional""></label>
+            <label>Temperature <input name=""temperature"" data-k=""temperature"" type=""number"" min=""0"" max=""2"" step=""0.05""></label>
+            <label>Max tokens <input name=""maxTokens"" data-k=""maxTokens"" type=""number"" min=""1"" step=""1""></label>
+            <label>Tools mode
+                <select name=""toolsMode"" data-k=""toolsMode"">
+                    <option value=""off"">Off</option>
+                    <option value=""native"">Native (tool_calls)</option>
+                    <!-- v26: 'text-tags' was never implemented (loop honors only 'native'); option hidden, buildServicesCard kept in code for a possible revival -->
+                </select>
+            </label>
+            <div class=""vp-session-model-note"" data-role=""tools-mode-hint"">Tools let the model perceive the world: roll dice, search gallery, recall scenes. Actions still use [IMG:] tags.</div>
+            <div class=""vp-session-tools-manager"" data-role=""tools-manager"">
+                <div class=""vp-session-model-note vp-session-tools-head"">🧰 Tools: <b data-role=""tools-count"">–</b> on · ≈<span data-role=""tools-tokens"">0</span> tok in every request (native)</div>
+                <div class=""vp-session-tools-list"" data-role=""tools-list""></div>
+            </div>
+            <label>Tool loop limit <input name=""toolLoopLimit"" data-k=""toolLoopLimit"" type=""number"" min=""1"" max=""10"" step=""1""></label>
+            <label><span>Agentic loop (scene transitions)</span><input name=""agenticLoop"" data-k=""agenticLoop"" type=""checkbox"" title=""v24: после [TAB:…]/[CAT:…] перехода модель мгновенно получает наблюдение мира и ОДНУ continuation-генерацию (глубина 1, без каскадов). Вторая генерация = дороже по времени!""></label>
+            <div class=""vp-session-model-note"">Agentic loop: after the model enters/leaves scenes ([TAB:]/[CAT:]), it immediately SEES the result and continues once more in the same turn. Costs one extra generation only on transitions.</div>
+            <div class=""vp-session-model-actions"">
+                <button class=""vp-btn vp-btn-ghost vp-btn-sm"" data-act=""preset-lmstudio"">LM Studio</button>
+                <button class=""vp-btn vp-btn-ghost vp-btn-sm"" data-act=""preset-localhost"">localhost</button>
+                <button class=""vp-btn vp-btn-ghost vp-btn-sm"" data-act=""test"">Test</button>
+                <button class=""vp-btn vp-btn-ghost vp-btn-sm"" data-act=""models"">Load models</button>
+            </div>
+            <div class=""vp-session-model-status"" data-role=""status"">Ready. LM Studio default: <code>http://127.0.0.1:1234/v1/chat/completions</code></div>
+            <div class=""vp-session-model-note"">
+                Tip: if <code>localhost</code> acts weird in WebView, use <code>127.0.0.1</code>. Model settings are saved through the current storage backend.
+            </div>",,wrap.innerHTML = `
+212,js/vp-interactive.js,529,label,${region.label || region.id} заметил(а) прикосновение...,,"toastText: `${region.label || region.id} заметил(а) прикосновение...`,"
+213,js/vp-storage-native.js,1806,toast,Изменения сохранены,,"window.VP?.showToast?.('Изменения сохранены', 'success');"

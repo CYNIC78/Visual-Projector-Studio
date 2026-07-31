@@ -275,7 +275,15 @@
         p$('#vp-gallery-autotag')?.addEventListener('click', () => VP.gallery.Tagger?.tagAll());
         const collageBtn = p$('#vp-gallery-collage');
         if (collageBtn) {
-            collageBtn.addEventListener('click', generateCollageFromMarkedTabs);
+            // LAYER SEPARATION (13): building the sheet no longer seizes the
+            // screen (the stage belongs to the artistic layer). This button is
+            // the human's EXPLICIT "show me the under-the-hood sheet" gesture,
+            // so it answers by opening the pill popup — the designated window
+            // into the model's view — instead of overwriting the current frame.
+            collageBtn.addEventListener('click', async () => {
+                const asset = await generateCollageFromMarkedTabs({ reason: 'manual-button' });
+                if (asset) window.VP_COLLAGE_PILL?.open?.();
+            });
             collageBtn.addEventListener('contextmenu', showCollageContextMenu);
         }
         p$('#vp-gallery-apply-drafts')?.addEventListener('click', applyAllDrafts);

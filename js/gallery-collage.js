@@ -421,6 +421,15 @@
         updateGalleryButton();
         if (updateProjector) requestProjectorUiUpdate('gallery')
         updateCollagePill();
+        // LIVE POPUP (14): the popup is a WINDOW into the backstage sheet, so it
+        // must track the sheet it looks at. Owner report: with the popup open, a
+        // rebuild left the old caption on screen while the IMAGE went blank —
+        // because generation revokes the previous object URL
+        // (`revokeAssetObjectUrls`), and the <img> in the popup still pointed at
+        // that dead blob: URL. Only closing+reopening (double click) rebuilt it.
+        // Repainting here keeps the window honest for every rebuild path
+        // (model tab entry, auto-refresh, manual button/menu).
+        repaintCollagePopup();
     }
 
     // ═══ v18: Gallery View pill — deck indicator + click-popup ═══
@@ -557,6 +566,25 @@
     function toggleCollagePopup() {
         if (_collagePopupEl) closeCollagePopup();
         else openCollagePopup();
+    }
+
+    /**
+     * LIVE POPUP (14): re-render the open popup against the CURRENT sheet.
+     * No-op when the popup is closed, so every caller can fire it blindly.
+     * The sheet asset is replaced wholesale on each rebuild (new blob + new
+     * object URL, old one revoked), so the window must re-read `collage.url`,
+     * the section list and the timestamp — otherwise it shows a dead image
+     * with a stale caption. Preserves the "inspect" (natural size) mode so a
+     * background rebuild does not yank the zoom out from under the user.
+     */
+    function repaintCollagePopup() {
+        if (!_collagePopupEl) return;
+        const collage = S?.gallery?.get?.(COLLAGE_TAG) || null;
+        // Sheet gone (dissolved / deleted) → the window has nothing to show.
+        if (!collage) { closeCollagePopup(); return; }
+        const wasInspect = _collagePopupEl.classList?.contains?.('inspect');
+        openCollagePopup();
+        if (wasInspect) _collagePopupEl?.classList?.add?.('inspect');
     }
 
     function openCollagePopup() {
@@ -1062,6 +1090,16 @@
         // they must never fall back onto the active tab (see collectCollagePlan).
         const applyToProjector = options.applyToProjector !== false;
         const allowActiveTabFallback = options.allowActiveTabFallback !== false;
+        // LAYER SEPARATION (13): the SCREEN is the artistic layer (the room's
+        // assets, set by the human or by [IMG:tag]); the Gallery View is a
+        // TECHNICAL under-the-hood artefact that belongs to the model's context
+        // (cover) and to the pill, not to the stage. Owner report: when the
+        // model entered a new tab mid-chat, the freshly built sheet seized the
+        // screen and sat there until the next [IMG:tag] — great for debugging,
+        // immersion-breaking for roleplay. So attaching to the cover NO LONGER
+        // implies showing it: `showOnProjector` is opt-in and only the explicit
+        // user gestures (🖼️ button, "apply gallery view") pass it.
+        const showOnProjector = options.showOnProjector === true;
 
         const plan = collectCollagePlan({ allowActiveTabFallback });
         console.log('[VP Gallery] Contact sheet requested', { reason, force, signature: plan.signature || null });
@@ -1083,7 +1121,7 @@
         if (!force && isExistingCollageFresh(plan.signature)) {
             const existing = S.gallery.get(COLLAGE_TAG);
             ensureContactSheetCoverLabel();
-            if (applyToProjector) applyCover(COLLAGE_TAG, { showOnProjector: true });
+            if (applyToProjector) applyCover(COLLAGE_TAG, { showOnProjector });
             refreshCollageUi(false);
             showToast('Gallery View уже актуален — использую готовую версию.', 'info');
             return existing;
@@ -1139,7 +1177,7 @@
                 persistAsset(collageAsset);
 
                 ensureContactSheetCoverLabel();
-                if (applyToProjector) applyCover(COLLAGE_TAG, { showOnProjector: true });
+                if (applyToProjector) applyCover(COLLAGE_TAG, { showOnProjector });
                 refreshCollageUi(false);
 
                 console.log('[VP Gallery] Contact sheet generated', collageMeta);
@@ -1196,8 +1234,20 @@
             return d;
         };
 
-        // 1. Generate collage
-        menu.appendChild(mkItem('🖼️ Собрать Gallery View', null, generateCollageFromMarkedTabs));
+        // 1. Generate collage — same explicit gesture as the 🖼️ button: build,
+        // then answer in the pill popup, never by seizing the stage (13).
+        menu.appendChild(mkItem('🖼️ Собрать Gallery View', null, async () => {
+            const asset = await generateCollageFromMarkedTabs({ reason: 'manual-menu' });
+            if (asset) openCollagePopup();
+        }));
+
+        // 1b. Explicit escape hatch for the rare "put it on the stage" wish —
+        // the ONLY path that still shows the technical sheet on the screen.
+        if (S.gallery.has(COLLAGE_TAG)) {
+            menu.appendChild(mkItem('📺 Показать на экране проектора', null, () => {
+                applyCover(COLLAGE_TAG, { showOnProjector: true });
+            }));
+        }
 
         // 2. Change Gallery View title
         menu.appendChild(mkItem('✏️ Название Gallery View', null, async () => {
@@ -1307,7 +1357,7 @@
         // projector-gallery) can refresh the deck pill without importing the
         // satellite — degrades silently when the facade is absent.
         if (typeof window !== 'undefined') {
-            window.VP_COLLAGE_PILL = { refresh: updateCollagePill };
+            window.VP_COLLAGE_PILL = { refresh: updateCollagePill, open: openCollagePopup, toggle: toggleCollagePopup };
         }
         return {
             COLLAGE_TAG, COLLAGE_FILENAME, COLLAGE_LAYOUT_VERSION,
