@@ -442,7 +442,12 @@
     VPCommandBus.register('TAB', {
         target: 'gallery-tabs',
         // v17: [TAB:open] is a solo scene switch — it closes every other tab.
-        description: 'Enter a tab scene (solo; closes the other tabs): [TAB:open:name] / Step back out: [TAB:close:name]',
+        // 03-manifest-polish: [TAB:close] is a LEGACY escape hatch only — solo
+        // open already replaces the current scene, so the model is no longer
+        // taught "close" (it only confuses small models). Parser/executor keep
+        // accepting it forever for backward compatibility (old chats/prompts,
+        // the collapse→close alias). Do NOT re-teach it in the manifest.
+        description: 'Enter a tab scene (solo; closes the other tabs): [TAB:open:name] / Legacy escape hatch: [TAB:close:name] (not taught — back-compat only)',
         queueable: true,
         handler: executeDirectoryCommand,
     });

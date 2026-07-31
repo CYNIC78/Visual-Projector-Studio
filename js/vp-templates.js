@@ -232,7 +232,7 @@ Frame: {{tag}} ({{source}})`;
         const hasCollapsibles = State.config.allowDirectoryCommands && State.galleryData &&
             (State.galleryData.categories.some(c => c.state !== 'locked') || State.galleryData.tabs.some(t => t.state !== 'locked'));
         if (hasCollapsibles) {
-            treeList += `# GALLERY NAVIGATION\nSome gallery categories and tabs are collapsed below; enter scenes like rooms. [TAB:open:Name] pulls that tab's assets into your NEXT turn and closes the other tabs for you; [TAB:close:Name] steps back out of that scene. [CAT:open:Name] reveals a whole pack of scenes at once; [CAT:close:Name] packs it away.\n`;
+            treeList += `# GALLERY NAVIGATION\nSome gallery categories and tabs are collapsed below; enter scenes like rooms. [TAB:open:Name] pulls that tab's assets into your NEXT turn and closes the other tabs for you (one scene open at a time). [CAT:open:Name] reveals a whole pack of scenes at once; [CAT:close:Name] packs it away.\n`;
         }
 
         const processedTags = new Set();
@@ -383,8 +383,8 @@ Frame: {{tag}} ({{source}})`;
             // full grammar here; otherwise a one-line pointer suffices.
             collageNavNote: State.config.allowDirectoryCommands
                 ? (hasCollapsibles
-                    ? '(Scene navigation: [TAB:open:name] / [TAB:close:name] / [CAT:open:name] / [CAT:close:name] — described in GALLERY NAVIGATION above.)'
-                    : "You may enter scenes like rooms: [TAB:open:name] steps into a tab's scene — its assets join your NEXT turn and the other tabs close for you. [TAB:close:name] steps back out into the hall. [CAT:open:name] reveals a whole pack of scenes at once, and [CAT:close:name] packs it away.")
+                    ? '(Scene navigation: [TAB:open:name] / [CAT:open:name] / [CAT:close:name] — described in GALLERY NAVIGATION above.)'
+                    : "You may enter scenes like rooms: [TAB:open:name] steps into a tab's scene — its assets join your NEXT turn and the other tabs close for you (one scene open at a time). [CAT:open:name] reveals a whole pack of scenes at once, and [CAT:close:name] packs it away.")
                 : '',
         };
 
