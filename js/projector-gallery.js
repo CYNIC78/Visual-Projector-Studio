@@ -2280,12 +2280,12 @@
                 cb.style.cssText = `position:absolute; top:3px; left:3px; background:linear-gradient(180deg,rgba(255,214,102,0.98),rgba(231,171,51,0.96)); color:#2a1a00; font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; pointer-events:none; z-index:4; box-shadow:0 1px 4px rgba(0,0,0,0.35);`;
                 item.appendChild(cb);
             }
-            // Active badge
+            // Active dot (compact indicator paired with the green .vp-active card border)
             if (isActiveAsset) {
                 const ab = document.createElement('div');
-                ab.textContent = '● ACTIVE';
-                ab.style.cssText = `position:absolute; top:3px; right:3px; background:linear-gradient(180deg,rgba(111,231,160,0.96),rgba(53,163,102,0.96)); color:#062612; font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; pointer-events:none; z-index:4; box-shadow:0 1px 4px rgba(0,0,0,0.35);`;
-                ab.title = 'Currently loaded in projector';
+                ab.className = 'vp-asset-active-dot';
+                ab.style.cssText = `position:absolute; top:5px; right:5px; width:9px; height:9px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #8ef5b8, #2ecc71 75%); border:1.5px solid rgba(6,38,18,0.85); pointer-events:none; z-index:4; box-shadow:0 0 6px rgba(91,232,150,0.85), 0 1px 3px rgba(0,0,0,0.45);`;
+                ab.title = 'Active frame (loaded in projector)';
                 item.appendChild(ab);
             }
             // Depth sidecar badge
@@ -2297,7 +2297,7 @@
                 db.title = ready
                     ? `Depth sidecar: ${asset.depthMap.file || 'ready'}`
                     : (error ? `Depth error: ${asset.depthMap.error || 'unknown'}` : 'Depth sidecar pending');
-                db.style.cssText = `position:absolute; ${isActiveAsset ? 'top:20px;' : 'top:3px;'} right:3px; background:${ready ? 'linear-gradient(180deg,rgba(137,180,250,.96),rgba(76,119,210,.94))' : (error ? 'linear-gradient(180deg,rgba(255,110,110,.96),rgba(185,58,58,.94))' : 'linear-gradient(180deg,rgba(240,180,80,.96),rgba(170,120,35,.94))')}; color:#07111f; font-size:9px; font-weight:900; padding:1px 5px; border-radius:3px; pointer-events:none; z-index:4; box-shadow:0 1px 4px rgba(0,0,0,0.35); letter-spacing:.03em;`;
+                db.style.cssText = `position:absolute; ${isActiveAsset ? 'top:18px;' : 'top:3px;'} right:3px; background:${ready ? 'linear-gradient(180deg,rgba(137,180,250,.96),rgba(76,119,210,.94))' : (error ? 'linear-gradient(180deg,rgba(255,110,110,.96),rgba(185,58,58,.94))' : 'linear-gradient(180deg,rgba(240,180,80,.96),rgba(170,120,35,.94))')}; color:#07111f; font-size:9px; font-weight:900; padding:1px 5px; border-radius:3px; pointer-events:none; z-index:4; box-shadow:0 1px 4px rgba(0,0,0,0.35); letter-spacing:.03em;`;
                 item.appendChild(db);
             }
             item.appendChild(label);

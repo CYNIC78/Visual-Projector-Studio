@@ -82,6 +82,8 @@ CORRECT: Just {"tag":"...","description":"..."} and nothing else.`;
                 max_tokens: 500,
                 stream: false,
             };
+            const effort = window.VP_LLAMA?.getReasoningEffortForRequest?.('off');
+            if (effort) body.reasoning_effort = effort;
 
             const fetcher = S.originalFetch || window.fetch;
             const response = await fetcher(api.endpoint, {

@@ -596,8 +596,7 @@
         const panel = S.ui.galleryPanel;
         if (!panel) return;
         const norm = section === 'settings' ? 'settings' : 'gallery';
-        const galBtn  = S.ui.vpWindow?.querySelector('#vp-toggle-gallery');
-        const settBtn = S.ui.vpWindow?.querySelector('#vp-toggle-settings');
+        const galBtn = S.ui.vpWindow?.querySelector('#vp-toggle-gallery');
         S.ui.panelSection = norm;
 
         panel.querySelectorAll('.vp-panel-tab').forEach(t => {
@@ -609,17 +608,14 @@
 
         if (norm === 'settings') {
             syncSettingsUI();
-            settBtn?.classList.add('vp-btn-active');    settBtn?.classList.remove('vp-btn-ghost');
-            galBtn?.classList.remove('vp-btn-active');  galBtn?.classList.add('vp-btn-ghost');
-            if (galBtn) galBtn.textContent = '📚';
         } else {
             getTabsManager().renderSidebar();
             renderGalleryGrid();
             updateGalleryFooter();
-            galBtn?.classList.add('vp-btn-active');    galBtn?.classList.remove('vp-btn-ghost');
-            settBtn?.classList.remove('vp-btn-active'); settBtn?.classList.add('vp-btn-ghost');
-            if (galBtn) galBtn.textContent = '📺';
         }
+        galBtn?.classList.add('vp-btn-active');
+        galBtn?.classList.remove('vp-btn-ghost');
+        if (galBtn) galBtn.textContent = '📺';
         panel.style.zIndex = 10002;
         if (S.ui.vpWindow) S.ui.vpWindow.style.zIndex = 10001;
     }
@@ -652,9 +648,8 @@
     }
 
     function togglePanel(show, section = 'gallery') {
-        const galBtn  = S.ui.vpWindow?.querySelector('#vp-toggle-gallery');
-        const settBtn = S.ui.vpWindow?.querySelector('#vp-toggle-settings');
-        const target  = section === 'settings' ? 'settings' : 'gallery';
+        const galBtn = S.ui.vpWindow?.querySelector('#vp-toggle-gallery');
+        const target = section === 'settings' ? 'settings' : 'gallery';
 
         if (!S.ui.galleryPanel) {
             if (show === false) return; // nothing to close
@@ -684,14 +679,13 @@
 
         const wasVisible = panel.style.display !== 'none';
         const current = S.ui.panelSection || 'gallery';
-        const shouldHide = show === false || (show === undefined && wasVisible && current === target);
+        const shouldHide = show === false || (show === undefined && wasVisible && (current === target || target === 'gallery'));
         if (shouldHide) {
             delete panel.dataset.vpPendingReveal;
             panel.style.visibility = '';
             panel.style.display = 'none';
             galBtn?.classList.remove('vp-btn-active');  galBtn?.classList.add('vp-btn-ghost');
             if (galBtn) galBtn.textContent = '📚';
-            settBtn?.classList.remove('vp-btn-active'); settBtn?.classList.add('vp-btn-ghost');
             S.ui.panelOpen = false;
             return;
         }

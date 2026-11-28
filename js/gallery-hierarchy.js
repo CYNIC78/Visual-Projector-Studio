@@ -204,6 +204,21 @@
                     renderGalleryGrid();
                     persistGalleryData();
                 });
+
+                const seqOn = !!target.seqEnabled;
+                addItem(seqOn ? '🎞 Выключить секвенции [SEQ:]' : '🎞 Разрешить секвенции [SEQ:]', () => {
+                    if (target.seqEnabled) delete target.seqEnabled;
+                    else target.seqEnabled = true;
+                    TabsManager.renderSidebar();
+                    renderGalleryGrid();
+                    persistGalleryData();
+                    showToast(
+                        target.seqEnabled
+                            ? `🎞 Секвенции [SEQ:] включены для «${target.name}»`
+                            : `🎞 Секвенции [SEQ:] выключены для «${target.name}»`,
+                        'info'
+                    );
+                });
             }
 
             // FSM mark-derivation (12): the manual "🖼️ Добавить в Gallery View"
@@ -826,9 +841,9 @@
             const catName = (t) => cats.find(c => c.id === t?.categoryId)?.name || null;
             return {
                 activeTabId: gd.activeTabId || null,
-                openTabs: openTabs.map(t => ({ id: t.id, name: t.name, category: catName(t), rules: t.rules || null })),
+                openTabs: openTabs.map(t => ({ id: t.id, name: t.name, category: catName(t), rules: t.rules || null, seqEnabled: !!t.seqEnabled })),
                 openTab: openTab
-                    ? { id: openTab.id, name: openTab.name, category: catName(openTab), desc: openTab.desc || null, rules: openTab.rules || null }
+                    ? { id: openTab.id, name: openTab.name, category: catName(openTab), desc: openTab.desc || null, rules: openTab.rules || null, seqEnabled: !!openTab.seqEnabled }
                     : null,
                 hall: visible.filter(t => t.state === 'collapsed').map(t => ({ id: t.id, name: t.name, desc: t.desc || null, category: catName(t) })),
                 lockedHiddenCount: tabs.length - visible.length,
@@ -935,9 +950,10 @@
                         else if (cat.state === 'collapsed') { inheritedClass = 'inherited-collapsed'; titleNote = ' [Category is Collapsed]'; }
                         const tabAssetsCount = allAssets.filter(a => a.tabId === tab.id).length;
                         const collageIcon = tab.markedForCollage ? `<span style="font-size:10px; color:#f0b450; margin-left:4px;" title="Помечен для Gallery View">🖼️</span>` : '';
-                        html += `<div class="vp-tab-btn vp-sb-tab ${isActive} ${inheritedClass}" data-id="${tab.id}" draggable="true" title="${tab.desc || 'Tab'}${titleNote}">
+                        const seqIcon = tab.seqEnabled ? `<span style="font-size:10px; color:#f0b450; margin-left:3px;" title="Секвенции [SEQ:] разрешены для модели">🎞</span>` : '';
+                        html += `<div class="vp-tab-btn vp-sb-tab ${isActive} ${inheritedClass}" data-id="${tab.id}" draggable="true" title="${tab.desc || 'Tab'}${tab.seqEnabled ? ' [SEQ]' : ''}${titleNote}">
                             <span class="vp-sb-state" data-type="TAB" data-id="${tab.id}" title="Click to toggle state">${tabIcon}</span>
-                            <span class="vp-editable-name" data-type="TAB" data-id="${tab.id}" style="color:white; flex:1;" title="Double-click to rename">${tab.name}</span>${collageIcon} <span class="vp-badge">${tabAssetsCount}</span>
+                            <span class="vp-editable-name" data-type="TAB" data-id="${tab.id}" style="color:white; flex:1;" title="Double-click to rename">${tab.name}</span>${collageIcon}${seqIcon} <span class="vp-badge">${tabAssetsCount}</span>
                         </div>`;
                     }
                     html += `</div>`;

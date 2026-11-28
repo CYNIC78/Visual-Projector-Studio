@@ -326,6 +326,9 @@ Frame: {{tag}} ({{source}})`;
                             const _rules = String(tab.rules).trim();
                             treeList += `    [RULES: ${_rules.length > 300 ? _rules.slice(0, 299) + '…' : _rules}]\n`;
                         }
+                        if (!isCollageActive && tab.seqEnabled) {
+                            treeList += `    [SEQ: ${SEQ_RULE_HINT}]\n`;
+                        }
                         if (tabAssets.length === 0) treeList += `    (empty)\n`;
                         else if (isCollageActive && tabIsRepresentedInCollage) {
                             tabAssets.forEach(a => processedTags.add(a.tag));
@@ -541,6 +544,7 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
     // ════════════════════════════════════════════════════════════════
     const COLLAGE_RULES_TAB_CAP = 300;
     const COLLAGE_RULES_TOTAL_CAP = 900;
+    const SEQ_RULE_HINT = 'Sequences enabled: use [SEQ:tag1,tag2,tag3:tempo] (tempo: slow|med|fast; optional :loop or :pingpong; [SEQ:stop] to stop) for multi-step motion instead of separate [IMG:] tags.';
 
     function buildCollageRulesNote(galleryData) {
         const tabs = Array.isArray(galleryData?.tabs) ? galleryData.tabs : [];
@@ -549,10 +553,16 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
         for (const tab of tabs) {
             if (!tab?.markedForCollage) continue;
             const rules = String(tab.rules || '').trim();
-            if (!rules) continue;
+            const seqOn = !!tab.seqEnabled;
+            if (!rules && !seqOn) continue;
             const pack = (cats.find(c => c.id === tab.categoryId)?.name || '').trim();
-            const clipped = rules.length > COLLAGE_RULES_TAB_CAP ? rules.slice(0, COLLAGE_RULES_TAB_CAP - 1) + '…' : rules;
-            entries.push(`▸ "${tab.name || 'tab'}"${pack ? ` (pack "${pack}")` : ''}: ${clipped}`);
+            const label = `▸ "${tab.name || 'tab'}"${pack ? ` (pack "${pack}")` : ''}`;
+            const parts = [];
+            if (rules) {
+                parts.push(rules.length > COLLAGE_RULES_TAB_CAP ? rules.slice(0, COLLAGE_RULES_TAB_CAP - 1) + '…' : rules);
+            }
+            if (seqOn) parts.push(SEQ_RULE_HINT);
+            entries.push(`${label}: ${parts.join(' ')}`);
         }
         if (!entries.length) return '';
         let body = entries.join('\n');
@@ -565,7 +575,7 @@ Use these camera controls on a new line to emphasize a dramatic shift, zoom in o
         renderTemplate,
         buildManifest, buildCollagePromptData,
         buildVisualContextFrames, buildFrameContextPreview,
-        buildCollageRulesNote,
+        buildCollageRulesNote, SEQ_RULE_HINT,
         updatePromptHints, updateTemplateStatus,
         insertAtCursor, escapeAttr, isAssetReady,
         DEFAULT_MANIFEST_TEMPLATE, DEFAULT_FRAME_TEMPLATE,

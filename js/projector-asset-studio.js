@@ -30,12 +30,15 @@
             executablePath: './bin/sd.cpp/sd-cli.exe',
             outputDir: './output',
             engineMode: 'cli',
-            // 🧹 VRAM-дворецкий (LM Studio / lms CLI) — docs/backend-runtime-design.md
-            vramSteward: false,      // выгружать модели LMS перед генерацией (opt-in)
+            // 🧹 VRAM-дворецкий (llama.cpp Router API / LM Studio lms CLI) — docs/backend-runtime-design.md
+            vramSteward: true,       // выгружать активную LLM перед запуском sd.cpp
+            vramBackend: 'auto',     // 'auto' | 'llama' | 'lms'
             lmsPath: '',             // путь к lms.exe; пусто = искать в PATH
-            stewardReload: false,    // после генерации вернуть модель (для установок без JIT)
-            stewardModel: '',        // идентификатор модели для `lms load <m> --ttl 600`
+            stewardReload: false,    // после генерации вернуть модель (при выключенном autoload/JIT)
+            stewardModel: '',        // идентификатор модели (пусто = вернуть последнюю выгруженную для llama.cpp)
         },
+        _lastUnloadedLlamaModel: null,
+        _lastUnloadedBackend: null,
         _activeCanvas: null,
         _activeContainer: null,
         _boundKeyHandler: null,
@@ -1012,10 +1015,18 @@
         mergeStudioState(saved) {
             if (!saved || typeof saved !== 'object') return this.ensureStudioState();
             const base = this.ensureStudioState();
+            const savedCfg = (saved.config && typeof saved.config === 'object') ? { ...saved.config } : {};
+            // One-time migration from pre-llama v29 config: auto-enable VRAM steward for llama.cpp Router API
+            if (savedCfg.vramBackend === undefined) {
+                savedCfg.vramBackend = 'auto';
+                if (savedCfg.vramSteward === false && !savedCfg.lmsPath) {
+                    savedCfg.vramSteward = true;
+                }
+            }
             S.assetStudio = {
                 ...base,
                 ...this.cloneData(saved),
-                config: { ...this.config, ...(saved.config || {}) },
+                config: { ...this.config, ...savedCfg },
                 workflows: Array.isArray(saved.workflows) ? saved.workflows : (base.workflows || []),
                 selectedWorkflowId: saved.selectedWorkflowId || null,
             };
@@ -1269,29 +1280,37 @@
                                     <option value="cli">CLI</option>
                                     <option value="server">Server — stub</option>
                                 </select>
-                                <button class="vp-btn vp-btn-sm" id="vp-as-vram-steward" title="VRAM-дворецкий (LM Studio)">🧹</button>
-                                <div id="vp-as-vram-pop" style="display:none; position:fixed; z-index:10000; width:308px; padding:12px 14px; border-radius:10px; font-size:12px; line-height:1.5; background:var(--bg-secondary,#1d212b); color:var(--text-primary,#e8e8e8); border:1px solid var(--border,#3a3f4d); box-shadow:0 10px 34px rgba(0,0,0,.55);">
+                                <button class="vp-btn vp-btn-sm" id="vp-as-vram-steward" title="VRAM-дворецкий (LLM → sd.cpp)">🧹</button>
+                                <div id="vp-as-vram-pop" style="display:none; position:fixed; z-index:10000; width:316px; padding:12px 14px; border-radius:10px; font-size:12px; line-height:1.5; background:var(--bg-secondary,#1d212b); color:var(--text-primary,#e8e8e8); border:1px solid var(--border,#3a3f4d); box-shadow:0 10px 34px rgba(0,0,0,.55);">
                                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                                        <b>🧹 VRAM-дворецкий (LM Studio)</b>
+                                        <b>🧹 VRAM-дворецкий (LLM → sd.cpp)</b>
                                         <button class="vp-btn vp-btn-ghost vp-btn-sm" data-role="close">×</button>
                                     </div>
                                     <label style="display:flex; gap:8px; align-items:flex-start; cursor:pointer;">
                                         <input type="checkbox" data-role="enable" style="margin-top:2px;">
-                                        <span>Выгружать модели перед генерацией<br><code style="opacity:.75">lms unload --all</code></span>
+                                        <span>Выгружать LLM перед генерацией<br><code style="opacity:.75">освобождает VRAM под sd.cpp</code></span>
                                     </label>
                                     <div style="margin-top:8px;">
+                                        Бэкенд выгрузки
+                                        <select data-role="backend" style="width:100%; box-sizing:border-box; margin-top:3px; padding:4px 8px; border-radius:6px; border:1px solid var(--border,#3a3f4d); background:var(--bg-primary,#12151c); color:inherit;">
+                                            <option value="auto">Auto (llama.cpp → lms)</option>
+                                            <option value="llama">llama.cpp (Router API)</option>
+                                            <option value="lms">LM Studio (lms CLI)</option>
+                                        </select>
+                                    </div>
+                                    <div data-role="lms-row" style="margin-top:8px;">
                                         Путь к lms.exe <span style="opacity:.6">(пусто = из PATH)</span>
                                         <input type="text" data-role="lms-path" placeholder="lms" style="width:100%; box-sizing:border-box; margin-top:3px; padding:4px 8px; border-radius:6px; border:1px solid var(--border,#3a3f4d); background:var(--bg-primary,#12151c); color:inherit;">
                                     </div>
                                     <label style="display:flex; gap:8px; align-items:flex-start; cursor:pointer; margin-top:10px;">
                                         <input type="checkbox" data-role="reload" style="margin-top:2px;">
-                                        <span>Вернуть модель после генерации<br><code style="opacity:.75">lms load … --ttl 600</code></span>
+                                        <span>Вернуть модель после генерации<br><code style="opacity:.75">/models/load или lms load</code></span>
                                     </label>
                                     <div style="margin-top:6px;">
-                                        Модель (идентификатор lms)
-                                        <input type="text" data-role="reload-model" placeholder="напр. gemma-3-12b-it" style="width:100%; box-sizing:border-box; margin-top:3px; padding:4px 8px; border-radius:6px; border:1px solid var(--border,#3a3f4d); background:var(--bg-primary,#12151c); color:inherit;">
+                                        Модель <span style="opacity:.6">(пусто = та же, что была загружена)</span>
+                                        <input type="text" data-role="reload-model" placeholder="напр. orion-26b-a4b" style="width:100%; box-sizing:border-box; margin-top:3px; padding:4px 8px; border-radius:6px; border:1px solid var(--border,#3a3f4d); background:var(--bg-primary,#12151c); color:inherit;">
                                     </div>
-                                    <div style="margin-top:10px; opacity:.65;">💡 LM Studio с JIT вернёт модель сама на первом сообщении чата — «вернуть модель» нужно, только если JIT у тебя выключен.</div>
+                                    <div style="margin-top:10px; opacity:.65;">💡 llama-server (Router) и LM Studio с JIT вернут модель сами при следующем сообщении в чате.</div>
                                 </div>
                             </span>
                             <span class="vp-as-tool-group vp-as-tool-right">
@@ -1523,10 +1542,15 @@
             const syncStewardBtn = () => {
                 if (!stewardBtn) return;
                 const on = !!this.config.vramSteward;
+                const mode = this.config.vramBackend || 'auto';
                 stewardBtn.style.opacity = on ? '1' : '0.45';
                 stewardBtn.title = on
-                    ? 'VRAM-дворецкий: ВКЛ — lms unload перед каждой генерацией'
-                    : 'VRAM-дворецкий (LM Studio): выкл';
+                    ? `VRAM-дворецкий: ВКЛ (${mode}) — выгрузка LLM перед генерацией`
+                    : 'VRAM-дворецкий: выкл';
+            };
+            const syncStewardLmsRow = () => {
+                const lmsRow = stewardPop?.querySelector('[data-role="lms-row"]');
+                if (lmsRow) lmsRow.style.display = (this.config.vramBackend === 'llama') ? 'none' : '';
             };
             syncStewardBtn();
             if (stewardBtn && stewardPop) {
@@ -1538,15 +1562,18 @@
                     if (!opening) { stewardPop.style.display = 'none'; return; }
                     const r = stewardBtn.getBoundingClientRect();
                     stewardPop.style.top = `${r.bottom + 6}px`;
-                    stewardPop.style.left = `${Math.max(8, r.right - 308)}px`;
+                    stewardPop.style.left = `${Math.max(8, r.right - 316)}px`;
                     stewardPop.style.display = 'block';
                     const en = stewardPop.querySelector('[data-role="enable"]');   if (en) en.checked = !!this.config.vramSteward;
+                    const bk = stewardPop.querySelector('[data-role="backend"]');  if (bk) bk.value = this.config.vramBackend || 'auto';
                     const lp = stewardPop.querySelector('[data-role="lms-path"]'); if (lp) lp.value = this.config.lmsPath || '';
                     const rl = stewardPop.querySelector('[data-role="reload"]');   if (rl) rl.checked = !!this.config.stewardReload;
                     const rm = stewardPop.querySelector('[data-role="reload-model"]'); if (rm) rm.value = this.config.stewardModel || '';
+                    syncStewardLmsRow();
                 });
                 bindCfg('close', 'click', () => { stewardPop.style.display = 'none'; });
                 bindCfg('enable', 'change', (e) => { this.config.vramSteward = !!e.target.checked; this.saveStudioState(); syncStewardBtn(); });
+                bindCfg('backend', 'change', (e) => { this.config.vramBackend = e.target.value || 'auto'; this.saveStudioState(); syncStewardBtn(); syncStewardLmsRow(); });
                 bindCfg('lms-path', 'change', (e) => { this.config.lmsPath = String(e.target.value || '').trim(); this.saveStudioState(); });
                 bindCfg('reload', 'change', (e) => { this.config.stewardReload = !!e.target.checked; this.saveStudioState(); });
                 bindCfg('reload-model', 'change', (e) => { this.config.stewardModel = String(e.target.value || '').trim(); this.saveStudioState(); });
@@ -2013,20 +2040,81 @@
         },
 
         async vramPreFlight(log, container) {
+            this._lastUnloadedLlamaModel = null;
+            this._lastUnloadedBackend = null;
             if (!this.config.vramSteward) return;
-            const { lms } = this._vramStewardCmd();
-            this.updateStudioStatus(container, '🧹 Freeing VRAM…');
-            await this._vramExec(`${lms} unload --all`, log,
-                '<b>🧹 VRAM:</b> модели выгружены. LM Studio вернёт модель сама (JIT) на первом сообщении чата.');
+
+            const write = (html) => { if (log) { log.innerHTML += `<div>${html}</div>`; log.scrollTop = log.scrollHeight; } };
+            const backend = this.config.vramBackend || 'auto';
+
+            // 1. llama.cpp Router API path (auto or llama)
+            if ((backend === 'auto' || backend === 'llama') && window.VP_LLAMA?.unloadAll) {
+                this.updateStudioStatus(container, '🧹 Freeing VRAM (llama.cpp)…');
+                try {
+                    const res = await window.VP_LLAMA.unloadAll({ waitMs: 10000 });
+                    if (res.reachable && res.isRouter) {
+                        this._lastUnloadedBackend = 'llama';
+                        if (res.unloadedIds.length) {
+                            this._lastUnloadedLlamaModel = res.unloadedIds[0];
+                            const idsEsc = res.unloadedIds.join(', ').replace(/</g, '&lt;');
+                            if (res.ok) {
+                                write(`<b>🧹 VRAM (llama.cpp):</b> выгружено <code>${idsEsc}</code> (${res.waitedMs} мс) — VRAM свободен под sd.cpp.`);
+                            } else {
+                                write(`<b style="color:var(--warn,#f9e2af)">🧹 VRAM (llama.cpp):</b> запрос выгрузки <code>${idsEsc}</code> отправлен, но таймаут ожидания истёк.`);
+                            }
+                        } else {
+                            write('<b>🧹 VRAM (llama.cpp):</b> активных моделей в VRAM нет.');
+                        }
+                        this.updateStudioStatus(container);
+                        return;
+                    }
+                    if (backend === 'llama') {
+                        write('<b>🧹 VRAM (llama.cpp):</b> роутер не отвечает — пропускаем выгрузку.');
+                        this.updateStudioStatus(container);
+                        return;
+                    }
+                } catch (err) {
+                    write(`<b style="color:var(--error)">🧹 VRAM (llama.cpp):</b> ошибка (${String(err?.message || err).replace(/</g, '&lt;')}).`);
+                    if (backend === 'llama') { this.updateStudioStatus(container); return; }
+                }
+            }
+
+            // 2. LM Studio (lms CLI) path — explicit 'lms' or 'auto' fallback when lmsPath is configured
+            if (backend === 'lms' || (backend === 'auto' && String(this.config.lmsPath || '').trim())) {
+                this._lastUnloadedBackend = 'lms';
+                const { lms } = this._vramStewardCmd();
+                this.updateStudioStatus(container, '🧹 Freeing VRAM (lms)…');
+                await this._vramExec(`${lms} unload --all`, log,
+                    '<b>🧹 VRAM (LM Studio):</b> модели выгружены. LM Studio вернёт модель сама (JIT) на первом сообщении чата.');
+                this.updateStudioStatus(container);
+                return;
+            }
+
             this.updateStudioStatus(container);
         },
 
         async vramPostFlight(log, container) {
-            const model = String(this.config.stewardModel || '').trim();
-            if (!this.config.vramSteward || !this.config.stewardReload || !model) return;
+            if (!this.config.vramSteward || !this.config.stewardReload) return;
+            const write = (html) => { if (log) { log.innerHTML += `<div>${html}</div>`; log.scrollTop = log.scrollHeight; } };
+            const backend = this.config.vramBackend || 'auto';
+            const configuredModel = String(this.config.stewardModel || '').trim();
+
+            if (backend === 'llama' || (backend === 'auto' && this._lastUnloadedBackend === 'llama')) {
+                const targetModel = configuredModel || this._lastUnloadedLlamaModel || String(S.modelConfig?.model || '').trim();
+                if (!targetModel || !window.VP_LLAMA?.loadModel) return;
+                try {
+                    await window.VP_LLAMA.loadModel(targetModel);
+                    write(`<b>🧹 VRAM (llama.cpp):</b> запрошена загрузка <code>${targetModel.replace(/</g, '&lt;')}</code> обратно в VRAM.`);
+                } catch (err) {
+                    write(`<b style="color:var(--error)">🧹 VRAM (llama.cpp):</b> не удалось вернуть модель (${String(err?.message || err).replace(/</g, '&lt;')}).`);
+                }
+                return;
+            }
+
+            if (!configuredModel) return;
             const { lms, quote } = this._vramStewardCmd();
-            await this._vramExec(`${lms} load ${quote(model)} --ttl 600`, log,
-                `<b>🧹 VRAM:</b> модель ${model.replace(/</g, '&lt;')} загружена обратно (TTL 600с).`);
+            await this._vramExec(`${lms} load ${quote(configuredModel)} --ttl 600`, log,
+                `<b>🧹 VRAM (LM Studio):</b> модель ${configuredModel.replace(/</g, '&lt;')} загружена обратно (TTL 600с).`);
         },
 
         async runCLI(bag, log, preview, progress, progressLabel, stopBtn, container, assetName) {

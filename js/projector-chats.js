@@ -1493,36 +1493,38 @@
                 border-bottom:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.025);
             }
             .vp-chats-toolbar .spacer { flex:1; }
-            .vp-chats-list { flex:1; min-height:0; overflow:auto; padding:8px; display:flex; flex-direction:column; gap:8px; }
+            .vp-chats-list { flex:1; min-height:0; overflow:auto; padding:5px; display:flex; flex-direction:column; gap:4px; }
             .vp-chats-empty {
                 margin:auto; text-align:center; color:var(--text-secondary,#a6adc8); font-size:12px; line-height:1.5; max-width:280px;
             }
             .vp-chats-item {
-                border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:9px 10px;
-                background:rgba(255,255,255,0.04); cursor:pointer; display:flex; gap:10px; align-items:flex-start;
+                border:1px solid rgba(255,255,255,0.08); border-radius:7px; padding:5px 7px;
+                background:rgba(255,255,255,0.04); cursor:pointer; display:flex; gap:7px; align-items:center;
             }
             .vp-chats-item:hover { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.16); }
             .vp-chats-item.active { border-color:rgba(108,95,166,0.72); box-shadow:0 0 0 1px rgba(108,95,166,0.28) inset; background:rgba(108,95,166,0.14); }
-            .vp-chats-avatar-stack { flex:0 0 auto; min-width:32px; max-width:86px; display:flex; align-items:center; padding-left:0; margin-top:1px; }
+            .vp-chats-avatar-stack { flex:0 0 auto; min-width:26px; max-width:74px; display:flex; align-items:center; padding-left:0; margin-top:0; }
             .vp-chat-avatar {
-                width:30px; height:30px; border-radius:999px; flex:0 0 30px; display:flex; align-items:center; justify-content:center;
-                font-size:12px; font-weight:800; color:#fff; background:var(--accent,#6c5fa6); overflow:hidden;
-                border:2px solid rgba(30,30,46,0.96); box-shadow:0 2px 8px rgba(0,0,0,0.28);
+                width:24px; height:24px; border-radius:999px; flex:0 0 24px; display:flex; align-items:center; justify-content:center;
+                font-size:10.5px; font-weight:800; color:#fff; background:var(--accent,#6c5fa6); overflow:hidden;
+                border:2px solid rgba(30,30,46,0.96); box-shadow:0 1px 5px rgba(0,0,0,0.26);
             }
             .vp-chat-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
-            .vp-chat-avatar.stacked + .vp-chat-avatar.stacked { margin-left:-11px; }
-            .vp-chat-avatar.active { box-shadow:0 0 0 1px rgba(255,255,255,0.46), 0 2px 8px rgba(0,0,0,0.32); }
-            .vp-chat-avatar.overflow { background:rgba(255,255,255,0.10) !important; color:var(--text-secondary,#a6adc8); font-size:10px; border-color:rgba(30,30,46,0.96) !important; }
+            .vp-chat-avatar.stacked + .vp-chat-avatar.stacked { margin-left:-8px; }
+            .vp-chat-avatar.active { box-shadow:0 0 0 1px rgba(255,255,255,0.46), 0 1px 5px rgba(0,0,0,0.30); }
+            .vp-chat-avatar.overflow { background:rgba(255,255,255,0.10) !important; color:var(--text-secondary,#a6adc8); font-size:9.5px; border-color:rgba(30,30,46,0.96) !important; }
             .vp-chats-avatar {
-                width:30px; height:30px; border-radius:999px; flex:0 0 30px; display:flex; align-items:center; justify-content:center;
-                font-size:12px; font-weight:700; color:#fff; background:var(--accent,#6c5fa6);
+                width:24px; height:24px; border-radius:999px; flex:0 0 24px; display:flex; align-items:center; justify-content:center;
+                font-size:10.5px; font-weight:700; color:#fff; background:var(--accent,#6c5fa6);
             }
             .vp-chats-main { min-width:0; flex:1; }
-            .vp-chats-title { font-size:13px; font-weight:700; color:var(--text-primary,#cdd6f4); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-            .vp-chats-sub { margin-top:2px; font-size:11px; color:var(--text-secondary,#a6adc8); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-            .vp-chats-actions { display:flex; gap:4px; flex:0 0 auto; }
+            .vp-chats-title { font-size:12px; font-weight:700; line-height:1.25; color:var(--text-primary,#cdd6f4); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .vp-chats-sub { margin-top:1px; font-size:10.5px; line-height:1.2; color:var(--text-secondary,#a6adc8); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .vp-chats-actions { display:flex; gap:1px; flex:0 0 auto; opacity:0.28; transition:opacity 0.14s ease; }
+            .vp-chats-item:hover .vp-chats-actions,
+            .vp-chats-item:focus-within .vp-chats-actions { opacity:1; }
             .vp-chats-mini {
-                border:0; background:transparent; color:var(--text-secondary,#a6adc8); cursor:pointer; font-size:11px; padding:2px 4px; border-radius:4px;
+                border:0; background:transparent; color:var(--text-secondary,#a6adc8); cursor:pointer; font-size:11px; padding:2px 4px; border-radius:4px; line-height:1;
             }
             .vp-chats-mini:hover { background:rgba(255,255,255,0.10); color:var(--text-primary,#cdd6f4); }
             .vp-profiles-item {
@@ -1543,19 +1545,19 @@
             }
             .vp-profiles-grid {
                 --vp-profile-card-size: 170px;
-                flex:1; min-height:0; overflow:auto; padding:10px;
+                flex:1; min-height:0; overflow:auto; padding:6px;
                 /* Fixed-width cards: panel resize only changes how many
                    columns fit — cards themselves never stretch or jump.
                    Rows grow independently to fit long descriptions. */
-                display:flex; flex-wrap:wrap; gap:10px;
+                display:flex; flex-wrap:wrap; gap:7px;
                 align-content:flex-start; align-items:flex-start;
                 justify-content:flex-start;
             }
             .vp-profile-card {
                 position:relative; width:var(--vp-profile-card-size); flex:0 0 auto;
-                border:1px solid rgba(255,255,255,0.08); border-radius:12px;
-                background:rgba(255,255,255,0.04); cursor:pointer; padding:10px;
-                display:flex; flex-direction:column; align-items:stretch; gap:8px; overflow:hidden;
+                border:1px solid rgba(255,255,255,0.08); border-radius:9px;
+                background:rgba(255,255,255,0.04); cursor:pointer; padding:7px;
+                display:flex; flex-direction:column; align-items:stretch; gap:5px; overflow:hidden;
                 transition: transform .12s ease, background .12s ease, border-color .12s ease;
             }
             .vp-profile-card:hover { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.16); transform:translateY(-1px); }
@@ -1769,20 +1771,25 @@
         document.head.appendChild(style);
     }
 
-    function renderChatsPanel(container) {
+    function renderChatsPanel(container, ctx = {}) {
         injectChatPanelStyles();
+        const liveCtx = ctx?.setHeaderContent
+            ? ctx
+            : VP.shell?.getPanelContext?.(container.closest?.('.vp-shell-area')?.dataset?.areaId, 'chats') || ctx;
         container.innerHTML = '';
         const wrap = document.createElement('div');
         wrap.className = 'vp-chats-panel';
-        wrap.innerHTML = `
-            <div class="vp-chats-toolbar">
-                <button class="vp-btn" data-act="new">＋ New</button>
-                <button class="vp-btn vp-btn-ghost" data-act="dup">Duplicate</button>
-                <span class="spacer"></span>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="edit">Edit</button>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="delete">Delete</button>
-            </div>
-            <div class="vp-chats-list"></div>`;
+        wrap.innerHTML = `<div class="vp-chats-list"></div>`;
+
+        const toolbar = document.createElement('div');
+        toolbar.className = liveCtx?.setHeaderContent ? 'vp-hdr-bar' : 'vp-chats-toolbar';
+        toolbar.innerHTML = `
+            <button class="vp-btn" data-act="new" title="New chat"><span class="vp-hdr-ico">＋</span><span class="vp-hdr-lbl">New</span></button>
+            <button class="vp-btn vp-btn-ghost" data-act="dup" title="Duplicate active chat"><span class="vp-hdr-ico">⧉</span><span class="vp-hdr-lbl">Duplicate</span></button>
+            <span class="vp-hdr-spacer spacer"></span>
+            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="edit" title="Edit active chat"><span class="vp-hdr-ico">✎</span><span class="vp-hdr-lbl">Edit</span></button>
+            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="delete" title="Delete active chat"><span class="vp-hdr-ico">🗑</span><span class="vp-hdr-lbl">Delete</span></button>
+        `;
 
         const list = wrap.querySelector('.vp-chats-list');
         const chats = [...(S.chats.items || [])].sort((a, b) => (b.meta?.updatedAt || 0) - (a.meta?.updatedAt || 0));
@@ -1799,9 +1806,9 @@
                         <div class="vp-chats-sub">${getChatSubtitle(chat)}</div>
                     </div>
                     <div class="vp-chats-actions">
-                        <button class="vp-chats-mini" data-act="dup" title="Duplicate">dup</button>
-                        <button class="vp-chats-mini" data-act="edit" title="Edit chat">edit</button>
-                        <button class="vp-chats-mini" data-act="del" title="Delete">×</button>
+                        <button class="vp-chats-mini" data-act="dup" title="Duplicate chat">⧉</button>
+                        <button class="vp-chats-mini" data-act="edit" title="Edit chat">✎</button>
+                        <button class="vp-chats-mini vp-chats-mini-danger" data-act="del" title="Delete chat">×</button>
                     </div>`;
                 renderChatAvatarStack(item.querySelector('[data-role="avatar-stack"]'), chat);
                 item.addEventListener('click', () => { activateChatAsync(chat.id).catch(err => VP.showToast?.(`Chat switch failed: ${err.message || err}`, 'error')); });
@@ -1812,10 +1819,15 @@
             });
         }
 
-        wrap.querySelector('[data-act="new"]').addEventListener('click', () => createChatInteractive());
-        wrap.querySelector('[data-act="dup"]').addEventListener('click', () => duplicateActiveChatInteractive());
-        wrap.querySelector('[data-act="edit"]').addEventListener('click', () => openChatEditorInteractive());
-        wrap.querySelector('[data-act="delete"]').addEventListener('click', () => deleteChatInteractive());
+        toolbar.querySelector('[data-act="new"]').addEventListener('click', () => createChatInteractive());
+        toolbar.querySelector('[data-act="dup"]').addEventListener('click', () => duplicateActiveChatInteractive());
+        toolbar.querySelector('[data-act="edit"]').addEventListener('click', () => openChatEditorInteractive());
+        toolbar.querySelector('[data-act="delete"]').addEventListener('click', () => deleteChatInteractive());
+        if (liveCtx?.setHeaderContent) {
+            liveCtx.setHeaderContent(toolbar);
+        } else {
+            wrap.prepend(toolbar);
+        }
         container.appendChild(wrap);
     }
 
@@ -1863,17 +1875,22 @@
 
     function renderProfilesPanel(container, ctx = {}) {
         injectChatPanelStyles();
-        const prefs = getProfilesPanelPrefs(ctx);
+        const liveCtx = ctx?.setHeaderContent
+            ? ctx
+            : VP.shell?.getPanelContext?.(container.closest?.('.vp-shell-area')?.dataset?.areaId, 'profiles') || ctx;
+        const prefs = getProfilesPanelPrefs(liveCtx);
         container.innerHTML = '';
         const wrap = document.createElement('div');
         wrap.className = 'vp-chats-panel';
-        wrap.innerHTML = `
-            <div class="vp-chats-toolbar">
-                <button class="vp-btn" data-act="new-profile">＋ Profile</button>
-                <span class="spacer"></span>
-                <span style="color:var(--text-secondary,#a6adc8);font-size:11px;">${S.profiles.items.length} profile${S.profiles.items.length === 1 ? '' : 's'} · ${prefs.viewMode}</span>
-            </div>
-            <div class="vp-profiles-grid ${prefs.viewMode === 'list' ? 'list-mode' : 'grid-mode'}"></div>`;
+        wrap.innerHTML = `<div class="vp-profiles-grid ${prefs.viewMode === 'list' ? 'list-mode' : 'grid-mode'}"></div>`;
+
+        const toolbar = document.createElement('div');
+        toolbar.className = liveCtx?.setHeaderContent ? 'vp-hdr-bar' : 'vp-chats-toolbar';
+        toolbar.innerHTML = `
+            <button class="vp-btn" data-act="new-profile" title="Create new profile"><span class="vp-hdr-ico">＋</span><span class="vp-hdr-lbl">Profile</span></button>
+            <span class="vp-hdr-spacer spacer"></span>
+            <span class="vp-hdr-meta">${S.profiles.items.length} profile${S.profiles.items.length === 1 ? '' : 's'} · ${prefs.viewMode}</span>
+        `;
 
         const grid = wrap.querySelector('.vp-profiles-grid');
         grid.style.setProperty('--vp-profile-card-size', `${prefs.cardSize}px`);
@@ -1966,7 +1983,12 @@
             });
         }
 
-        wrap.querySelector('[data-act="new-profile"]').addEventListener('click', () => createProfileInteractive());
+        toolbar.querySelector('[data-act="new-profile"]').addEventListener('click', () => createProfileInteractive());
+        if (liveCtx?.setHeaderContent) {
+            liveCtx.setHeaderContent(toolbar);
+        } else {
+            wrap.prepend(toolbar);
+        }
         container.appendChild(wrap);
     }
 

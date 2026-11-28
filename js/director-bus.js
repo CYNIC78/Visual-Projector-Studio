@@ -32,12 +32,14 @@
     'use strict';
 
     // Called ONCE by visual-projector.js at its bridge site (engine boot).
-    // deps = { State, VPTags, setCurrent, showToast, getProjectorViewportState,
-    //          ensureViewportGlideLoopActive, updateProjectorDepthLayer }
+    // deps = { State, VPTags, setCurrent, playSequence, stopSequence, showToast,
+    //          getProjectorViewportState, ensureViewportGlideLoopActive, updateProjectorDepthLayer }
     function createCommandBus(deps = {}) {
         const State = deps.State;
         const VPTags = deps.VPTags;
         const setCurrent = deps.setCurrent;
+        const playSequence = deps.playSequence || null;
+        const stopSequence = deps.stopSequence || function () { return { stopped: false }; };
         const showToast = deps.showToast || function () {};
         const getProjectorViewportState = deps.getProjectorViewportState;
         const ensureViewportGlideLoopActive = deps.ensureViewportGlideLoopActive || function () {};
@@ -113,6 +115,11 @@
                 const img = VPTags.parseImageBody(body);
                 if (!img?.tag) return { ok: false, error: 'Empty image tag' };
                 return { ok: true, payload: { tag: img.tag, transition: img.transition || null } };
+            }
+            if (type === 'SEQ') {
+                const seq = VPTags.parseSeqBody(body);
+                if (!seq) return { ok: false, error: 'Invalid sequence; expected [SEQ:tag1,tag2,...:tempo(:loop|:pingpong)] or [SEQ:stop]' };
+                return { ok: true, payload: seq };
             }
             if (type === 'FX') {
                 const name = VPTags.cleanBody(body);
@@ -255,6 +262,32 @@
             const ok = !!tag && setCurrent(tag, meta.setCurrentSource || 'model', true, transition || null);
             if (ok && meta.showToast !== false) showToast(`▶ ${tag}`, 'info');
             return { ok, tag, transition: transition || null, delayMs: ok ? 400 : 0, error: ok ? null : `Image tag not found: ${tag || '(empty)'}` };
+        },
+    });
+
+    VPCommandBus.register('SEQ', {
+        target: 'projector',
+        description: 'Play an ordered asset sequence: [SEQ:tag1,tag2,tag3:slow|med|fast(:loop|:pingpong)] or [SEQ:stop]',
+        queueable: true,
+        handler(cmd, meta = {}) {
+            const spec = cmd.payload || {};
+            if (spec.action === 'stop') {
+                const res = stopSequence('command-stop');
+                if (res?.stopped && meta.showToast !== false) showToast('⏹ SEQ stopped', 'info');
+                return { ok: true, action: 'stop', stopped: !!res?.stopped, delayMs: 0 };
+            }
+            if (typeof playSequence !== 'function') {
+                return { ok: false, error: 'Sequence player is not available', delayMs: 0 };
+            }
+            const res = playSequence(spec, meta);
+            if (res?.ok && meta.showToast !== false) {
+                const modeMark = res.mode === 'loop' ? ' 🔁' : (res.mode === 'pingpong' ? ' ⇄' : '');
+                showToast(`▶ SEQ (${res.count} · ${res.tempo}${modeMark})`, 'info');
+            }
+            return {
+                ...res,
+                delayMs: res?.ok ? 250 : 0,
+            };
         },
     });
 
@@ -418,6 +451,9 @@
         // ok stays true (the command RAN); `matched: false` is the honesty flag
         // for the command log, loop observers and any future feedback channel.
         const res = TM.executeCommand(entityType || cmd.type, action, name) || {};
+        if ((entityType || cmd.type) === 'TAB' && res.changed && State.sequence?.active) {
+            stopSequence('tab-changed');
+        }
         return {
             ok: true,
             entityType: entityType || cmd.type,

@@ -37,6 +37,14 @@
         toolsMode: 'off',        // 'off' | 'native' ('text-tags' reserved but dead — option hidden in UI v26)
         toolLoopLimit: 4,        // max tool call rounds per turn
         agenticLoop: false,      // v24: one continuation after [TAB/CAT] scene transitions (depth 1)
+        thinkingMode: 'off',     // 'off' | 'low' | 'high' | 'default' -> maps to reasoning_effort
+        llama: {
+            binPath: 'bin/llama.cpp/llama-server.exe',
+            presetPath: 'bin/llama.cpp/models.ini',
+            port: 1234,
+            modelsMax: 1,
+            autoStart: false,
+        },
         // v26 per-tool management: disabledTools: string[] — persisted truth for
         // per-tool toggles (UI lives in the Model panel; applied to the registry at
         // boot and respected by VP.tools.register for late registrations).
@@ -93,6 +101,13 @@
         if (!Number.isFinite(+S.modelConfig.maxTokens)) S.modelConfig.maxTokens = DEFAULT_MODEL.maxTokens;
         // v26: 'text-tags' was never implemented (loop only honors 'native'); migrate honestly
         if (S.modelConfig.toolsMode === 'text-tags') S.modelConfig.toolsMode = 'off';
+        if (!['off', 'low', 'high', 'default'].includes(String(S.modelConfig.thinkingMode || ''))) {
+            S.modelConfig.thinkingMode = DEFAULT_MODEL.thinkingMode;
+        }
+        S.modelConfig.llama = {
+            ...DEFAULT_MODEL.llama,
+            ...(S.modelConfig.llama && typeof S.modelConfig.llama === 'object' ? S.modelConfig.llama : {}),
+        };
 
         S.session = {
             ...JSON.parse(JSON.stringify(DEFAULT_SESSION)),
@@ -136,6 +151,7 @@
             if (savedSession) S.session = { ...(S.session || {}), ...savedSession };
             normalizeState();
             _stateHydrated = true;
+            window.VP_LLAMA?.onConfigReady?.();
         })();
         return _storageHydrationPromise;
     }
@@ -222,7 +238,7 @@
         const raw = String(text || '');
         const stripped = VP.tags?.strip
             ? VP.tags.strip(raw)
-            : raw.replace(/\[\s*(IMG|SET|PLAY|FRAME|IMAGE|FX|CAT|TAB|ACTIVITY_REQUEST|ACTIVITY_CHALLENGE|ACTIVITY_START|ACTIVITY_AUTO|ACTIVITY_ACCEPT|ACTIVITY_DECLINE)\s*(?::|：)?[^\]\r\n]*\]/giu, '');
+            : raw.replace(/\[\s*(IMG|SET|PLAY|FRAME|IMAGE|SEQ|FX|CAT|TAB|FOCUS|ACTIVITY_REQUEST|ACTIVITY_CHALLENGE|ACTIVITY_START|ACTIVITY_AUTO|ACTIVITY_ACCEPT|ACTIVITY_DECLINE)\s*(?::|：)?[^\]\r\n]*\]/giu, '');
         return stripped.replace(/\n{3,}/g, '\n\n').trim();
     }
 
@@ -459,8 +475,16 @@
         }
 
         // Studio 2.0: Build body with integrated tool indicators
+        const wasThinkingOpen = !!body.querySelector('.vp-thinking-info')?.open;
         let htmlContent = '';
         let toolsHtml = '';
+
+        // 0. Collapsible reasoning / thinking spoiler (never fed to subtitles or VP tags)
+        if (m.reasoning && String(m.reasoning).trim()) {
+            const rText = String(m.reasoning);
+            const openAttr = wasThinkingOpen ? ' open' : '';
+            htmlContent += `<details class="vp-thinking-info"${openAttr}><summary>💭 Мысли (${rText.length} зн.)</summary><pre>${escapeHtml(rText)}</pre></details>`;
+        }
 
         // 1. Prepare technical tool info (Pre-pended for stability)
         if (m.tool_calls && Array.isArray(m.tool_calls) && m.tool_calls.length) {
@@ -1098,6 +1122,14 @@
             while (true) {
                 // Studio 2.0: Always use streaming for maximum responsiveness
                 preparedBody.stream = true;
+                preparedBody.stream_options = { include_usage: true };
+
+                // Inject per-request reasoning_effort ('none' | 'low' | 'high') if configured
+                const reasoningEffort = window.VP_LLAMA?.getReasoningEffortForRequest?.()
+                    ?? (S.modelConfig.thinkingMode === 'off' ? 'none'
+                        : (['low', 'high'].includes(S.modelConfig.thinkingMode) ? S.modelConfig.thinkingMode : null));
+                if (reasoningEffort) preparedBody.reasoning_effort = reasoningEffort;
+                else delete preparedBody.reasoning_effort;
 
                 const response = await VP.utils.fetchWithImageFallback(endpoint, headers, preparedBody, ac.signal);
 
@@ -1112,7 +1144,7 @@
 
                 if (isStreaming) {
                     // readStreamingResponse now returns tool_calls if detected in stream
-                    const result = await readStreamingResponse(response, assistant.id);
+                    const result = await readStreamingResponse(response, assistant.id, effectiveModel.model);
                     
                     if (result && result.tool_calls && result.tool_calls.length && toolsEnabled) {
                         toolCallDetected = true;
@@ -1260,6 +1292,7 @@
                 }
 
                 finalContent = choice.message?.content || "";
+                const nonStreamReasoning = choice.message?.reasoning_content || choice.message?.reasoning || "";
                 if (!finalContent && toolCallDetected && choice.finish_reason === "stop") {
                      // Final text empty but loop done
                 }
@@ -1269,11 +1302,23 @@
                     finalContent = transcriptParts.join("\n\n");
                 }
 
+                const nonStreamUsage = data.usage ? {
+                    prompt_tokens: Number(data.usage.prompt_tokens) || 0,
+                    completion_tokens: Number(data.usage.completion_tokens) || 0,
+                    total_tokens: Number(data.usage.total_tokens) || ((Number(data.usage.prompt_tokens) || 0) + (Number(data.usage.completion_tokens) || 0)),
+                    ...(data.timings?.predicted_per_second ? { tps: Math.round(Number(data.timings.predicted_per_second) * 10) / 10 } : {}),
+                } : null;
+
                 updateMessage(assistant.id, {
                     raw: finalContent,
                     clean: stripVpCommands(finalContent),
                     status: "done",
+                    ...(nonStreamReasoning ? { reasoning: nonStreamReasoning } : {}),
+                    ...(nonStreamUsage ? { usage: nonStreamUsage } : {}),
                 });
+                if (nonStreamUsage) {
+                    window.VP_LLAMA?.reportUsage?.(nonStreamUsage, effectiveModel.model, data.timings);
+                }
 
                 processActivityCommandsViaBus(finalContent, { role: "assistant", source: "session" });
                 requestPlaybackCommit(finalContent);
@@ -1321,7 +1366,7 @@
         }
     }
 
-    async function readStreamingResponse(response, assistantId) {
+    async function readStreamingResponse(response, assistantId, modelId = null) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -1331,13 +1376,37 @@
         // удаляется и модель отвечает заново"). Seed from the current raw; keep
         // `own` for iteration-local side effects (playback commit, activity bus,
         // preparedBody assistant echo) so earlier iterations are never doubled.
-        const seededRaw = String(getActiveMessages().find(x => x.id === assistantId)?.raw || '');
+        const existingMsg = getActiveMessages().find(x => x.id === assistantId);
+        const seededRaw = String(existingMsg?.raw || '');
+        const seededReasoning = String(existingMsg?.reasoning || '');
         let full = seededRaw;
+        let fullReasoning = seededReasoning;
         let own = "";
+        let ownReasoning = "";
         let lastRender = 0;
+        let streamUsage = null;
+        let streamTimings = null;
 
         const toolCallAccumulator = [];
         let finishReason = null;
+
+        const applyReasoningDelta = (delta) => {
+            if (!delta) return;
+            if (!ownReasoning && seededReasoning && !/\n\s*$/.test(seededReasoning)) fullReasoning += "\n\n";
+            fullReasoning += delta;
+            ownReasoning += delta;
+
+            const m = getActiveMessages().find(x => x.id === assistantId);
+            if (m) {
+                m.reasoning = fullReasoning;
+                if (!own) m.status = `🧠 думает… (${fullReasoning.length} зн.)`;
+            }
+            const now = Date.now();
+            if (now - lastRender > 120) {
+                lastRender = now;
+                updateVisibleMessage(assistantId);
+            }
+        };
 
         const applyDelta = (delta) => {
             if (!delta) return;
@@ -1373,8 +1442,14 @@
                 if (!data || data === "[DONE]") continue;
                 try {
                     const json = JSON.parse(data);
+                    if (json.usage && typeof json.usage === 'object') streamUsage = json.usage;
+                    if (json.timings && typeof json.timings === 'object') streamTimings = json.timings;
+
                     const choice = json.choices?.[0];
                     if (choice?.finish_reason) finishReason = choice.finish_reason;
+
+                    const deltaReasoning = choice?.delta?.reasoning_content ?? choice?.delta?.reasoning ?? "";
+                    if (deltaReasoning) applyReasoningDelta(deltaReasoning);
 
                     if (choice?.delta?.tool_calls) {
                         for (const tc of choice.delta.tool_calls) {
@@ -1396,18 +1471,41 @@
             }
         }
 
-        if (finishReason === "tool_calls" || toolCallAccumulator.length > 0) {
-            return { tool_calls: toolCallAccumulator, fullText: own };
+        const normalizedUsage = streamUsage ? {
+            prompt_tokens: Number(streamUsage.prompt_tokens) || 0,
+            completion_tokens: Number(streamUsage.completion_tokens) || 0,
+            total_tokens: Number(streamUsage.total_tokens) || ((Number(streamUsage.prompt_tokens) || 0) + (Number(streamUsage.completion_tokens) || 0)),
+            ...(streamTimings?.predicted_per_second ? { tps: Math.round(Number(streamTimings.predicted_per_second) * 10) / 10 } : {}),
+        } : null;
+
+        if (normalizedUsage) {
+            window.VP_LLAMA?.reportUsage?.(normalizedUsage, modelId, streamTimings);
         }
 
-        updateMessage(assistantId, { raw: full, clean: stripVpCommands(full), status: "done" });
+        if (finishReason === "tool_calls" || toolCallAccumulator.length > 0) {
+            if (fullReasoning || normalizedUsage) {
+                updateMessage(assistantId, {
+                    ...(fullReasoning ? { reasoning: fullReasoning } : {}),
+                    ...(normalizedUsage ? { usage: normalizedUsage } : {}),
+                });
+            }
+            return { tool_calls: toolCallAccumulator, fullText: own, reasoning: fullReasoning, usage: normalizedUsage };
+        }
+
+        updateMessage(assistantId, {
+            raw: full,
+            clean: stripVpCommands(full),
+            status: "done",
+            ...(fullReasoning ? { reasoning: fullReasoning } : {}),
+            ...(normalizedUsage ? { usage: normalizedUsage } : {}),
+        });
         processActivityCommandsViaBus(own, { role: "assistant", source: "session" });
         requestPlaybackCommit(own);
         
         // Final UI update to ensure full text is visible (Studio 2.0)
         updateVisibleMessage(assistantId);
         
-        return { fullText: full };
+        return { fullText: full, reasoning: fullReasoning, usage: normalizedUsage };
     }
     function stop() {
         if (S.session?.abortController) {
@@ -1426,6 +1524,7 @@
             ],
         });
         if (ans !== 'ok') return;
+        window.VP_LLAMA?.clearUsage?.();
         replaceActiveMessages([]);
         renderRegisteredPanels();
     }

@@ -576,6 +576,9 @@
                     // v27: the law of the entered state repeats at the entry moment
                     const tabRules = String(tab.rules || '').trim();
                     if (tabRules) focusScene.rules = tabRules.length > 300 ? tabRules.slice(0, 299) + '…' : tabRules;
+                    if (tab.seqEnabled) {
+                        focusScene.sequences = window.VP_TEMPLATES?.SEQ_RULE_HINT || 'Sequences enabled: use [SEQ:tag1,tag2,tag3:tempo] (tempo: slow|med|fast; optional :loop or :pingpong; [SEQ:stop] to stop) for multi-step motion instead of separate [IMG:] tags.';
+                    }
                 }
 
                 const collageAsset = VP.state?.gallery?.get?.('__SCENERY_COLLAGE__');

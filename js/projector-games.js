@@ -546,6 +546,8 @@
                 max_tokens: Number.isFinite(+opts.maxTokens) ? +opts.maxTokens : (Number.isFinite(+cfg.maxTokens) ? +cfg.maxTokens : 512),
                 stream: false,
             };
+            const effort = window.VP_LLAMA?.getReasoningEffortForRequest?.(opts.reasoningEffort || 'off');
+            if (effort) body.reasoning_effort = effort;
             const fetcher = S.originalFetch || window.fetch;
             const response = await fetcher(endpoint, {
                 method: 'POST',
@@ -1060,20 +1062,21 @@
             .vp-games-create { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
             .vp-games-statusbar { flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:0 9px 7px; border-bottom:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.018); color:var(--text-secondary,#a6adc8); font-size:11px; }
             .vp-games-body { flex:1; min-height:0; display:flex; flex-direction:column; padding:0; }
-            .vp-games-list { flex:0 0 auto; max-height: 220px; overflow:auto; display:flex; flex-direction:column; padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.12); }
-            .vp-games-list-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+            .vp-games-list { flex:0 0 auto; max-height: 165px; overflow:auto; display:flex; flex-direction:column; padding: 5px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.12); }
+            .vp-games-list.is-collapsed { display:none; }
+            .vp-games-list-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 5px; }
             .vp-games-stage { flex:1; min-width:0; min-height:0; overflow:auto; border-radius:0; background:rgba(0,0,0,0.16); position: relative; }
-            .vp-game-item { border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:8px 10px; background:rgba(255,255,255,0.04); cursor:pointer; display: flex; flex-direction: column; gap: 5px; }
+            .vp-game-item { border:1px solid rgba(255,255,255,0.08); border-radius:7px; padding:6px 8px; background:rgba(255,255,255,0.04); cursor:pointer; display: flex; flex-direction: column; gap: 3px; }
             .vp-game-item:hover { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.16); }
             .vp-game-item.active { border-color:rgba(108,95,166,0.72); background:rgba(108,95,166,0.14); }
             .vp-game-item.active-context { border-color:rgba(166,227,161,0.62); box-shadow:0 0 0 1px rgba(166,227,161,0.12) inset; }
-            .vp-game-title-row { display:flex; align-items:center; gap:6px; min-width:0; }
-            .vp-game-title { flex:1; min-width:0; font-size:13px; font-weight:800; color:var(--text-primary,#cdd6f4); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-            .vp-game-badge { flex:0 0 auto; border:1px solid rgba(255,255,255,0.12); border-radius:999px; padding:1px 6px; font-size:10px; color:var(--text-secondary,#a6adc8); background:rgba(255,255,255,0.05); }
+            .vp-game-title-row { display:flex; align-items:center; gap:5px; min-width:0; }
+            .vp-game-title { flex:1; min-width:0; font-size:12px; font-weight:800; color:var(--text-primary,#cdd6f4); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .vp-game-badge { flex:0 0 auto; border:1px solid rgba(255,255,255,0.12); border-radius:999px; padding:1px 5px; font-size:9.5px; color:var(--text-secondary,#a6adc8); background:rgba(255,255,255,0.05); }
             .vp-game-badge.active { color:#eaffef; border-color:rgba(166,227,161,0.36); background:rgba(166,227,161,0.12); }
             .vp-game-badge.mounted { color:#f9e2af; border-color:rgba(249,226,175,0.28); background:rgba(249,226,175,0.1); }
-            .vp-game-sub { margin-top:5px; font-size:11px; color:var(--text-secondary,#a6adc8); line-height:1.35; overflow-wrap:anywhere; }
-            .vp-game-actions { margin-top:7px; display:flex; gap:5px; flex-wrap:wrap; }
+            .vp-game-sub { margin-top:2px; font-size:10.5px; color:var(--text-secondary,#a6adc8); line-height:1.3; overflow-wrap:anywhere; }
+            .vp-game-actions { margin-top:4px; display:flex; gap:4px; flex-wrap:wrap; }
             .vp-games-empty { height:100%; display:flex; align-items:center; justify-content:center; text-align:center; color:var(--text-secondary,#a6adc8); font-size:12px; line-height:1.45; padding:18px; }
             #vp-game-overlay-root { position:fixed; inset:0; z-index:70000; background:var(--bg-primary,#11111b); color:var(--text-primary,#cdd6f4); display:flex; flex-direction:column; font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
             .vp-game-overlay-topbar { height:38px; flex:0 0 38px; display:flex; align-items:center; gap:10px; padding:0 10px; background:var(--bg-tertiary,#252540); border-bottom:1px solid var(--border,#383860); box-shadow:0 4px 18px rgba(0,0,0,.22); }
@@ -1090,40 +1093,69 @@
         document.head.appendChild(style);
     }
 
-    async function renderGamesPanel(container) {
+    async function renderGamesPanel(container, ctx = {}) {
         injectStyles();
+        const liveCtx = ctx?.setHeaderContent
+            ? ctx
+            : VP.shell?.getPanelContext?.(container.closest?.('.vp-shell-area')?.dataset?.areaId, 'game') || ctx;
         container.innerHTML = '';
         const wrap = document.createElement('div');
         wrap.className = 'vp-games-panel';
         wrap.innerHTML = `
-            <div class="vp-games-toolbar">
-                <div class="vp-games-create">
-                    <button class="vp-btn" data-act="hello">＋ Hello</button>
-                    <button class="vp-btn vp-btn-ghost" data-act="messenger">＋ Messenger</button>
-                    <button class="vp-btn vp-btn-ghost" data-act="lifesim">＋ LifeSim</button>
-                </div>
-                <span class="spacer"></span>
-                <button class="vp-btn vp-btn-ghost" data-act="import">📥 Import</button>
-                <button class="vp-btn vp-btn-ghost" data-act="refresh">Refresh</button>
-                <button class="vp-btn vp-btn-ghost" data-act="folder">📂 Folder</button>
-            </div>
-            <div class="vp-games-statusbar">
-                <span data-role="active-status">Trusted local game modules</span>
-            </div>
             <div class="vp-games-body">
                 <div class="vp-games-list"></div>
                 <div class="vp-games-stage"><div class="vp-games-empty">Select or create a game module.</div></div>
             </div>`;
+
+        const toolbar = document.createElement('div');
+        toolbar.className = liveCtx?.setHeaderContent ? 'vp-hdr-bar' : 'vp-games-toolbar';
+        toolbar.innerHTML = `
+            <button class="vp-btn vp-btn-ghost" data-act="toggle-list" title="Show/hide games list"><span class="vp-hdr-ico">☰</span><span class="vp-hdr-lbl">List</span></button>
+            <button class="vp-btn" data-act="hello" title="Create / update Hello Game"><span class="vp-hdr-ico">＋</span><span class="vp-hdr-lbl">Hello</span></button>
+            <button class="vp-btn vp-btn-ghost" data-act="messenger" title="Create / update Messenger Game"><span class="vp-hdr-ico">💬</span><span class="vp-hdr-lbl">Messenger</span></button>
+            <button class="vp-btn vp-btn-ghost" data-act="lifesim" title="Create / update LifeSim Core"><span class="vp-hdr-ico">🧬</span><span class="vp-hdr-lbl">LifeSim</span></button>
+            <span class="vp-hdr-sep"></span>
+            <span class="vp-hdr-meta" data-role="active-status" title="Mounted / active game module">Trusted local modules</span>
+            <span class="vp-hdr-spacer spacer"></span>
+            <button class="vp-btn vp-btn-ghost" data-act="import" title="Import .vpgame"><span class="vp-hdr-ico">📥</span><span class="vp-hdr-lbl">Import</span></button>
+            <button class="vp-btn vp-btn-ghost" data-act="refresh" title="Refresh games list"><span class="vp-hdr-ico">↻</span><span class="vp-hdr-lbl">Refresh</span></button>
+            <button class="vp-btn vp-btn-ghost" data-act="folder" title="Open games folder"><span class="vp-hdr-ico">📂</span><span class="vp-hdr-lbl">Folder</span></button>
+        `;
+
+        if (liveCtx?.setHeaderContent) {
+            liveCtx.setHeaderContent(toolbar);
+        } else {
+            wrap.prepend(toolbar);
+        }
         container.appendChild(wrap);
 
         const listEl = wrap.querySelector('.vp-games-list');
+        const toggleListBtn = toolbar.querySelector('[data-act="toggle-list"]');
+        const listState = liveCtx?.getPanelState ? liveCtx.getPanelState({ listCollapsed: false }) : { listCollapsed: false };
+        const applyListCollapsed = (collapsed) => {
+            listEl.classList.toggle('is-collapsed', !!collapsed);
+            toggleListBtn?.classList.toggle('vp-btn-active', !collapsed);
+            if (toggleListBtn) toggleListBtn.title = collapsed ? 'Show games list' : 'Hide games list';
+        };
+        applyListCollapsed(!!listState.listCollapsed);
+        toggleListBtn?.addEventListener('click', () => {
+            const next = !listEl.classList.contains('is-collapsed');
+            applyListCollapsed(next);
+            liveCtx?.setPanelState?.({ listCollapsed: next });
+        });
         const stage = wrap.querySelector('.vp-games-stage');
         let selectedId = null;
-        const activeStatus = wrap.querySelector('[data-role="active-status"]');
+        const activeStatus = toolbar.querySelector('[data-role="active-status"]');
         const updateActiveStatus = () => {
             const mounted = activeMounted?.id || 'none';
             const active = activeGame?.id || 'none';
-            activeStatus.textContent = `Mounted: ${mounted} · Active context: ${active}`;
+            if (activeStatus) {
+                activeStatus.textContent = mounted === 'none' && active === 'none'
+                    ? 'No active game'
+                    : `${mounted}${active !== mounted ? ` · ctx:${active}` : ''}`;
+                activeStatus.title = `Mounted: ${mounted} · Active context: ${active}`;
+            }
+            liveCtx?.syncHeaderSlot?.();
         };
 
         const renderList = async () => {
@@ -1232,7 +1264,7 @@
             listEl.appendChild(gridEl);
         };
 
-        wrap.querySelector('[data-act="hello"]').addEventListener('click', async () => {
+        toolbar.querySelector('[data-act="hello"]').addEventListener('click', async () => {
             try {
                 const info = await DB?.createHelloGame?.();
                 VP.showToast?.('Hello Game created/updated', 'success');
@@ -1245,7 +1277,7 @@
                 }
             } catch (err) { VP.showToast?.(`Create Hello Game failed: ${err.message || err}`, 'error'); }
         });
-        wrap.querySelector('[data-act="messenger"]').addEventListener('click', async () => {
+        toolbar.querySelector('[data-act="messenger"]').addEventListener('click', async () => {
             try {
                 const info = await DB?.createMessengerGame?.();
                 VP.showToast?.('Messenger Game created/updated', 'success');
@@ -1258,7 +1290,7 @@
                 }
             } catch (err) { VP.showToast?.(`Create Messenger Game failed: ${err.message || err}`, 'error'); }
         });
-        wrap.querySelector('[data-act="lifesim"]').addEventListener('click', async () => {
+        toolbar.querySelector('[data-act="lifesim"]').addEventListener('click', async () => {
             try {
                 const info = await DB?.createLifeSimGame?.();
                 VP.showToast?.('LifeSim Core created/updated', 'success');
@@ -1271,7 +1303,7 @@
                 }
             } catch (err) { VP.showToast?.(`Create LifeSim Core failed: ${err.message || err}`, 'error'); }
         });
-        wrap.querySelector('[data-act="import"]').addEventListener('click', async () => {
+        toolbar.querySelector('[data-act="import"]').addEventListener('click', async () => {
             const ans = await VP.showConfirm?.({
                 title: 'Import .vpgame?',
                 message: '.vpgame files contain executable JavaScript. Only import games you trust.\n\nContinue?',
@@ -1292,8 +1324,8 @@
                 await renderList();
             } catch (err) { VP.showToast?.(`Import .vpgame failed: ${err.message || err}`, 'error'); }
         });
-        wrap.querySelector('[data-act="refresh"]').addEventListener('click', renderList);
-        wrap.querySelector('[data-act="folder"]').addEventListener('click', async () => {
+        toolbar.querySelector('[data-act="refresh"]').addEventListener('click', renderList);
+        toolbar.querySelector('[data-act="folder"]').addEventListener('click', async () => {
             try { await DB?.openGamesFolder?.(); } catch (err) { VP.showToast?.(`Open games folder failed: ${err.message || err}`, 'error'); }
         });
         updateActiveStatus();

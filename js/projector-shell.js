@@ -616,6 +616,7 @@
 			--header-accent: rgba(107,99,84,0.15);
 			--header-accent-deep: rgba(180,170,140,0.30);
 			--header-border: rgba(107,99,84,0.35);
+			--header-glare-opacity: 0;
 			--msg-user-bg: #e8e2d0;
 			--msg-bot-bg: #f4f1ea;
 			--msg-system-bg: rgba(107,99,84,0.06);
@@ -628,7 +629,23 @@
 						   linear-gradient(180deg, var(--header-accent), var(--header-accent-deep));
 				border-bottom-color:var(--header-border); color:#2a2620;
 			}
-			.vp-shell-area-title { color:#2a2620 !important; text-shadow:0 1px 1px rgba(255,255,255,0.8) !important; font-weight:800 !important; }
+			.vp-shell-area-btn { color:#2a2620; border-color:rgba(107,99,84,0.28); background:rgba(0,0,0,0.04); }
+			.vp-shell-area-btn:hover { background:rgba(0,0,0,0.10); }
+			.vp-shell-area-menu { background:#f4f1ea; border-color:#b8ad92; color:#2a2620; box-shadow:0 10px 28px rgba(42,38,32,0.18); }
+			.vp-shell-area-menu-item { color:#2a2620; }
+			.vp-shell-area-menu-item:hover:not(:disabled) { background:rgba(107,99,84,0.14); }
+			.vp-shell-area-menu-sep { background:rgba(107,99,84,0.20); }
+			.vp-shell-header-slot .vp-hdr-sep { background:rgba(107,99,84,0.22); }
+			.vp-shell-header-slot .vp-hdr-meta { color:#6b6354; }
+			.vp-shell-header-slot .vp-session-input-tool-chip { background:rgba(107,99,84,0.14); color:#2a2620; border-color:rgba(107,99,84,0.35); }
+			.vp-shell-header-slot .vp-session-scene-btn { background:rgba(107,99,84,0.18); color:#2a2620; border-color:rgba(107,99,84,0.35); }
+			.vp-shell-header-slot .vp-bus-tab { color:#6b6354; border-color:rgba(107,99,84,0.28); }
+			.vp-shell-header-slot .vp-bus-tab.active { background:#6b6354; color:#f4f1ea; border-color:#5c5548; }
+			.vp-shell-save-btn { color:#4a443a; border-color:rgba(107,99,84,0.30); }
+			.vp-shell-save-btn.is-dirty { background:rgba(180,120,20,0.18) !important; border-color:rgba(160,100,10,0.55) !important; color:#6b3e00 !important; }
+			#vp-shell-root *, #vp-gallery-panel *, #visual-projector * { scrollbar-color: rgba(107,99,84,0.34) transparent; }
+			#vp-shell-root *::-webkit-scrollbar-thumb, #vp-gallery-panel *::-webkit-scrollbar-thumb, #visual-projector *::-webkit-scrollbar-thumb { background: rgba(107,99,84,0.30); }
+			#vp-shell-root *::-webkit-scrollbar-thumb:hover, #vp-gallery-panel *::-webkit-scrollbar-thumb:hover, #visual-projector *::-webkit-scrollbar-thumb:hover { background: rgba(107,99,84,0.48); }
 			.vp-btn { background:#6b6354; color:#f4f1ea; border-color:#5c5548; }
 			.vp-btn:hover { filter:brightness(1.08); }
 			.vp-btn-ghost { background:rgba(0,0,0,.06); color:#2a2620; border-color:#b8ad92; }
@@ -702,15 +719,24 @@
 		}
 		.vp-btn-active, .vp-shell-ws-btn.active { background:#ffcc00 !important; color:#000 !important; font-weight:800; }
 		.vp-shell-area { border-width:2px; border-color:#fff; }
+		.vp-shell-area-menu { border-width:2px !important; border-color:#fff !important; background:#000 !important; }
+		#vp-shell-root *::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.55); }
 		.vp-session-msg { border-width:2px; border-color:#fff; }
 		.vp-session-msg.role-user { border-color:#ffcc00; }
 		.vp-shell-gutter::after { background:rgba(255,255,255,.3); }` },
 
 			// ─── Режим / UX ───
-			{ id: 'compact', title: '📐 Compact UI', css: `#vp-shell-root .vp-shell-topbar { height:30px; flex-basis:30px; }
-		#vp-shell-root .vp-shell-area-header { height:24px; flex-basis:24px; }
-		#vp-shell-root .vp-shell-panel-select { height:20px; font-size:11px; }
-		#vp-shell-root .vp-shell-area-btn { height:20px; min-width:22px; }
+			{ id: 'compact', title: '📐 Compact UI', css: `#vp-shell-root .vp-shell-topbar { height:26px; min-height:26px; flex-basis:26px; padding:1px 6px; }
+		#vp-shell-root .vp-shell-area-header { height:21px; flex-basis:21px; padding:0 4px; }
+		#vp-shell-root .vp-shell-panel-select { height:17px; font-size:10.5px; }
+		#vp-shell-root .vp-shell-area-btn { height:17px; min-width:19px; font-size:11px; }
+		#vp-shell-root .vp-shell-header-slot .vp-btn,
+		#vp-shell-root .vp-shell-header-slot .vp-hdr-btn,
+		#vp-shell-root .vp-shell-header-slot .vp-session-participant-chip,
+		#vp-shell-root .vp-shell-header-slot .vp-session-participant-add,
+		#vp-shell-root .vp-shell-header-slot .vp-session-input-tool-chip,
+		#vp-shell-root .vp-shell-header-slot .vp-session-scene-btn { height:17px; min-height:17px; font-size:10px; }
+		#vp-shell-root .vp-shell-area.maximized { inset: 30px 4px 4px 4px; }
 		.vp-session-msg-body { line-height:1.36 !important; }
 		.vp-session-log-list { gap:6px !important; padding-top:7px !important; padding-bottom:7px !important; }` },
 
@@ -1258,11 +1284,17 @@
 
         VP.registerPanel({
             id: 'stage', title: 'Stage', icon: '🎭', order: 10,
-            create(container) {
+            create(container, ctx = {}) {
                 const win = S.ui?.vpWindow || document.getElementById('visual-projector');
                 if (!win) return makePlaceholder(container, 'Stage', 'Projector window is not ready yet.');
                 dockElement(container, win, 'vp-shell-docked-stage');
-                requestProjectorUiUpdate('shell')
+                const hdr = S.ui?.header || win.querySelector('#vp-header') || document.getElementById('vp-header');
+                if (hdr && ctx?.setHeaderContent) {
+                    S.ui.header = hdr;
+                    hdr.classList.add('vp-stage-header-docked');
+                    ctx.setHeaderContent(hdr);
+                }
+                requestProjectorUiUpdate('shell');
             },
             settings: {
                 title: 'Stage Settings', icon: '🎭', mode: 'auto', minWidth: 360, minHeight: 270, width: 430,
@@ -1402,30 +1434,61 @@
                 font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
                 display: flex; flex-direction: column;
             }
+            /* Unified slim custom scrollbars across Studio chrome & panels */
+            #vp-shell-root *, #vp-gallery-panel *, #visual-projector * {
+                scrollbar-width: thin;
+                scrollbar-color: rgba(255,255,255,0.16) transparent;
+            }
+            #vp-shell-root *::-webkit-scrollbar,
+            #vp-gallery-panel *::-webkit-scrollbar,
+            #visual-projector *::-webkit-scrollbar {
+                width: 6px; height: 6px;
+            }
+            #vp-shell-root *::-webkit-scrollbar-track,
+            #vp-gallery-panel *::-webkit-scrollbar-track,
+            #visual-projector *::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            #vp-shell-root *::-webkit-scrollbar-thumb,
+            #vp-gallery-panel *::-webkit-scrollbar-thumb,
+            #visual-projector *::-webkit-scrollbar-thumb {
+                background: rgba(255,255,255,0.16);
+                border-radius: 999px;
+            }
+            #vp-shell-root *::-webkit-scrollbar-thumb:hover,
+            #vp-gallery-panel *::-webkit-scrollbar-thumb:hover,
+            #visual-projector *::-webkit-scrollbar-thumb:hover {
+                background: rgba(255,255,255,0.28);
+            }
+            #vp-shell-root *::-webkit-scrollbar-corner,
+            #vp-gallery-panel *::-webkit-scrollbar-corner,
+            #visual-projector *::-webkit-scrollbar-corner {
+                background: transparent;
+            }
             .vp-shell-topbar {
-                min-height: 34px; flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
-                padding: 5px 8px; background: var(--bg-tertiary, #252540);
+                min-height: 29px; height: 29px; flex: 0 0 29px; display: flex; align-items: center; gap: 6px;
+                padding: 2px 7px; background: var(--bg-tertiary, #252540);
                 border-bottom: 1px solid var(--border, #383860); user-select: none; overflow: hidden;
             }
 			
 			.vp-shell-window-controls {
-				display: flex; gap: 4px; margin-left: 8px;
-				padding-left: 8px; border-left: 1px solid rgba(255,255,255,0.08);
+				display: flex; gap: 4px; margin-left: 6px;
+				padding-left: 6px; border-left: 1px solid rgba(255,255,255,0.08);
 			}
 			.vp-shell-window-controls .vp-shell-tool-btn {
-				min-width: 28px; padding: 0 6px;
+				min-width: 24px; padding: 0 5px;
 			}
 			.vp-win-close:hover {
 				background: rgba(224,85,85,0.35) !important;
 			}
 			
-            .vp-shell-brand { font-weight: 800; font-size: 13px; margin-right: 2px; white-space: nowrap; color: var(--text-primary, #cdd6f4); }
+            .vp-shell-brand { font-weight: 800; font-size: 12px; margin-right: 2px; white-space: nowrap; color: var(--text-primary, #cdd6f4); }
             .vp-shell-worldbar { display:flex; align-items:center; gap:4px; flex:0 0 auto; min-width:0; padding-right:6px; border-right:1px solid rgba(255,255,255,0.08); margin-right:2px; }
-            .vp-shell-world-label { font-size:12px; opacity:.9; }
+            .vp-shell-world-label { font-size:11px; opacity:.9; }
             .vp-shell-world-select {
-                height:24px; max-width:180px; min-width:92px; border-radius:5px;
+                height:21px; max-width:170px; min-width:86px; border-radius:4px;
                 border:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.18);
-                color:var(--text-primary,#cdd6f4); font-size:12px; padding:2px 6px;
+                color:var(--text-primary,#cdd6f4); font-size:11px; padding:0 5px;
             }
             .vp-world-manager { display:flex; flex-direction:column; gap:10px; }
             .vp-world-manager-toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
@@ -1439,23 +1502,68 @@
             .vp-world-row-sub { margin-top:2px; color:var(--text-secondary,#a6adc8); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
             .vp-world-row-sub code { color:#b9aee8; }
             .vp-world-row-actions { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
-            .vp-shell-workspaces { display: flex; gap: 4px; align-items: center; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; padding-bottom: 2px; }
-            .vp-shell-workspaces::-webkit-scrollbar { height: 6px; }
-            .vp-shell-workspaces::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 999px; }
+            .vp-shell-workspaces { display: flex; gap: 4px; align-items: center; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none !important; }
+            .vp-shell-workspaces::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+            .vp-shell-save-btn {
+                display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto;
+                height: 21px; padding: 0 8px; border-radius: 4px;
+                border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.035);
+                color: var(--text-secondary, #a6adc8); font-size: 11px; font-weight: 600;
+                cursor: pointer; white-space: nowrap;
+                transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+            }
+            .vp-shell-save-btn:hover:not(:disabled) { background: rgba(255,255,255,0.09); color: var(--text-primary, #cdd6f4); }
+            .vp-shell-save-btn .save-dot { font-size: 10px; line-height: 1; color: #8bd49c; }
+            .vp-shell-save-btn.is-dirty {
+                background: rgba(255,209,102,0.13);
+                border-color: rgba(255,209,102,0.45);
+                color: #ffd166;
+                box-shadow: 0 0 10px rgba(255,209,102,0.14);
+            }
+            .vp-shell-save-btn.is-dirty:hover:not(:disabled) {
+                background: rgba(255,209,102,0.22);
+                border-color: rgba(255,209,102,0.65);
+                color: #ffe299;
+            }
+            .vp-shell-save-btn.is-dirty .save-dot { color: #ffd166; }
+            .vp-shell-save-btn:disabled { opacity: 0.6; cursor: default; }
             .vp-shell-ws-btn, .vp-shell-tool-btn {
                 border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
-                color: var(--text-primary, #cdd6f4); border-radius: 5px; padding: 3px 9px;
-                font-size: 12px; height: 24px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+                color: var(--text-primary, #cdd6f4); border-radius: 4px; padding: 0 8px;
+                font-size: 11px; height: 21px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+                cursor: pointer; white-space: nowrap; flex-shrink: 0;
             }
             .vp-shell-ws-btn:hover, .vp-shell-tool-btn:hover { background: rgba(255,255,255,0.10); }
             .vp-shell-ws-btn.active { background: var(--accent, #6c5fa6); color: #fff; }
-            .vp-shell-canvas { flex: 1; min-height: 0; padding: 6px; }
+            .vp-shell-llama-pill {
+                display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
+                height: 21px; max-width: 240px; padding: 0 8px; border-radius: 999px;
+                border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.045);
+                color: var(--text-primary, #cdd6f4); font-size: 11px; cursor: pointer;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                transition: background 0.14s ease, border-color 0.14s ease;
+            }
+            .vp-shell-llama-pill:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.20); }
+            .vp-shell-llama-dot {
+                width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;
+                background: #6c7086; transition: background 0.2s ease, box-shadow 0.2s ease;
+            }
+            .vp-shell-llama-pill[data-status="ready"] .vp-shell-llama-dot { background: #a6e3a1; box-shadow: 0 0 6px rgba(166,227,161,0.55); }
+            .vp-shell-llama-pill[data-status="starting"] .vp-shell-llama-dot,
+            .vp-shell-llama-pill[data-status="loading"] .vp-shell-llama-dot,
+            .vp-shell-llama-pill[data-status="stopping"] .vp-shell-llama-dot { background: #f9e2af; box-shadow: 0 0 6px rgba(249,226,175,0.55); }
+            .vp-shell-llama-pill[data-status="error"] .vp-shell-llama-dot { background: #f38ba8; box-shadow: 0 0 6px rgba(243,139,168,0.55); }
+            .vp-shell-llama-label { overflow: hidden; text-overflow: ellipsis; max-width: 128px; }
+            .vp-shell-llama-ctx { font-family: ui-monospace, Consolas, monospace; font-size: 10px; opacity: 0.78; flex: 0 0 auto; }
+            .vp-shell-llama-ctx.warn { color: #f9e2af; opacity: 1; font-weight: 700; }
+            .vp-shell-llama-ctx.danger { color: #f38ba8; opacity: 1; font-weight: 700; }
+            .vp-shell-canvas { flex: 1; min-height: 0; padding: 4px; }
             .vp-shell-node { width: 100%; height: 100%; min-width: 0; min-height: 0; }
             .vp-shell-split { display: flex; gap: 0; }
             .vp-shell-split.row { flex-direction: row; }
             .vp-shell-split.column { flex-direction: column; }
             .vp-shell-pane-wrap { min-width: 0; min-height: 0; overflow: hidden; }
-            .vp-shell-gutter { flex: 0 0 6px; background: transparent; position: relative; z-index: 2; }
+            .vp-shell-gutter { flex: 0 0 5px; background: transparent; position: relative; z-index: 2; }
             .vp-shell-gutter::after { content: ''; position: absolute; inset: 1px; border-radius: 3px; background: color-mix(in srgb, var(--text-secondary, #a6adc8) 12%, transparent); }
             .vp-shell-gutter:hover::after, .vp-shell-gutter.dragging::after {
                 background: color-mix(in srgb, var(--accent, #6c5fa6) 38%, transparent);
@@ -1467,66 +1575,210 @@
                 height: 100%; display: flex; flex-direction: column; min-width: 0; min-height: 0;
                 background: var(--bg-secondary, #1e1e2e);
                 border: 1px solid var(--border, rgba(108,95,166,0.30));
-                border-radius: 7px; overflow: hidden;
-                box-shadow: 0 0 0 1px rgba(0,0,0,0.18) inset;
+                border-radius: 6px; overflow: hidden;
+                box-shadow: 0 0 0 1px rgba(0,0,0,0.16) inset;
+                transition: border-color 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
             }
-			.vp-shell-area-header {
-				position: relative;
-				flex: 0 0 28px; height: 28px; display: flex; align-items: center; gap: 6px;
-				background:
-					linear-gradient(180deg, rgba(255,255,255,0.105) 0%, rgba(255,255,255,0.035) 38%, rgba(0,0,0,0.08) 100%),
-					linear-gradient(180deg, var(--header-accent), var(--header-accent-deep));
-				border-bottom: 1px solid var(--header-border);
-				box-shadow:
-					0 1px 0 rgba(255,255,255,0.075) inset,
-					0 -1px 0 rgba(0,0,0,0.24) inset,
-					0 0 10px var(--header-accent) inset;
-				padding: 0 6px; user-select: none;
-			}
+            .vp-shell-area.is-focused-area {
+                border-color: color-mix(in srgb, var(--accent, #6c5fa6) 62%, var(--border, rgba(255,255,255,0.18)));
+                box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #6c5fa6) 22%, transparent) inset;
+            }
+            .vp-shell-area.is-dragging-area {
+                opacity: 0.58;
+            }
+            .vp-shell-area.is-drop-target {
+                border-color: var(--accent, #6c5fa6) !important;
+                box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #6c5fa6) 65%, transparent) inset,
+                            0 0 18px color-mix(in srgb, var(--accent, #6c5fa6) 28%, transparent) !important;
+            }
+            .vp-shell-area-header {
+                position: relative;
+                flex: 0 0 24px; height: 24px; display: flex; align-items: center; gap: 4px;
+                background:
+                    linear-gradient(180deg,
+                        rgba(255,255,255, calc(0.055 * var(--header-glare-opacity, 0.45))) 0%,
+                        rgba(255,255,255, 0) 48%,
+                        rgba(0,0,0, calc(0.09 * var(--header-glare-opacity, 0.45))) 100%),
+                    linear-gradient(180deg, var(--header-accent), var(--header-accent-deep));
+                border-bottom: 1px solid var(--header-border);
+                box-shadow:
+                    0 1px 0 rgba(255,255,255, calc(0.09 * var(--header-glare-opacity, 0.45))) inset,
+                    0 -1px 0 rgba(0,0,0,0.20) inset;
+                padding: 0 5px; user-select: none; min-width: 0;
+            }
+            .vp-shell-area-header[draggable="true"] { cursor: grab; }
+            .vp-shell-area.maximized .vp-shell-area-header { cursor: default; }
+            .vp-shell-area.is-dragging-area .vp-shell-area-header { cursor: grabbing; }
             .vp-shell-area-header::after {
-                content: ''; position: absolute; left: 10px; right: 10px; top: 1px; height: 22%;
-                border-radius: 999px;
-                background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.018));
+                content: ''; position: absolute; left: 6px; right: 6px; top: 0; height: 1px;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255, calc(0.28 * var(--header-glare-opacity, 0.45))), transparent);
                 pointer-events: none;
             }
             .vp-shell-panel-select {
-                position: relative; z-index: 1;
-                min-width: 120px; max-width: 190px; height: 22px;
+                position: relative; z-index: 1; flex: 0 0 auto;
+                min-width: 0; max-width: 148px; height: 19px; padding: 0 4px;
                 background: var(--bg-tertiary, #252540); color: var(--text-primary, #cdd6f4);
-                border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; font-size: 12px;
+                border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; font-size: 11px;
+                line-height: 1; cursor: pointer;
             }
-            .vp-shell-area-title {
-                position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-                max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-                pointer-events: none; user-select: none; z-index: 1;
-                color: rgba(218,225,255,0.84); font-size: 11px; font-weight: 700;
-                letter-spacing: 0.02em; text-shadow: 0 1px 2px rgba(0,0,0,0.70), 0 0 8px rgba(108,95,166,0.22);
+            .vp-shell-panel-select.is-compact { padding: 0 2px 0 4px; }
+            .vp-shell-header-slot-wrap {
+                position: relative; z-index: 1; flex: 1 1 auto; min-width: 0; height: 100%;
+                display: flex; align-items: center; overflow: hidden;
             }
-            .vp-shell-area-spacer { flex: 1; }
+            .vp-shell-header-slot {
+                flex: 1 1 auto; min-width: 0; height: 100%;
+                display: flex; align-items: center; gap: 3px;
+                overflow-x: auto; overflow-y: hidden;
+                scrollbar-width: none !important; -ms-overflow-style: none !important;
+            }
+            .vp-shell-header-slot::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+            .vp-shell-header-slot.has-scroll-right {
+                -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 18px), transparent 100%);
+                mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 18px), transparent 100%);
+            }
+            .vp-shell-header-slot.has-scroll-left {
+                -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 18px, #000 100%);
+                mask-image: linear-gradient(to right, transparent 0%, #000 18px, #000 100%);
+            }
+            .vp-shell-header-slot.has-scroll-left.has-scroll-right {
+                -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 18px, #000 calc(100% - 18px), transparent 100%);
+                mask-image: linear-gradient(to right, transparent 0%, #000 18px, #000 calc(100% - 18px), transparent 100%);
+            }
+            .vp-shell-header-slot .vp-hdr-bar {
+                display: flex; align-items: center; gap: 3px;
+                flex: 1 0 auto; min-width: max-content; height: 100%;
+            }
+            .vp-shell-header-slot .vp-hdr-spacer { flex: 1 1 0; min-width: 4px; }
+            .vp-shell-header-slot .vp-hdr-sep {
+                width: 1px; height: 12px; background: rgba(255,255,255,0.14);
+                flex: 0 0 auto; margin: 0 2px;
+            }
+            .vp-shell-header-slot .vp-hdr-ico {
+                display: inline-flex; align-items: center; line-height: 1; font-size: 11px;
+            }
+            .vp-shell-header-slot .vp-hdr-lbl {
+                display: inline; white-space: nowrap;
+            }
+            .vp-shell-header-slot .vp-hdr-meta {
+                color: var(--text-secondary, #a6adc8); font-size: 10.5px; white-space: nowrap;
+                flex: 0 0 auto; padding: 0 3px;
+            }
+            .vp-shell-header-slot .vp-btn,
+            .vp-shell-header-slot .vp-hdr-btn {
+                height: 19px; min-height: 19px; line-height: 1; padding: 0 6px;
+                font-size: 11px; border-radius: 4px;
+                display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+                white-space: nowrap; flex: 0 0 auto;
+            }
+            .vp-shell-header-slot.is-icon-only .vp-hdr-lbl { display: none !important; }
+            .vp-shell-header-slot.is-icon-only .vp-btn,
+            .vp-shell-header-slot.is-icon-only .vp-hdr-btn { padding: 0 5px; }
+
+            /* Docked Stage header living inside the area header slot */
+            .vp-shell-header-slot #vp-header.vp-stage-header-docked {
+                height: 100%; flex: 1 0 auto; min-width: max-content;
+                display: flex; align-items: center; gap: 3px;
+                padding: 0; background: transparent !important; border: none !important;
+                cursor: default !important;
+            }
+            .vp-shell-header-slot #vp-header.vp-stage-header-docked #vp-minimize { display: none !important; }
+            .vp-shell-header-slot #vp-header.vp-stage-header-docked .vp-header-btns {
+                display: flex; align-items: center; gap: 3px; margin-left: auto; flex: 0 0 auto;
+            }
+            .vp-shell-header-slot #vp-header.vp-stage-header-docked .vp-btn {
+                height: 19px; min-height: 19px; padding: 0 5px; font-size: 10.5px;
+                white-space: nowrap; flex: 0 0 auto;
+            }
+            .vp-shell-header-slot #vp-header.vp-stage-header-docked .vp-tag-label {
+                flex: 0 1 auto; min-width: 0; max-width: 116px; padding: 0 3px;
+                text-align: left; font-size: 10.5px; line-height: 1;
+            }
+            .vp-shell-header-slot.is-icon-only #vp-header.vp-stage-header-docked .vp-tag-label {
+                max-width: 68px;
+            }
+
+            /* Compact Input controls when docked into header slot */
+            .vp-shell-header-slot .vp-session-participants {
+                flex: 1 0 auto; min-width: max-content; flex-wrap: nowrap;
+                gap: 3px; margin: 0 !important; padding: 0;
+            }
+            .vp-shell-header-slot .vp-session-participant-chip,
+            .vp-shell-header-slot .vp-session-participant-add,
+            .vp-shell-header-slot .vp-session-input-tool-chip,
+            .vp-shell-header-slot .vp-session-scene-btn {
+                height: 19px; padding: 0 7px; font-size: 10.5px; line-height: 1;
+                flex: 0 0 auto; white-space: nowrap;
+                display: inline-flex; align-items: center; gap: 3px;
+            }
+            .vp-shell-header-slot .vp-session-participant-chip .remove { width: 12px; height: 12px; font-size: 9px; }
+            .vp-shell-header-slot .vp-session-participant-add { padding: 0 7px; }
+            .vp-shell-header-slot .vp-ctx-counter { font-size: 10.5px; padding: 1px 4px; flex: 0 0 auto; }
+            .vp-shell-header-slot .vp-bus-tabs { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+            .vp-shell-header-slot .vp-bus-tab {
+                height: 19px; min-height: 19px; padding: 0 7px; font-size: 10.5px; border-radius: 4px;
+                display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; flex: 0 0 auto;
+            }
+            .vp-shell-header-slot.is-icon-only .vp-bus-tab { padding: 0 5px; }
+
+            .vp-shell-area-right {
+                position: relative; z-index: 1; flex: 0 0 auto;
+                display: inline-flex; align-items: center; gap: 3px;
+            }
             .vp-shell-area-btn {
-                position: relative; z-index: 1;
-                height: 22px; min-width: 24px; padding: 0 6px; border-radius: 4px;
+                position: relative; z-index: 1; flex: 0 0 auto;
+                height: 19px; min-width: 20px; padding: 0 4px; border-radius: 4px;
                 border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
                 color: var(--text-primary, #cdd6f4); cursor: pointer; font-size: 12px;
+                display: inline-flex; align-items: center; justify-content: center; line-height: 1;
             }
             .vp-shell-area-btn:hover { background: rgba(255,255,255,0.12); }
-            .vp-shell-area-btn.active { background: var(--accent); border-color: var(--accent); }
-            
-            /* Separator between tools and layout actions */
-            .vp-shell-area-sep {
-                width: 1px;
-                height: 16px;
-                background: rgba(255, 255, 255, 0.12);
-                margin: 0 4px;
+            .vp-shell-area-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+            .vp-shell-area-restore { display: none; }
+            .vp-shell-area.maximized .vp-shell-area-restore { display: inline-flex; }
+            .vp-shell-area-menu-btn { font-weight: 700; letter-spacing: 0; }
+
+            /* Floating Area Actions Dropdown Menu (position: fixed to avoid area overflow clipping) */
+            .vp-shell-area-menu {
+                position: fixed; z-index: 39000; min-width: 162px; padding: 4px;
+                border-radius: 7px;
+                background: var(--bg-secondary, #1e1e2e);
+                border: 1px solid var(--border, rgba(255,255,255,0.14));
+                box-shadow: 0 10px 28px rgba(0,0,0,0.48), 0 0 0 1px rgba(255,255,255,0.04) inset;
+                color: var(--text-primary, #cdd6f4);
+                display: flex; flex-direction: column; gap: 1px;
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                user-select: none;
+            }
+            .vp-shell-area-menu-item {
+                display: flex; align-items: center; gap: 8px; width: 100%;
+                padding: 5px 8px; border: none; border-radius: 5px;
+                background: transparent; color: inherit; cursor: pointer;
+                font-size: 11.5px; text-align: left; white-space: nowrap;
+            }
+            .vp-shell-area-menu-item:hover:not(:disabled) {
+                background: rgba(255,255,255,0.09);
+            }
+            .vp-shell-area-menu-item.danger:hover:not(:disabled) {
+                background: rgba(243,139,168,0.18); color: #f38ba8;
+            }
+            .vp-shell-area-menu-item:disabled {
+                opacity: 0.38; cursor: default;
+            }
+            .vp-shell-area-menu-ico {
+                width: 14px; text-align: center; flex: 0 0 14px; opacity: 0.88; font-size: 12px;
+            }
+            .vp-shell-area-menu-sep {
+                height: 1px; margin: 3px 4px; background: rgba(255,255,255,0.10);
             }
 
             /* Focus Mode (Maximized Area) */
             .vp-shell-area.maximized {
                 position: fixed;
-                inset: 40px 6px 6px 6px;
+                inset: 33px 4px 4px 4px;
                 z-index: 9995;
                 height: auto !important;
-                box-shadow: 0 0 0 100vmax rgba(0,0,0,0.4);
+                box-shadow: 0 0 0 100vmax rgba(0,0,0,0.42);
             }
 
             .vp-shell-area-btn.is-muted { opacity: 0.45; pointer-events: none; }
@@ -1602,6 +1854,9 @@
                 resize: none !important; max-width: none !important; max-height: none !important;
                 z-index: 0 !important;
             }
+            #vp-shell-root #visual-projector.vp-shell-docked-stage .vp-screen {
+                margin: 4px; border-radius: 5px;
+            }
             #vp-shell-root #vp-gallery-panel.vp-shell-docked-gallery { font-size: 13px; }
             #vp-shell-root .vp-resize-handle { display: none !important; }
             .vp-shell-log { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
@@ -1627,20 +1882,20 @@
             .vp-shell-form .vp-shell-check { justify-content: flex-start; }
             .vp-shell-form .vp-shell-check input { width: auto; }
             .vp-shell-note { color: var(--text-secondary, #a6adc8); font-size: 11px; line-height: 1.4; margin-top: 5px; }
-            .vp-shell-global-settings { padding: 10px; display: flex; flex-direction: column; gap: 12px; font-size: 12px; color: var(--text-primary,#cdd6f4); }
-			.vp-settings-section { border: 1px solid rgba(255,255,255,0.07); border-radius: 9px; background: rgba(255,255,255,0.025); margin-bottom: 10px; overflow: hidden; }
-			.vp-settings-section-header { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:rgba(255,255,255,0.04); cursor:pointer; user-select:none; font-weight:700; font-size:13px; transition:background 0.15s; }
+            .vp-shell-global-settings { padding: 6px; display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; color: var(--text-primary,#cdd6f4); }
+			.vp-settings-section { border: 1px solid rgba(255,255,255,0.07); border-radius: 7px; background: rgba(255,255,255,0.025); margin-bottom: 0; overflow: hidden; }
+			.vp-settings-section-header { display:flex; align-items:center; justify-content:space-between; padding:6px 9px; background:rgba(255,255,255,0.04); cursor:pointer; user-select:none; font-weight:700; font-size:12px; transition:background 0.15s; }
 			.vp-settings-section-header:hover { background:rgba(255,255,255,0.07); }
-			.vp-settings-toggle { font-size:11px; opacity:0.7; transition:transform 0.2s; }
+			.vp-settings-toggle { font-size:10px; opacity:0.7; transition:transform 0.2s; }
 			.vp-settings-section.collapsed .vp-settings-toggle { transform:rotate(-90deg); }
-			.vp-settings-section-content { padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
+			.vp-settings-section-content { padding:7px 9px; display:flex; flex-direction:column; gap:6px; }
 			.vp-settings-section.collapsed .vp-settings-section-content { display:none; }
-            .vp-settings-section-title { font-weight: 800; font-size: 13px; margin-bottom: 2px; }
-            .vp-settings-row, .vp-settings-kv { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-            .vp-settings-row input:not([type="checkbox"]), .vp-settings-row select { width: 56%; min-width: 130px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.12); background: var(--bg-tertiary,#252540); color: var(--text-primary,#cdd6f4); padding: 5px 7px; font-size: 12px; }
+            .vp-settings-section-title { font-weight: 800; font-size: 12px; margin-bottom: 1px; }
+            .vp-settings-row, .vp-settings-kv { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+            .vp-settings-row input:not([type="checkbox"]), .vp-settings-row select { width: 56%; min-width: 120px; height: 24px; box-sizing: border-box; border-radius: 4px; border: 1px solid rgba(255,255,255,0.12); background: var(--bg-tertiary,#252540); color: var(--text-primary,#cdd6f4); padding: 2px 6px; font-size: 11.5px; }
             .vp-settings-kv code { max-width: 62%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #b9aee8; }
-            .vp-settings-actions { display: flex; flex-wrap: wrap; gap: 7px; }
-            .vp-settings-note { color: var(--text-secondary,#a6adc8); font-size: 11px; line-height: 1.45; }
+            .vp-settings-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+            .vp-settings-note { color: var(--text-secondary,#a6adc8); font-size: 10.5px; line-height: 1.35; }
             .vp-settings-css { width: 100%; min-height: 150px; resize: vertical; border-radius: 7px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.22); color: var(--text-primary,#cdd6f4); padding: 8px; font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
             .vp-settings-row-block { align-items: stretch; flex-direction: column; }
             .vp-settings-small-textarea { width: 100%; min-height: 76px; resize: vertical; border-radius: 7px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.22); color: var(--text-primary,#cdd6f4); padding: 8px; font: 12px/1.45 system-ui, sans-serif; }
@@ -1712,18 +1967,11 @@
                 background: rgba(108,95,166,0.08) !important;
             }
 
-            /* Focus Mode: делаем split/close кнопки серыми, чтоб случайно не нажать */
-            .vp-shell-area.maximized .vp-shell-area-btn[data-act="split-right"],
-            .vp-shell-area.maximized .vp-shell-area-btn[data-act="split-down"],
-            .vp-shell-area.maximized .vp-shell-area-btn[data-act="close"] {
-                opacity: 0.25;
-                pointer-events: none;
-                filter: grayscale(1);
-            }
-            .vp-shell-area.maximized .vp-shell-area-btn[data-act="focus"] {
-                opacity: 1;
-                pointer-events: auto;
-                filter: none;
+            /* Focus Mode: restore button stays highlighted */
+            .vp-shell-area.maximized .vp-shell-area-restore {
+                background: var(--accent, #6c5fa6);
+                border-color: var(--accent, #6c5fa6);
+                color: #fff;
             }
 
             /* ── Вариант A: оптимизация перетаскивания сплиттеров ── */
@@ -1995,14 +2243,440 @@
         return node;
     }
 
+    const _slotObservers = new Set();
+    let _activeAreaMenu = null;
+    let _activeAreaMenuBtn = null;
+    let _areaMenuCleanup = null;
+    let _shellGesturesBound = false;
+    let _hoveredAreaEl = null;
+    let _focusedAreaEl = null;
+    let _draggedAreaId = null;
+
+    let _selectMeasureCanvas = null;
+    function fitPanelSelectWidth(select, areaEl = null) {
+        if (!select) return;
+        const area = areaEl || select.closest?.('.vp-shell-area');
+        const opt = select.options?.[select.selectedIndex];
+        const text = opt?.textContent || '';
+        select.title = text ? `Switch panel (${text})` : 'Switch panel';
+
+        const areaW = area?.clientWidth || 0;
+        const wasCompact = select.classList.contains('is-compact');
+        const compact = areaW > 0 && (wasCompact ? areaW < 242 : areaW < 230);
+        select.classList.toggle('is-compact', compact);
+        if (compact) {
+            select.style.width = '44px';
+            return;
+        }
+
+        let textWidth = text.length * 6.8;
+        try {
+            if (!_selectMeasureCanvas) _selectMeasureCanvas = document.createElement('canvas');
+            const ctx2d = _selectMeasureCanvas.getContext('2d');
+            if (ctx2d) {
+                ctx2d.font = '11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                textWidth = ctx2d.measureText(text).width;
+            }
+        } catch {}
+        // Reserve room for native dropdown chevron + emoji width variance + padding
+        const width = Math.max(66, Math.min(148, Math.ceil(textWidth + 36)));
+        select.style.width = `${width}px`;
+    }
+
+    function updateHeaderSlotScrollFade(slot) {
+        if (!slot) return;
+        const maxScroll = slot.scrollWidth - slot.clientWidth;
+        if (maxScroll <= 2) {
+            slot.classList.remove('has-scroll-left', 'has-scroll-right');
+            return;
+        }
+        slot.classList.toggle('has-scroll-left', slot.scrollLeft > 2);
+        slot.classList.toggle('has-scroll-right', slot.scrollLeft < maxScroll - 2);
+    }
+
+    function syncHeaderSlot(slot) {
+        if (!slot || !slot.isConnected) return;
+        if (slot.childElementCount === 0) {
+            slot.classList.remove('is-icon-only', 'has-scroll-left', 'has-scroll-right');
+            slot._fullWidth = 0;
+            return;
+        }
+        const cw = slot.clientWidth;
+        if (cw <= 0) return;
+
+        const hasLabels = !!slot.querySelector('.vp-hdr-lbl');
+        if (hasLabels) {
+            if (!slot.classList.contains('is-icon-only')) {
+                if (slot.scrollWidth > cw + 1) {
+                    slot._fullWidth = slot.scrollWidth;
+                    slot.classList.add('is-icon-only');
+                }
+            } else if (cw >= (slot._fullWidth || 0) + 12) {
+                slot.classList.remove('is-icon-only');
+                if (slot.scrollWidth > cw + 1) {
+                    slot._fullWidth = slot.scrollWidth;
+                    slot.classList.add('is-icon-only');
+                }
+            }
+        } else {
+            slot.classList.remove('is-icon-only');
+        }
+        updateHeaderSlotScrollFade(slot);
+    }
+
+    function attachHeaderSlot(slot) {
+        if (!slot || slot._vpSlotBound) return;
+        slot._vpSlotBound = true;
+        slot._fullWidth = 0;
+
+        slot.addEventListener('wheel', (e) => {
+            if (slot.scrollWidth <= slot.clientWidth + 1) return;
+            const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+            if (!delta) return;
+            e.preventDefault();
+            slot.scrollLeft += delta * 0.85;
+            updateHeaderSlotScrollFade(slot);
+        }, { passive: false });
+
+        slot.addEventListener('scroll', () => {
+            updateHeaderSlotScrollFade(slot);
+        }, { passive: true });
+
+        if (typeof ResizeObserver !== 'undefined') {
+            const area = slot.closest?.('.vp-shell-area');
+            const select = area?.querySelector?.('.vp-shell-panel-select');
+            const ro = new ResizeObserver(() => {
+                if (select && area) fitPanelSelectWidth(select, area);
+                syncHeaderSlot(slot);
+            });
+            ro.observe(slot);
+            if (area) ro.observe(area);
+            _slotObservers.add(ro);
+        }
+    }
+
+    function clearHeaderSlotEl(slot) {
+        if (!slot) return;
+        const dockedStageHdr = slot.querySelector('#vp-header.vp-stage-header-docked');
+        if (dockedStageHdr) restoreStageHeaderToProjector();
+        slot.innerHTML = '';
+        slot.scrollLeft = 0;
+        slot._fullWidth = 0;
+        slot.classList.remove('is-icon-only', 'has-scroll-left', 'has-scroll-right');
+    }
+
+    function setHeaderSlotContent(slot, content) {
+        if (!slot) return;
+        clearHeaderSlotEl(slot);
+        if (!content) return;
+        if (typeof content === 'string') {
+            slot.innerHTML = content;
+        } else if (Array.isArray(content)) {
+            content.forEach(item => { if (item) slot.appendChild(item); });
+        } else {
+            slot.appendChild(content);
+        }
+        syncHeaderSlot(slot);
+        requestAnimationFrame(() => syncHeaderSlot(slot));
+    }
+
+    function restoreStageHeaderToProjector() {
+        const vp = S.ui?.vpWindow || document.getElementById('visual-projector');
+        const hdr = S.ui?.header || document.getElementById('vp-header') || vp?.querySelector('#vp-header');
+        if (!hdr) return;
+        hdr.classList.remove('vp-stage-header-docked');
+        if (vp && hdr.parentElement !== vp) {
+            vp.prepend(hdr);
+        }
+    }
+
+    function closeAreaMenu() {
+        if (_areaMenuCleanup) {
+            _areaMenuCleanup();
+            _areaMenuCleanup = null;
+        }
+        if (_activeAreaMenu) {
+            _activeAreaMenu.remove();
+            _activeAreaMenu = null;
+        }
+        if (_activeAreaMenuBtn) {
+            _activeAreaMenuBtn.setAttribute('aria-expanded', 'false');
+            _activeAreaMenuBtn.classList.remove('active');
+            _activeAreaMenuBtn = null;
+        }
+    }
+
+    function notifyAreaLayoutToggle(panelId) {
+        if (panelId === 'stage') requestProjectorUiUpdate('shell-focus');
+        if (panelId === 'gallery') requestGalleryUiRefresh('shell-focus');
+        if (panelId === 'asset-studio') {
+            setTimeout(() => {
+                window.VP_AS?.Graph?.viewport?.handleResize?.({ preserveCenter: true });
+                window.VP_AS?.Graph?.links?._render?.();
+            }, 30);
+        }
+    }
+
+    function toggleAreaMaximize(area, panelId, forceState = null) {
+        const next = forceState === null ? !area.classList.contains('maximized') : !!forceState;
+        const changed = area.classList.contains('maximized') !== next;
+        area.classList.toggle('maximized', next);
+        if (!changed) return;
+        const slot = area.querySelector('.vp-shell-header-slot');
+        if (slot) requestAnimationFrame(() => syncHeaderSlot(slot));
+        notifyAreaLayoutToggle(panelId);
+    }
+
+    function setFocusedArea(area) {
+        if (_focusedAreaEl === area) return;
+        if (_focusedAreaEl) _focusedAreaEl.classList.remove('is-focused-area');
+        _focusedAreaEl = area && area.isConnected ? area : null;
+        if (_focusedAreaEl) _focusedAreaEl.classList.add('is-focused-area');
+    }
+
+    function ensureShellGestureListeners() {
+        if (_shellGesturesBound) return;
+        _shellGesturesBound = true;
+
+        document.addEventListener('pointermove', (e) => {
+            const area = e.target?.closest?.('#vp-shell-root .vp-shell-area') || null;
+            _hoveredAreaEl = area;
+        }, { passive: true });
+
+        const trackFocus = (e) => {
+            const area = e.target?.closest?.('#vp-shell-root .vp-shell-area') || null;
+            if (area) setFocusedArea(area);
+        };
+        document.addEventListener('pointerdown', trackFocus, true);
+        document.addEventListener('focusin', trackFocus, true);
+
+        document.addEventListener('keydown', (e) => {
+            // Blender-style Ctrl+Space: maximize/restore hovered (or focused) area
+            if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.code === 'Space' || e.key === ' ')) {
+                if (document.querySelector('.vp-shell-modal-backdrop')) return;
+                const root = document.getElementById('vp-shell-root');
+                if (!root || root.style.display === 'none') return;
+                const maxArea = root.querySelector('.vp-shell-area.maximized');
+                if (maxArea) {
+                    e.preventDefault();
+                    closeAreaMenu();
+                    toggleAreaMaximize(maxArea, maxArea.querySelector('.vp-shell-panel-select')?.value, false);
+                    return;
+                }
+                const target = (_hoveredAreaEl && _hoveredAreaEl.isConnected)
+                    ? _hoveredAreaEl
+                    : (_focusedAreaEl && _focusedAreaEl.isConnected ? _focusedAreaEl : null);
+                if (target) {
+                    e.preventDefault();
+                    closeAreaMenu();
+                    toggleAreaMaximize(target, target.querySelector('.vp-shell-panel-select')?.value, true);
+                }
+                return;
+            }
+
+            if (e.key !== 'Escape') return;
+            if (_activeAreaMenu) return;
+            if (document.querySelector('.vp-shell-modal-backdrop')) return;
+            const active = document.activeElement;
+            if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+            const maxArea = document.querySelector('#vp-shell-root .vp-shell-area.maximized');
+            if (!maxArea) return;
+            const pid = maxArea.querySelector('.vp-shell-panel-select')?.value;
+            toggleAreaMaximize(maxArea, pid, false);
+        });
+    }
+
+    function swapAreasInLayout(idA, idB) {
+        if (!idA || !idB || idA === idB) return;
+        const layout = getCurrentLayout();
+        const leafA = findLeaf(layout, idA);
+        const leafB = findLeaf(layout, idB);
+        if (!leafA || !leafB) return;
+
+        const panelA = leafA.panel;
+        const panelB = leafB.panel;
+        const stateA = leafA.state;
+        const stateB = leafB.state;
+
+        leafA.panel = panelB;
+        leafA.state = stateB;
+        leafB.panel = panelA;
+        leafB.state = stateA;
+        saveShellState();
+
+        // Fast surgical swap when neither panel is a singleton; otherwise safe full render
+        if (!SINGLETON_PANELS.has(panelA) && !SINGLETON_PANELS.has(panelB)) {
+            const areaA = document.querySelector(`#vp-shell-root .vp-shell-area[data-area-id="${idA}"]`);
+            const areaB = document.querySelector(`#vp-shell-root .vp-shell-area[data-area-id="${idB}"]`);
+            if (areaA && areaB) {
+                replaceAreaPanelLocally(areaA, leafA, panelB);
+                replaceAreaPanelLocally(areaB, leafB, panelA);
+                setFocusedArea(areaB);
+                return;
+            }
+        }
+        renderShell();
+    }
+
+    function openAreaMenu(btn, area, node, isRoot, panels, coords = null) {
+        if (!coords && _activeAreaMenu && _activeAreaMenuBtn === btn) {
+            closeAreaMenu();
+            return;
+        }
+        closeAreaMenu();
+
+        const select = area.querySelector('.vp-shell-panel-select');
+        const panelId = select?.value || node.panel;
+        const panelDef = VP.getPanel(panelId);
+        const hasSettings = !!panelDef?.settings;
+        const isMaximized = area.classList.contains('maximized');
+
+        const menu = document.createElement('div');
+        menu.className = 'vp-shell-area-menu';
+        menu.setAttribute('role', 'menu');
+
+        const addItem = ({ icon, label, disabled = false, danger = false, title = '', onClick }) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'vp-shell-area-menu-item' + (danger ? ' danger' : '');
+            item.setAttribute('role', 'menuitem');
+            item.disabled = !!disabled;
+            if (title) item.title = title;
+            item.innerHTML = `<span class="vp-shell-area-menu-ico">${icon}</span><span>${label}</span>`;
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (item.disabled) return;
+                closeAreaMenu();
+                onClick?.();
+            });
+            menu.appendChild(item);
+        };
+        const addSep = () => {
+            const sep = document.createElement('div');
+            sep.className = 'vp-shell-area-menu-sep';
+            menu.appendChild(sep);
+        };
+
+        addItem({
+            icon: '⚙',
+            label: 'Panel settings',
+            disabled: !hasSettings,
+            title: hasSettings ? 'Open panel settings' : 'This panel has no settings yet',
+            onClick: () => showPanelSettings(area, panelId),
+        });
+        addItem({
+            icon: isMaximized ? '❐' : '⛶',
+            label: isMaximized ? 'Restore layout' : 'Maximize area',
+            onClick: () => toggleAreaMaximize(area, panelId),
+        });
+        addSep();
+        addItem({
+            icon: '↔',
+            label: 'Split right',
+            disabled: isMaximized,
+            title: isMaximized ? 'Restore layout before splitting' : 'Split area horizontally',
+            onClick: () => {
+                const fallback = panelId === 'stage' ? 'log' : 'stage';
+                setCurrentLayout(splitLeafInTree(getCurrentLayout(), node.id, 'row', VP.getPanel(fallback) ? fallback : panels[0]?.id || panelId));
+                renderShell();
+            },
+        });
+        addItem({
+            icon: '↕',
+            label: 'Split down',
+            disabled: isMaximized,
+            title: isMaximized ? 'Restore layout before splitting' : 'Split area vertically',
+            onClick: () => {
+                const fallback = panelId === 'input' ? 'log' : 'input';
+                setCurrentLayout(splitLeafInTree(getCurrentLayout(), node.id, 'column', VP.getPanel(fallback) ? fallback : panels[0]?.id || panelId));
+                renderShell();
+            },
+        });
+        addSep();
+        addItem({
+            icon: '×',
+            label: 'Close area',
+            disabled: isRoot || isMaximized,
+            danger: true,
+            title: isRoot ? 'Cannot close the last area' : (isMaximized ? 'Restore layout before closing' : 'Close this area'),
+            onClick: () => {
+                if (isRoot) return;
+                const next = closeLeafInTree(getCurrentLayout(), node.id);
+                if (next) setCurrentLayout(next);
+                renderShell();
+            },
+        });
+
+        document.body.appendChild(menu);
+        _activeAreaMenu = menu;
+        _activeAreaMenuBtn = btn;
+        btn.setAttribute('aria-expanded', 'true');
+        btn.classList.add('active');
+
+        const menuRect = menu.getBoundingClientRect();
+        let left, top;
+        if (coords) {
+            left = coords.x;
+            top = coords.y;
+            if (left + menuRect.width > window.innerWidth - 6) left = Math.max(6, coords.x - menuRect.width);
+            if (top + menuRect.height > window.innerHeight - 6) top = Math.max(6, coords.y - menuRect.height);
+        } else {
+            const rect = btn.getBoundingClientRect();
+            left = rect.right - menuRect.width;
+            top = rect.bottom + 4;
+            if (left < 6) left = 6;
+            if (left + menuRect.width > window.innerWidth - 6) left = Math.max(6, window.innerWidth - menuRect.width - 6);
+            if (top + menuRect.height > window.innerHeight - 6 && rect.top - menuRect.height - 4 >= 6) {
+                top = rect.top - menuRect.height - 4;
+            }
+        }
+        menu.style.left = `${Math.round(Math.max(6, left))}px`;
+        menu.style.top = `${Math.round(Math.max(6, top))}px`;
+
+        const onMouseDown = (ev) => {
+            if (!menu.contains(ev.target) && ev.target !== btn && !btn.contains(ev.target)) closeAreaMenu();
+        };
+        const onKeyDown = (ev) => {
+            if (ev.key === 'Escape') {
+                ev.stopPropagation();
+                closeAreaMenu();
+            }
+        };
+        const onResize = () => closeAreaMenu();
+        setTimeout(() => {
+            document.addEventListener('mousedown', onMouseDown, true);
+            document.addEventListener('keydown', onKeyDown, true);
+            window.addEventListener('resize', onResize);
+        }, 0);
+        _areaMenuCleanup = () => {
+            document.removeEventListener('mousedown', onMouseDown, true);
+            document.removeEventListener('keydown', onKeyDown, true);
+            window.removeEventListener('resize', onResize);
+        };
+    }
+
     function makePanelCtx(node, panelId, areaEl = null) {
         const pid = panelId || node?.panel || 'unknown';
+        const getSlot = () => areaEl?.querySelector?.('.vp-shell-header-slot') || null;
         return {
             areaId: node?.id || areaEl?.dataset?.areaId || null,
             shell: Shell,
             leaf: node || null,
             panelId: pid,
             areaEl,
+            get headerSlot() { return getSlot(); },
+            setHeaderContent(content) {
+                const slot = getSlot();
+                if (slot) setHeaderSlotContent(slot, content);
+            },
+            clearHeaderSlot() {
+                const slot = getSlot();
+                if (slot) clearHeaderSlotEl(slot);
+            },
+            syncHeaderSlot() {
+                const slot = getSlot();
+                if (slot) syncHeaderSlot(slot);
+            },
             getPanelState(defaults = {}) {
                 if (!node) return { ...defaults };
                 if (!node.state) node.state = {};
@@ -2147,10 +2821,23 @@
             aWrap.className = 'vp-shell-pane-wrap';
             bWrap.className = 'vp-shell-pane-wrap';
             const ratioPct = Math.max(8, Math.min(92, (node.ratio || 0.5) * 100));
-            aWrap.style.flex = `0 0 calc(${ratioPct}% - 3px)`;
-            bWrap.style.flex = `0 0 calc(${100 - ratioPct}% - 3px)`;
+            aWrap.style.flex = `0 0 calc(${ratioPct}% - 2.5px)`;
+            bWrap.style.flex = `0 0 calc(${100 - ratioPct}% - 2.5px)`;
             const gutter = document.createElement('div');
             gutter.className = 'vp-shell-gutter';
+            gutter.title = 'Drag to resize · Double-click to reset 50/50';
+            gutter.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                aWrap.style.flex = '0 0 calc(50% - 2.5px)';
+                bWrap.style.flex = '0 0 calc(50% - 2.5px)';
+                try { node.ratio = 0.5; } catch {}
+                try {
+                    const current = getCurrentLayout();
+                    S.shell.layouts[S.shell.activeWorkspace] = setSplitRatio(current, node.id, 0.5);
+                } catch {}
+                saveShellState();
+            });
             gutter.addEventListener('pointerdown', (e) => {
                 e.preventDefault();
                 gutter.classList.add('dragging');
@@ -2175,9 +2862,8 @@
                     pendingRatio = next;
                     const pct = next * 100;
                     // Live-preview: только визуальное обновление flex, без записи на диск и без клонирования дерева
-                    // Сохраняем calc(-3px) для компенсации ширины гаттера (6px), как и в оригинале
-                    aWrap.style.flex = `0 0 calc(${pct}% - 3px)`;
-                    bWrap.style.flex = `0 0 calc(${100 - pct}% - 3px)`;
+                    aWrap.style.flex = `0 0 calc(${pct}% - 2.5px)`;
+                    bWrap.style.flex = `0 0 calc(${100 - pct}% - 2.5px)`;
                     // Прямая мутация ratio в текущем объекте для консистентности, без тяжелого setSplitRatio
                     try { node.ratio = next; } catch {}
                 };
@@ -2200,8 +2886,8 @@
                             const finalRatio = Math.max(0.10, Math.min(0.90, raw));
                             pendingRatio = finalRatio;
                             const pct = finalRatio * 100;
-                            aWrap.style.flex = `0 0 calc(${pct}% - 3px)`;
-                            bWrap.style.flex = `0 0 calc(${100 - pct}% - 3px)`;
+                            aWrap.style.flex = `0 0 calc(${pct}% - 2.5px)`;
+                            bWrap.style.flex = `0 0 calc(${100 - pct}% - 2.5px)`;
                         }
                     }
                     // Финальное сохранение: один раз на mouseup, бережно к диску
@@ -2247,18 +2933,19 @@
         area.className = 'vp-shell-area';
         area.dataset.areaId = node.id;
         area.innerHTML = `
-            <div class="vp-shell-area-header">
-                <select class="vp-shell-panel-select"></select>
-                <div class="vp-shell-area-title"></div>
-                <div class="vp-shell-area-spacer"></div>
-                <button class="vp-shell-area-btn" data-act="settings" title="Panel settings">⚙</button>
-                <button class="vp-shell-area-btn" data-act="focus" title="Toggle Focus Mode (Maximize)">⛶</button>
-                <div class="vp-shell-area-sep"></div>
-                <button class="vp-shell-area-btn" data-act="split-right" title="Split right">↔</button>
-                <button class="vp-shell-area-btn" data-act="split-down" title="Split down">↕</button>
-                <button class="vp-shell-area-btn" data-act="close" title="Close area">×</button>
+            <div class="vp-shell-area-header" draggable="true">
+                <select class="vp-shell-panel-select" title="Switch panel"></select>
+                <div class="vp-shell-header-slot-wrap">
+                    <div class="vp-shell-header-slot"></div>
+                </div>
+                <div class="vp-shell-area-right">
+                    <button class="vp-shell-area-btn vp-shell-area-restore" type="button" data-act="restore" title="Restore layout (Esc / Ctrl+Space)">❐</button>
+                    <button class="vp-shell-area-btn vp-shell-area-menu-btn" type="button" data-act="area-menu" title="Panel actions (Right-click header)" aria-haspopup="menu" aria-expanded="false">⋮</button>
+                </div>
             </div>
             <div class="vp-shell-area-body"><div class="vp-shell-panel-host"></div></div>`;
+
+        const header = area.querySelector('.vp-shell-area-header');
         const select = area.querySelector('.vp-shell-panel-select');
         const panels = VP.getPanels();
         for (const p of panels) {
@@ -2269,59 +2956,86 @@
         }
         if (!VP.getPanel(node.panel) && panels[0]) node.panel = panels[0].id;
         select.value = node.panel;
-        const titleEl = area.querySelector('.vp-shell-area-title');
-        const setAreaTitle = () => {
-            const p = VP.getPanel(select.value);
-            if (titleEl) titleEl.textContent = p ? `${p.icon || '□'} ${p.title || p.id}` : select.value;
-        };
-        setAreaTitle();
-        const settingsBtn = area.querySelector('[data-act="settings"]');
-        const syncSettingsButton = () => {
-            const hasSettings = !!VP.getPanel(select.value)?.settings;
-            settingsBtn.classList.toggle('is-muted', !hasSettings);
-            settingsBtn.title = hasSettings ? 'Panel settings' : 'This panel has no settings yet';
-        };
-        syncSettingsButton();
-        const focusBtn = area.querySelector('[data-act="focus"]');
-        focusBtn.addEventListener('click', () => {
-            const isMaximized = area.classList.toggle('maximized');
-            focusBtn.classList.toggle('active', isMaximized);
-            focusBtn.textContent = isMaximized ? '❐' : '⛶';
-            focusBtn.title = isMaximized ? 'Restore layout' : 'Maximize area';
-            
-            // If we maximize/restore, we might need to tell singleton panels to refresh
-            if (node.panel === 'stage') requestProjectorUiUpdate('shell-focus')
-            if (node.panel === 'gallery') requestGalleryUiRefresh('shell-focus')
-            if (node.panel === 'asset-studio') {
-                setTimeout(() => {
-                    window.VP_AS?.Graph?.viewport?.handleResize?.({ preserveCenter: true });
-                    window.VP_AS?.Graph?.links?._render?.();
-                }, 30);
-            }
-        });
+
+        const slot = area.querySelector('.vp-shell-header-slot');
+        ensureShellGestureListeners();
 
         select.addEventListener('change', () => {
+            closeAreaMenu();
             const current = getCurrentLayout();
             const found = findLeaf(current, node.id);
             if (found) replaceAreaPanelLocally(area, found, select.value);
         });
-        settingsBtn.addEventListener('click', () => showPanelSettings(area, select.value));
-        area.querySelector('[data-act="split-right"]').addEventListener('click', () => {
-            const fallback = node.panel === 'stage' ? 'log' : 'stage';
-            setCurrentLayout(splitLeafInTree(getCurrentLayout(), node.id, 'row', VP.getPanel(fallback) ? fallback : panels[0]?.id || node.panel));
-            renderShell();
+        area.querySelector('[data-act="restore"]').addEventListener('click', () => {
+            closeAreaMenu();
+            toggleAreaMaximize(area, select.value, false);
         });
-        area.querySelector('[data-act="split-down"]').addEventListener('click', () => {
-            const fallback = node.panel === 'input' ? 'log' : 'input';
-            setCurrentLayout(splitLeafInTree(getCurrentLayout(), node.id, 'column', VP.getPanel(fallback) ? fallback : panels[0]?.id || node.panel));
-            renderShell();
+        const menuBtn = area.querySelector('[data-act="area-menu"]');
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openAreaMenu(menuBtn, area, node, isRoot, panels);
         });
-        area.querySelector('[data-act="close"]').addEventListener('click', () => {
-            if (isRoot) return;
-            const next = closeLeafInTree(getCurrentLayout(), node.id);
-            if (next) setCurrentLayout(next);
-            renderShell();
+
+        // Right-click on panel header opens the area actions menu at cursor
+        header.addEventListener('contextmenu', (e) => {
+            if (e.target.closest('input, textarea')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            openAreaMenu(menuBtn, area, node, isRoot, panels, { x: e.clientX, y: e.clientY });
         });
+
+        // Double-click on empty header space toggles Maximize / Restore
+        header.addEventListener('dblclick', (e) => {
+            if (e.target.closest('button, select, input, textarea, [data-remove]')) return;
+            e.preventDefault();
+            closeAreaMenu();
+            toggleAreaMaximize(area, select.value);
+        });
+
+        // Drag-and-drop header onto another panel to swap them
+        header.addEventListener('dragstart', (e) => {
+            if (area.classList.contains('maximized') || e.target.closest('button, select, input, textarea, [data-remove]')) {
+                e.preventDefault();
+                return;
+            }
+            closeAreaMenu();
+            _draggedAreaId = node.id;
+            area.classList.add('is-dragging-area');
+            try {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/vp-area-id', node.id);
+            } catch {}
+        });
+        header.addEventListener('dragend', () => {
+            _draggedAreaId = null;
+            document.querySelectorAll('#vp-shell-root .vp-shell-area.is-dragging-area, #vp-shell-root .vp-shell-area.is-drop-target')
+                .forEach(el => el.classList.remove('is-dragging-area', 'is-drop-target'));
+        });
+        area.addEventListener('dragover', (e) => {
+            if (!_draggedAreaId || _draggedAreaId === node.id || area.classList.contains('maximized')) return;
+            e.preventDefault();
+            try { e.dataTransfer.dropEffect = 'move'; } catch {}
+            area.classList.add('is-drop-target');
+        });
+        area.addEventListener('dragleave', (e) => {
+            if (!area.contains(e.relatedTarget)) area.classList.remove('is-drop-target');
+        });
+        area.addEventListener('drop', (e) => {
+            if (!_draggedAreaId || _draggedAreaId === node.id || area.classList.contains('maximized')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const srcId = _draggedAreaId;
+            _draggedAreaId = null;
+            document.querySelectorAll('#vp-shell-root .vp-shell-area.is-dragging-area, #vp-shell-root .vp-shell-area.is-drop-target')
+                .forEach(el => el.classList.remove('is-dragging-area', 'is-drop-target'));
+            swapAreasInLayout(srcId, node.id);
+        });
+
+        parentEl.appendChild(area);
+        attachHeaderSlot(slot);
+        fitPanelSelectWidth(select, area);
+        requestAnimationFrame(() => fitPanelSelectWidth(select, area));
+
         const host = area.querySelector('.vp-shell-panel-host');
         const panelDef = VP.getPanel(node.panel);
         if (panelDef) {
@@ -2339,10 +3053,10 @@
         } else {
             makePlaceholder(host, 'Unavailable panel', `Panel module is not loaded: ${node.panel}`);
         }
-        parentEl.appendChild(area);
     }
 
     function replaceAreaPanelLocally(areaEl, node, newPanelId) {
+        closeAreaMenu();
         const oldPanelId = node.panel;
         node.panel = newPanelId;
         saveShellState();
@@ -2358,22 +3072,16 @@
         const host = areaEl.querySelector('.vp-shell-panel-host');
         if (!host) { renderShell(); return; }
 
+        clearHeaderSlotEl(areaEl.querySelector('.vp-shell-header-slot'));
         host.innerHTML = '';
         
         // Sync UI header
         const select = areaEl.querySelector('.vp-shell-panel-select');
-        if (select && select.value !== newPanelId) select.value = newPanelId;
-        
-        const titleEl = areaEl.querySelector('.vp-shell-area-title');
-        const settingsBtn = areaEl.querySelector('[data-act="settings"]');
-        const panelDef = VP.getPanel(newPanelId);
-        
-        if (titleEl) titleEl.textContent = panelDef ? `${panelDef.icon || '□'} ${panelDef.title || panelDef.id}` : newPanelId;
-        if (settingsBtn) {
-            const hasSettings = !!panelDef?.settings;
-            settingsBtn.classList.toggle('is-muted', !hasSettings);
-            settingsBtn.title = hasSettings ? 'Panel settings' : 'This panel has no settings yet';
+        if (select) {
+            if (select.value !== newPanelId) select.value = newPanelId;
+            fitPanelSelectWidth(select, areaEl);
         }
+        const panelDef = VP.getPanel(newPanelId);
 
         // Mount new panel
         if (panelDef) {
@@ -2387,6 +3095,13 @@
     function renderShell() {
         const root = document.getElementById('vp-shell-root');
         if (!root) return;
+        closeAreaMenu();
+        restoreStageHeaderToProjector();
+        _hoveredAreaEl = null;
+        _focusedAreaEl = null;
+        _draggedAreaId = null;
+        _slotObservers.forEach(ro => { try { ro.disconnect(); } catch {} });
+        _slotObservers.clear();
         renderWorkspaceTabs(root);
         renderWorldControls(root);
         const canvas = root.querySelector('.vp-shell-canvas');
@@ -2789,6 +3504,7 @@
     }
 
     function undockProjectorToFloating() {
+        restoreStageHeaderToProjector();
         const vp = S.ui?.vpWindow;
         if (!vp) return;
         if (vp.classList.contains('vp-shell-docked-stage')) {
@@ -2818,20 +3534,23 @@
 		root.innerHTML = `
 			<div class="vp-shell-topbar">
 				<div class="vp-shell-brand">👁 VP Studio</div>
-				<span class="vp-shell-section-label">Worlds:</span>
-				<div class="vp-shell-worldbar">
+				<div class="vp-shell-worldbar" title="Current world">
 					<span id="vp-world-label" class="vp-shell-world-label">🌍</span>
 					<select id="vp-world-select" class="vp-shell-world-select" title="Current world"></select>
 					<button class="vp-shell-tool-btn" id="vp-world-new" title="Create new isolated world">＋</button>
 					<button class="vp-shell-tool-btn" id="vp-world-manager" title="World Manager">⋯</button>
 					<button class="vp-shell-tool-btn" id="vp-world-folder" title="Open current world folder">📂</button>
 				</div>
-				<span class="vp-shell-section-label">Workspaces:</span>
-				<div class="vp-shell-workspaces"></div>
-                <div class="vp-shell-savebox" style="display:flex;align-items:center;gap:7px;margin-left:auto;padding:0 6px">
-                    <span id="vp-save-status" style="font-size:11px;opacity:.72;white-space:nowrap">Сохранено</span>
-                    <button class="vp-shell-tool-btn" id="vp-save-button" title="Сохранить изменения (Ctrl+S)" style="width:auto;min-width:74px;padding:0 10px">💾 Save</button>
-                </div>
+				<div class="vp-shell-workspaces" title="Workspaces"></div>
+                <button class="vp-shell-llama-pill" id="vp-llama-pill" type="button" data-status="offline" title="Local LLM — click to open Model panel">
+                    <span class="vp-shell-llama-dot"></span>
+                    <span class="vp-shell-llama-label" data-role="label">LLM: Off</span>
+                    <span class="vp-shell-llama-ctx" data-role="ctx" style="display:none"></span>
+                </button>
+                <button class="vp-shell-save-btn" id="vp-save-button" type="button" title="Сохранить изменения (Ctrl+S)">
+                    <span class="save-dot" data-role="save-dot">✓</span>
+                    <span data-role="save-label">Saved</span>
+                </button>
 				<div class="vp-shell-window-controls" title="Window controls">
 					<button class="vp-shell-tool-btn" id="vp-win-minimize" title="Minimize">—</button>
 					<button class="vp-shell-tool-btn" id="vp-win-maximize" title="Maximize">▢</button>
@@ -2852,21 +3571,23 @@
         root.querySelector('#vp-world-folder')?.addEventListener('click', openCurrentWorldFolder);
 
         const saveButton = root.querySelector('#vp-save-button');
-        const saveStatus = root.querySelector('#vp-save-status');
+        const saveDot = root.querySelector('[data-role="save-dot"]');
+        const saveLabel = root.querySelector('[data-role="save-label"]');
         const paintSaveState = (dirty = !!DB?.isDirty?.()) => {
-            if (saveStatus) {
-                saveStatus.textContent = dirty ? `Не сохранено${DB?.getDirtyCount?.() ? ` · ${DB.getDirtyCount()}` : ''}` : 'Сохранено';
-                saveStatus.style.color = dirty ? '#ffd166' : '#8bd49c';
-            }
-            if (saveButton) {
-                saveButton.style.opacity = dirty ? '1' : '.68';
-                saveButton.style.boxShadow = dirty ? '0 0 0 1px rgba(255,209,102,.35), 0 0 12px rgba(255,209,102,.18)' : '';
-            }
+            if (!saveButton) return;
+            const count = dirty ? (Number(DB?.getDirtyCount?.()) || 0) : 0;
+            saveButton.classList.toggle('is-dirty', !!dirty);
+            if (saveDot) saveDot.textContent = dirty ? '●' : '✓';
+            if (saveLabel) saveLabel.textContent = dirty ? (count > 0 ? `Save (${count})` : 'Save') : 'Saved';
+            saveButton.title = dirty
+                ? `Несохранённых изменений: ${count || 1}. Нажмите или Ctrl+S для сохранения`
+                : 'Все изменения сохранены (Ctrl+S)';
         };
         saveButton?.addEventListener('click', async () => {
             if (!DB?.saveChanges) return;
             saveButton.disabled = true;
-            if (saveStatus) saveStatus.textContent = 'Сохраняю…';
+            if (saveDot) saveDot.textContent = '⏳';
+            if (saveLabel) saveLabel.textContent = 'Saving…';
             try {
                 await DB.saveChanges();
                 paintSaveState(false);
@@ -2878,6 +3599,92 @@
         });
         window.addEventListener('vp-storage-dirty-changed', (event) => paintSaveState(!!event.detail?.dirty));
         paintSaveState();
+
+        // Compact Local LLM indicator pill in topbar
+        const llamaPill = root.querySelector('#vp-llama-pill');
+        if (llamaPill) {
+            const labelEl = llamaPill.querySelector('[data-role="label"]');
+            const ctxEl = llamaPill.querySelector('[data-role="ctx"]');
+            const fmtTok = (n) => window.VP_LLAMA?.formatCompactTokens?.(n) ?? String(n);
+            const getActiveChatLastUsage = () => {
+                const msgs = window.VisualProjector?.chats?.getActiveChatMessages?.()
+                    || S.session?.messages || [];
+                for (let i = msgs.length - 1; i >= 0; i--) {
+                    if (msgs[i]?.usage) return msgs[i].usage;
+                }
+                return window.VP_LLAMA?.getState?.()?.lastUsage || null;
+            };
+            const paintLlamaPill = (snap = window.VP_LLAMA?.getState?.()) => {
+                if (!snap) return;
+                llamaPill.dataset.status = snap.status || 'offline';
+                const activeModel = snap.loadedModelId || S.modelConfig?.model || '';
+                let text = 'LLM: Off';
+                if (snap.status === 'starting') text = 'LLM: старт…';
+                else if (snap.status === 'stopping') text = 'LLM: стоп…';
+                else if (snap.status === 'loading') text = activeModel ? `⏳ ${activeModel}` : 'LLM: загрузка…';
+                else if (snap.status === 'error') text = 'LLM: ошибка';
+                else if (snap.status === 'ready') text = activeModel || 'LLM: Ready';
+                if (labelEl) labelEl.textContent = text;
+
+                const maxCtx = snap.activeCtx || 0;
+                const usage = getActiveChatLastUsage();
+                const used = usage
+                    ? ((Number(usage.prompt_tokens ?? usage.promptTokens) || 0) + (Number(usage.completion_tokens ?? usage.completionTokens) || 0) || Number(usage.used ?? usage.total_tokens) || 0)
+                    : 0;
+
+                if (ctxEl) {
+                    ctxEl.classList.remove('warn', 'danger');
+                    if (snap.status === 'ready' && maxCtx > 0) {
+                        ctxEl.style.display = '';
+                        if (used > 0) {
+                            const pct = Math.round((used / maxCtx) * 100);
+                            ctxEl.textContent = `${fmtTok(used)}/${fmtTok(maxCtx)}`;
+                            if (pct >= 92) ctxEl.classList.add('danger');
+                            else if (pct >= 80) ctxEl.classList.add('warn');
+                        } else {
+                            ctxEl.textContent = `${fmtTok(maxCtx)} ctx`;
+                        }
+                    } else {
+                        ctxEl.style.display = 'none';
+                        ctxEl.textContent = '';
+                    }
+                }
+
+                const tipLines = [`Local LLM: ${snap.status}${snap.managed ? ' (managed)' : (snap.status === 'ready' ? ' (external)' : '')}`];
+                if (activeModel) tipLines.push(`Model: ${activeModel}`);
+                if (maxCtx > 0) {
+                    const pctStr = used > 0 ? ` (${Math.round((used / maxCtx) * 100)}%)` : '';
+                    tipLines.push(`Context: ${used ? `${used} / ` : ''}${maxCtx} tok${pctStr}`);
+                }
+                if (usage?.tps) tipLines.push(`Speed: ${usage.tps} tok/s`);
+                if (snap.lastError) tipLines.push(`Error: ${snap.lastError}`);
+                tipLines.push('Click to open Model panel');
+                llamaPill.title = tipLines.join('\n');
+            };
+            llamaPill.addEventListener('click', () => {
+                const areas = Array.from(root.querySelectorAll('.vp-shell-area'));
+                let modelArea = areas.find(a => a.querySelector('.vp-shell-panel-select')?.value === 'model');
+                if (!modelArea) {
+                    const candidate = areas.find(a => !['stage', 'gallery', 'input'].includes(a.querySelector('.vp-shell-panel-select')?.value || ''))
+                        || areas[areas.length - 1];
+                    const sel = candidate?.querySelector('.vp-shell-panel-select');
+                    if (sel) {
+                        sel.value = 'model';
+                        sel.dispatchEvent(new Event('change', { bubbles: true }));
+                        modelArea = candidate;
+                    }
+                }
+                if (modelArea) {
+                    const prev = modelArea.style.boxShadow;
+                    modelArea.style.boxShadow = '0 0 0 2px var(--accent, #6c5fa6)';
+                    setTimeout(() => { modelArea.style.boxShadow = prev; }, 900);
+                }
+            });
+            window.VP_LLAMA?.onChange?.(paintLlamaPill);
+            window.VP_HUB?.on?.('chat:active-changed', () => paintLlamaPill());
+            window.VP_HUB?.on?.('chat:messages-changed', () => paintLlamaPill());
+            paintLlamaPill();
+        }
 
         renderWorldControls(root);
 		// Window controls and drag region for Neutralino borderless mode.
@@ -2993,6 +3800,9 @@
             maxButton?.addEventListener('click', toggleMaximize);
 			root.querySelector('#vp-win-close')?.addEventListener('click', async () => {
                 if (DB?.confirmUnsavedChanges && !(await DB.confirmUnsavedChanges('exit'))) return;
+                if (window.VP_LLAMA?.shutdown) {
+                    try { await window.VP_LLAMA.shutdown(); } catch {}
+                }
                 await Neutralino.app.exit();
             });
             // Convert a config-started native maximize into taskbar-safe work-area maximize.

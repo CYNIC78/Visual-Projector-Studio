@@ -229,6 +229,10 @@
                     // v27: the law of the entered state repeats at the entry moment (300-cap)
                     const rules = String(tab.rules || '').trim();
                     if (rules) lines.push(`  Rules of "${tab.name}" (law of this scene): ${rules.length > 300 ? rules.slice(0, 299) + '…' : rules}`);
+                    if (tab.seqEnabled) {
+                        const seqHint = window.VP_TEMPLATES?.SEQ_RULE_HINT || 'Sequences enabled: use [SEQ:tag1,tag2,tag3:tempo] (tempo: slow|med|fast; optional :loop or :pingpong; [SEQ:stop] to stop) for multi-step motion instead of separate [IMG:] tags.';
+                        lines.push(`  ${seqHint}`);
+                    }
                 } else if (verb === 'close' && tab) {
                     lines.push(`- You left "${tab.name}" (stepped back into the hall).`);
                 } else if (!tab) {

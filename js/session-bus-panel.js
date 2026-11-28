@@ -36,13 +36,16 @@
             throw new Error('[VP Session BusPanel] init: missing deps: clearContainer');
         }
 
-    function renderBusPanel(container) {
+    function renderBusPanel(container, ctx = {}) {
         clearContainer(container);
         const bus = VP.commands;
         if (!bus) {
             container.innerHTML = '<div style="padding:20px;color:var(--text-secondary,#a6adc8);">Command Bus not available</div>';
             return;
         }
+        const liveCtx = ctx?.setHeaderContent
+            ? ctx
+            : VP.shell?.getPanelContext?.(container.closest?.('.vp-shell-area')?.dataset?.areaId, 'bus') || ctx;
 
         const wrap = document.createElement('div');
         wrap.className = 'vp-bus-panel';
@@ -65,13 +68,13 @@
                 }
                 .vp-bus-tab.active { background:rgba(108,95,166,0.28); border-color:rgba(108,95,166,0.50); color:var(--text-primary,#cdd6f4); }
                 .vp-bus-tab:hover { background:rgba(255,255,255,0.06); }
-                .vp-bus-content { flex:1; min-height:0; overflow:auto; padding:8px; }
-                .vp-bus-empty { color:var(--text-secondary,#a6adc8); text-align:center; padding:20px; font-size:12px; }
+                .vp-bus-content { flex:1; min-height:0; overflow:auto; padding:5px; }
+                .vp-bus-empty { color:var(--text-secondary,#a6adc8); text-align:center; padding:16px; font-size:11.5px; }
 
                 .vp-bus-log-item {
-                    display:flex; align-items:flex-start; gap:6px; padding:5px 7px;
-                    border-radius:6px; margin-bottom:4px; font-family:ui-monospace, SFMono-Regular, Consolas, monospace;
-                    font-size:11px; line-height:1.4;
+                    display:flex; align-items:flex-start; gap:5px; padding:3px 6px;
+                    border-radius:5px; margin-bottom:2px; font-family:ui-monospace, SFMono-Regular, Consolas, monospace;
+                    font-size:11px; line-height:1.32;
                 }
                 .vp-bus-log-item.status-success { background:rgba(35,92,58,0.12); }
                 .vp-bus-log-item.status-failed { background:rgba(110,40,40,0.12); }
@@ -86,8 +89,8 @@
                 .vp-bus-log-time { color:var(--text-secondary,#a6adc8); font-size:10px; flex:0 0 auto; white-space:nowrap; margin-top:2px; }
 
                 .vp-bus-registry-item {
-                    display:flex; align-items:center; gap:8px; padding:6px 8px;
-                    border-radius:6px; margin-bottom:4px; background:rgba(255,255,255,0.03);
+                    display:flex; align-items:center; gap:6px; padding:4px 7px;
+                    border-radius:5px; margin-bottom:3px; background:rgba(255,255,255,0.03);
                     border:1px solid rgba(255,255,255,0.06);
                 }
                 .vp-bus-registry-type {
@@ -101,21 +104,22 @@
             document.head.appendChild(st);
         }
 
-        // Toolbar
-        wrap.innerHTML = `
-            <div class="vp-bus-toolbar">
-                <div class="vp-bus-tabs">
-                    <button class="vp-bus-tab active" data-tab="log">Log</button>
-                    <button class="vp-bus-tab" data-tab="registry">Registry</button>
-                </div>
-                <span class="spacer"></span>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="refresh" title="Refresh">↻</button>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="clear" title="Clear log">Clear</button>
+        // Toolbar -> header slot (with fallback inside wrap if outside shell)
+        const toolbar = document.createElement('div');
+        toolbar.className = liveCtx?.setHeaderContent ? 'vp-hdr-bar' : 'vp-bus-toolbar';
+        toolbar.innerHTML = `
+            <div class="vp-bus-tabs">
+                <button class="vp-bus-tab active" data-tab="log" title="Command execution log"><span class="vp-hdr-ico">📋</span><span class="vp-hdr-lbl">Log</span></button>
+                <button class="vp-bus-tab" data-tab="registry" title="Registered VP commands"><span class="vp-hdr-ico">📖</span><span class="vp-hdr-lbl">Registry</span></button>
             </div>
-            <div class="vp-bus-content" data-role="content"></div>`;
+            <span class="vp-hdr-spacer spacer"></span>
+            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="refresh" title="Refresh"><span class="vp-hdr-ico">↻</span><span class="vp-hdr-lbl">Refresh</span></button>
+            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="clear" title="Clear log"><span class="vp-hdr-ico">🗑</span><span class="vp-hdr-lbl">Clear</span></button>
+        `;
+        wrap.innerHTML = `<div class="vp-bus-content" data-role="content"></div>`;
 
         const content = wrap.querySelector('[data-role="content"]');
-        const tabs = wrap.querySelectorAll('.vp-bus-tab');
+        const tabs = toolbar.querySelectorAll('.vp-bus-tab');
         let activeTab = 'log';
 
         function formatTime(ts) {
@@ -181,13 +185,18 @@
             });
         });
 
-        wrap.querySelector('[data-act="refresh"]').addEventListener('click', renderTab);
-        wrap.querySelector('[data-act="clear"]').addEventListener('click', () => {
+        toolbar.querySelector('[data-act="refresh"]').addEventListener('click', renderTab);
+        toolbar.querySelector('[data-act="clear"]').addEventListener('click', () => {
             bus.clearLog?.();
             renderTab();
         });
 
         renderTab();
+        if (liveCtx?.setHeaderContent) {
+            liveCtx.setHeaderContent(toolbar);
+        } else {
+            wrap.prepend(toolbar);
+        }
         container.appendChild(wrap);
     }
 

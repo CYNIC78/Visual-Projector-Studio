@@ -1826,11 +1826,20 @@
     });
 
     if (window.Neutralino?.events?.on) {
+        let _exitFlowActive = false;
         Neutralino.events.on('windowClose', async () => {
-            if (_allowNativeExit) return;
-            if (!(await confirmUnsavedChanges('exit'))) return;
-            _allowNativeExit = true;
-            await Neutralino.app.exit();
+            if (_allowNativeExit || _exitFlowActive) return;
+            _exitFlowActive = true;
+            try {
+                if (!(await confirmUnsavedChanges('exit'))) return;
+                _allowNativeExit = true;
+                if (window.VP_LLAMA?.shutdown) {
+                    try { await window.VP_LLAMA.shutdown(); } catch {}
+                }
+                await Neutralino.app.exit();
+            } finally {
+                if (!_allowNativeExit) _exitFlowActive = false;
+            }
         });
     }
 

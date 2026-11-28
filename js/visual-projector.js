@@ -47,6 +47,9 @@
             // Studio 2.0: Technical network tracking fields removed
         },
 
+        // Active visual asset sequence ([SEQ:...]) state
+        sequence: null,
+
         projectorViewport: {
             enabled: false,
             aspect: '4:3',
@@ -153,8 +156,20 @@
         // Robust, Unicode-safe command parser. It intentionally accepts a
         // little more than the prompt asks for because small/local models tend
         // to add spaces or use aliases under pressure.
-        _TYPE_PATTERN: 'IMG|SET|PLAY|FRAME|IMAGE|FX|CAT|TAB|ACTIVITY_REQUEST|ACTIVITY_CHALLENGE|ACTIVITY_START|ACTIVITY_AUTO|ACTIVITY_ACCEPT|ACTIVITY_DECLINE|FOCUS',
+        _TYPE_PATTERN: 'IMG|SET|PLAY|FRAME|IMAGE|SEQ|FX|CAT|TAB|ACTIVITY_REQUEST|ACTIVITY_CHALLENGE|ACTIVITY_START|ACTIVITY_AUTO|ACTIVITY_ACCEPT|ACTIVITY_DECLINE|FOCUS',
         _IMAGE_TYPES: new Set(['IMG', 'SET', 'PLAY', 'FRAME', 'IMAGE']),
+        _SEQ_TEMPOS: {
+            slow: 2200,
+            med: 1300,
+            medium: 1300,
+            normal: 1300,
+            fast: 650,
+            quick: 650,
+            rapid: 380,
+            veryfast: 380,
+        },
+        _SEQ_MODES: new Set(['once', 'loop', 'pingpong', 'bounce']),
+        _SEQ_TRANSITIONS: new Set(['fade', 'crossfade', 'slide_left', 'slide_up', 'zoom', 'pop', 'flip', 'random']),
         _ACTIVITY_TYPES: new Set(['ACTIVITY_REQUEST', 'ACTIVITY_CHALLENGE', 'ACTIVITY_START', 'ACTIVITY_AUTO', 'ACTIVITY_ACCEPT', 'ACTIVITY_DECLINE']),
         _ACTION_ALIASES: {
             open: 'open', opened: 'open', expand: 'open', show: 'open', reveal: 'open', load: 'open',
@@ -264,12 +279,71 @@
             if (!name || (action !== 'open' && action !== 'close')) return null;
             return { action, name };
         },
+        parseSeqBody(body) {
+            const cleaned = this.cleanBody(body);
+            if (!cleaned) return null;
+            const lowWhole = cleaned.toLowerCase();
+            if (lowWhole === 'stop' || lowWhole === 'off' || lowWhole === 'end' || lowWhole === 'cancel' || lowWhole === 'clear') {
+                return { action: 'stop' };
+            }
+
+            const parts = cleaned.split(/\s*[:：]\s*/).filter(Boolean);
+            const rawList = parts.shift() || '';
+            const rawTags = rawList
+                .split(/\s*(?:,|;|->|→|\|)\s*/)
+                .map(s => this.cleanBody(s))
+                .filter(Boolean);
+            if (!rawTags.length) return null;
+
+            let tempo = 'med';
+            let stepMs = this._SEQ_TEMPOS.med;
+            let mode = 'once';
+            let transition = null;
+
+            for (const modRaw of parts) {
+                const mod = this.cleanBody(modRaw).toLowerCase().replace(/[\s\-]+/g, '_');
+                if (!mod) continue;
+                if (this._SEQ_TEMPOS[mod]) {
+                    tempo = mod;
+                    stepMs = this._SEQ_TEMPOS[mod];
+                    continue;
+                }
+                if (this._SEQ_MODES.has(mod)) {
+                    mode = mod === 'bounce' ? 'pingpong' : mod;
+                    continue;
+                }
+                if (this._SEQ_TRANSITIONS.has(mod)) {
+                    transition = mod;
+                    continue;
+                }
+                // Numeric duration: e.g. "1.2", "1.2s", "800ms"
+                const numMatch = mod.match(/^(\d+(?:\.\d+)?)\s*(ms|s|sec)?$/i);
+                if (numMatch) {
+                    const val = parseFloat(numMatch[1]);
+                    const unit = (numMatch[2] || '').toLowerCase();
+                    if (Number.isFinite(val) && val > 0) {
+                        const ms = unit === 'ms' ? val : (unit === 's' || unit === 'sec' || val <= 30 ? val * 1000 : val);
+                        stepMs = Math.round(Math.max(250, Math.min(15000, ms)));
+                        tempo = `${(stepMs / 1000).toFixed(stepMs % 1000 === 0 ? 0 : 1)}s`;
+                    }
+                }
+            }
+
+            return {
+                action: 'play',
+                rawTags,
+                tempo,
+                stepMs,
+                mode,
+                transition,
+            };
+        },
         toQueueItem(cmd) {
             // Backward-compatible helper. The Director Command Bus is the
             // canonical executor; queueable commands are wrapped for it.
             if (!cmd) return null;
             const type = this.normalizeType(cmd.type || cmd.originalType || '');
-            if (type === 'IMG' || type === 'FX' || type === 'CAT' || type === 'TAB') {
+            if (type === 'IMG' || type === 'SEQ' || type === 'FX' || type === 'CAT' || type === 'TAB' || type === 'FOCUS') {
                 return { type: 'vp_command', command: cmd };
             }
             return null;
@@ -395,7 +469,7 @@
         );
     }
     const VPCommandBus = window.VP_DIRECTOR_BUS.createCommandBus({
-        State, VPTags, setCurrent, showToast,
+        State, VPTags, setCurrent, playSequence, stopSequence, showToast,
         getProjectorViewportState, ensureViewportGlideLoopActive, updateProjectorDepthLayer,
     });
 
@@ -645,7 +719,11 @@
         }
     }
 
-    function setCurrent(tag, source = 'user', force = false, transition = null) {
+    function setCurrent(tag, source = 'user', force = false, transition = null, opts = {}) {
+        if (!opts || typeof opts !== 'object') opts = {};
+        if (!opts.fromSequence && State.sequence?.active) {
+            stopSequence('frame-changed', { silentPersist: true, skipPlayerBar: true });
+        }
         const requestedTag = tag;
         tag = VPTags.resolveImageTag(tag) || tag;
         State.currentTransition = transition || State.config.transitionType || 'crossfade';
@@ -692,31 +770,258 @@
             filename: asset.filename || asset.tag, timestamp: Date.now(), source: source,
         });
 
-        if (source === 'user') {
-            State.history = State.history.filter(h => h.source !== 'user');
-            State.history.push(makeFrame());
-            if (State.history.length > State.config.maxHistory) State.history.shift();
-        } else if (!new Set(['replay', 'cover', 'prepared']).has(source)) {
-            // Replay/cover display is UI navigation, not new scene history.
-            // Model/game-driven switches are still recorded for future visual context.
-            const isSameTag = State.history[State.history.length - 1]?.tag === tag;
-            if (!isSameTag) {
+        if (!opts.silentHistory) {
+            if (source === 'user') {
+                State.history = State.history.filter(h => h.source !== 'user');
                 State.history.push(makeFrame());
                 if (State.history.length > State.config.maxHistory) State.history.shift();
+            } else if (!new Set(['replay', 'cover', 'prepared']).has(source)) {
+                // Replay/cover display is UI navigation, not new scene history.
+                // Model/game-driven switches are still recorded for future visual context.
+                const isSameTag = State.history[State.history.length - 1]?.tag === tag;
+                if (!isSameTag) {
+                    State.history.push(makeFrame());
+                    if (State.history.length > State.config.maxHistory) State.history.shift();
+                }
             }
         }
 
-        updateProjectorUI();
-        persistProjectorState();
-        const db = window.VP_DB;
-        if (db?.setCurrentTag) db.setCurrentTag(tag).catch(() => {});
-        window.VisualProjector?.gallery?.refreshGalleryPanelUI?.();
-        emitProjectorCurrentChanged(previousTag, source, 'set-current');
-        console.log(`[VP] Текущий кадр: "${tag}" (source: ${source})`);
+        updateProjectorUI(opts);
+        if (!opts.skipPersist) {
+            persistProjectorState();
+            const db = window.VP_DB;
+            if (db?.setCurrentTag) db.setCurrentTag(tag).catch(() => {});
+        }
+        if (!opts.skipGalleryRefresh) {
+            window.VisualProjector?.gallery?.refreshGalleryPanelUI?.();
+        }
+        emitProjectorCurrentChanged(previousTag, source, opts.fromSequence ? 'sequence-step' : 'set-current');
+        if (!opts.fromSequence) console.log(`[VP] Текущий кадр: "${tag}" (source: ${source})`);
         return true;
     }
 
+    // ════════════════════════════════════════════════════════════════
+    //  SEQUENCE PLAYER ([SEQ:tag1,tag2,tag3:tempo(:loop|:pingpong)])
+    // ════════════════════════════════════════════════════════════════
+
+    let _seqCounter = 0;
+
+    function emitSequenceEvent(eventName, payload = {}) {
+        try {
+            window.VP_HUB?.emit?.(eventName, payload, { moduleId: 'projector' });
+        } catch (err) {
+            console.warn(`[VP Seq] hub emit ${eventName} failed:`, err);
+        }
+    }
+
+    function getSequenceState() {
+        const s = State.sequence;
+        if (!s || !s.active) return null;
+        return {
+            active: true,
+            id: s.id,
+            tags: s.tags.slice(),
+            index: s.index,
+            step: s.index + 1,
+            total: s.tags.length,
+            cycle: s.cycle,
+            tempo: s.tempo,
+            stepMs: s.stepMs,
+            mode: s.mode,
+            transition: s.transition,
+            currentTag: s.tags[s.index] || null,
+        };
+    }
+
+    function stopSequence(reason = 'manual', opts = {}) {
+        const prev = State.sequence;
+        if (!prev || !prev.active) return { stopped: false };
+        if (prev.timer) {
+            clearTimeout(prev.timer);
+            prev.timer = null;
+        }
+        prev.active = false;
+        State.sequence = null;
+
+        if (reason !== 'completed') {
+            emitSequenceEvent('seq:interrupted', {
+                id: prev.id,
+                reason,
+                index: prev.index,
+                step: prev.index + 1,
+                total: prev.tags.length,
+                cycle: prev.cycle,
+                tag: prev.tags[prev.index] || null,
+            });
+        }
+
+        if (!opts.silentPersist && State.current?.tag) {
+            const isSameTag = State.history[State.history.length - 1]?.tag === State.current.tag;
+            if (!isSameTag) {
+                State.history.push({
+                    tag: State.current.tag,
+                    blob: State.current.blob,
+                    url: State.current.url,
+                    filename: State.current.filename || State.current.tag,
+                    timestamp: Date.now(),
+                    source: prev.source || 'model',
+                });
+                if (State.history.length > State.config.maxHistory) State.history.shift();
+            }
+            persistProjectorState();
+            const db = window.VP_DB;
+            if (db?.setCurrentTag) db.setCurrentTag(State.current.tag).catch(() => {});
+            window.VisualProjector?.gallery?.refreshGalleryPanelUI?.();
+        }
+        if (!opts.skipPlayerBar) updatePlayerBar();
+        console.log(`[VP Seq] Stopped #${prev.id} (${reason}) at step ${prev.index + 1}/${prev.tags.length}`);
+        return { stopped: true, id: prev.id, reason, tag: prev.tags[prev.index] || null };
+    }
+
+    function playSequence(spec = {}, meta = {}) {
+        const rawTags = Array.isArray(spec.rawTags)
+            ? spec.rawTags
+            : (Array.isArray(spec.tags) ? spec.tags : []);
+        const resolved = [];
+        const skipped = [];
+        for (const raw of rawTags) {
+            const tag = VPTags.resolveImageTag(raw) || raw;
+            if (tag && State.gallery.has(tag)) resolved.push(tag);
+            else if (raw) skipped.push(raw);
+        }
+        if (!resolved.length) {
+            return {
+                ok: false,
+                error: `No matching gallery assets in sequence${skipped.length ? ': ' + skipped.join(', ') : ''}`,
+                skipped,
+            };
+        }
+
+        const source = meta.setCurrentSource || 'model';
+        const stepMs = Math.round(Math.max(250, Math.min(15000, Number(spec.stepMs) || 1300)));
+        const mode = (spec.mode === 'loop' || spec.mode === 'pingpong') ? spec.mode : 'once';
+        const tempo = spec.tempo || 'med';
+        const transition = spec.transition || null;
+
+        if (State.sequence?.active) {
+            stopSequence('replaced', { silentPersist: true, skipPlayerBar: true });
+        }
+
+        if (resolved.length === 1) {
+            const ok = setCurrent(resolved[0], source, true, transition);
+            return { ok, count: 1, tags: resolved, skipped, tempo, stepMs, mode: 'once' };
+        }
+
+        const seq = {
+            id: ++_seqCounter,
+            active: true,
+            tags: resolved,
+            skipped,
+            tempo,
+            stepMs,
+            mode,
+            transition,
+            source,
+            index: 0,
+            dir: 1,
+            cycle: 0,
+            stepsShown: 0,
+            timer: null,
+        };
+        State.sequence = seq;
+
+        emitSequenceEvent('seq:started', {
+            id: seq.id,
+            tags: resolved.slice(),
+            count: resolved.length,
+            tempo,
+            stepMs,
+            mode,
+            transition,
+            skipped,
+        });
+
+        const maxFadeSec = Math.max(0.08, (stepMs / 1000) * 0.45);
+
+        const runStep = (idx) => {
+            if (!seq.active || State.sequence !== seq) return;
+            seq.index = idx;
+            seq.stepsShown += 1;
+            const tag = seq.tags[idx];
+            const isFirst = seq.stepsShown === 1;
+            const isFinal = seq.mode === 'once' && idx === seq.tags.length - 1;
+
+            if (isFirst && State.current?.tag === tag) {
+                updatePlayerBar();
+            } else {
+                setCurrent(tag, seq.source, true, seq.transition, {
+                    fromSequence: true,
+                    silentHistory: !(isFirst || isFinal),
+                    skipPersist: !(isFirst || isFinal),
+                    skipGalleryRefresh: !(isFirst || isFinal),
+                    maxFadeSec,
+                });
+            }
+
+            emitSequenceEvent('seq:step', {
+                id: seq.id,
+                index: idx,
+                step: idx + 1,
+                total: seq.tags.length,
+                cycle: seq.cycle,
+                mode: seq.mode,
+                tag,
+            });
+
+            if (isFinal) {
+                seq.active = false;
+                State.sequence = null;
+                updatePlayerBar();
+                emitSequenceEvent('seq:completed', {
+                    id: seq.id,
+                    tags: seq.tags.slice(),
+                    count: seq.tags.length,
+                    lastTag: tag,
+                });
+                console.log(`[VP Seq] Completed #${seq.id} (${seq.tags.length} frames)`);
+                return;
+            }
+
+            let nextIdx = idx + 1;
+            if (seq.mode === 'loop') {
+                if (nextIdx >= seq.tags.length) {
+                    seq.cycle += 1;
+                    nextIdx = 0;
+                }
+            } else if (seq.mode === 'pingpong') {
+                nextIdx = idx + seq.dir;
+                if (nextIdx >= seq.tags.length || nextIdx < 0) {
+                    seq.dir = -seq.dir;
+                    if (seq.dir === 1) seq.cycle += 1;
+                    nextIdx = idx + seq.dir;
+                }
+            }
+
+            seq.timer = setTimeout(() => runStep(nextIdx), seq.stepMs);
+        };
+
+        runStep(0);
+        console.log(`[VP Seq] Started #${seq.id}: [${resolved.join(', ')}] (${tempo}/${stepMs}ms, ${mode})`);
+        return {
+            ok: true,
+            id: seq.id,
+            count: resolved.length,
+            tags: resolved,
+            skipped,
+            tempo,
+            stepMs,
+            mode,
+            transition,
+        };
+    }
+
     function clearCurrent(source = 'user') {
+        if (State.sequence?.active) stopSequence('clear-current', { silentPersist: true, skipPlayerBar: true });
         const previousTag = State.current?.tag || null;
         State.current = null;
         State.history = State.history.filter(h => h.source !== 'user');
@@ -1459,6 +1764,7 @@
 
         goTo(index) {
             if (State.playback.messages.length === 0) return;
+            if (State.sequence?.active) stopSequence('playback-nav', { skipPlayerBar: true });
             index = Math.max(-1, Math.min(index, this.totalSlots - 1));
             if (State.playback.mode === 'playing') window.VisualProjector.subtitles.stop();
             State.playback.cursor = index;
@@ -1504,6 +1810,7 @@
 
         pause() {
             if (State.playback.mode !== 'playing') return;
+            if (State.sequence?.active) stopSequence('playback-paused', { skipPlayerBar: true });
             window.VisualProjector.subtitles.stop();
             State.playback.mode = 'paused';
             updatePlayerBar();
@@ -1511,6 +1818,9 @@
         },
 
         goLive() {
+            if (State.playback.mode !== 'live' && State.sequence?.active) {
+                stopSequence('playback-live', { skipPlayerBar: true });
+            }
             window.VisualProjector.subtitles.stop();
             State.playback.cursor = -1;
             State.playback.mode = 'live';
@@ -1582,12 +1892,12 @@
     //  PROJECTOR UI  (screen render + transitions + player bar)
     // ════════════════════════════════════════════════════════════════
 
-    function updateProjectorUI() {
+    function updateProjectorUI(opts = {}) {
         const screen   = State.ui.screen;
         const tagLabel = State.ui.tagLabel;
 
         // Studio 2.0 Polish: Visual feedback for frame change
-        if (State.current) {
+        if (State.current && !opts?.fromSequence) {
             screen.style.transition = 'box-shadow 0.3s ease';
             screen.style.boxShadow = 'inset 0 0 40px rgba(108,95,166,0.2)';
             setTimeout(() => { screen.style.boxShadow = ''; }, 400);
@@ -1617,7 +1927,10 @@
         }
         updatePlayerBar();
 
-        const dur = State.config.fadeDuration || 0;
+        const rawDur = Number(State.config.fadeDuration) || 0;
+        const dur = (opts && typeof opts.maxFadeSec === 'number' && opts.maxFadeSec >= 0)
+            ? Math.min(rawDur, opts.maxFadeSec)
+            : rawDur;
         const durMs = dur * 1000;
 
         if (dur <= 0) {
@@ -1744,9 +2057,9 @@
         const next  = w.querySelector('#vp-next');
         const last  = w.querySelector('#vp-last');
         const fx    = w.querySelector('#vp-toggle-fx');
-        const focus = w.querySelector('#vp-toggle-focus');
-        const focusZoom = w.querySelector('#vp-toggle-focus-zoom');
-        const autogaze = w.querySelector('#vp-toggle-autogaze');
+        const focus = w.querySelector('#vp-toggle-focus') || document.getElementById('vp-toggle-focus');
+        const focusZoom = w.querySelector('#vp-toggle-focus-zoom') || document.getElementById('vp-toggle-focus-zoom');
+        const autogaze = w.querySelector('#vp-toggle-autogaze') || document.getElementById('vp-toggle-autogaze');
         if (!info || !play) return;
 
         const { mode, cursor, messages } = State.playback;
@@ -1758,9 +2071,15 @@
         const hasPrepared = !!State.preparedTag && (!State.coverTag || State.preparedTag !== State.coverTag);
         const canNavigate = !isPlaying && (total > 0 || hasCover || hasPrepared);
 
-        info.classList.remove('is-live', 'is-playing', 'is-empty');
+        info.classList.remove('is-live', 'is-playing', 'is-empty', 'is-seq');
 
-        if (hasCover && cursor === 0) {
+        if (State.sequence?.active) {
+            const s = State.sequence;
+            const ico = s.mode === 'loop' ? '🔁' : (s.mode === 'pingpong' ? '⇄' : '▶');
+            info.textContent = `${ico} SEQ ${s.index + 1}/${s.tags.length}`;
+            info.title = `Sequence (${s.tempo}, ${s.mode}) — click to stop`;
+            info.classList.add('is-seq');
+        } else if (hasCover && cursor === 0) {
             info.textContent = '★ COVER'; info.title = 'Cover frame (position 0)';
         } else if (total === 0) {
             if (hasCover && hasPrepared && cursor === 1) { info.textContent = 'PREPARED'; info.title = 'Prepared active picture'; }
@@ -1802,7 +2121,9 @@
             const vp = getProjectorViewportState();
             focus.classList.toggle('vp-btn-active', !!vp.enabled);
             focus.classList.toggle('vp-btn-ghost', !vp.enabled);
-            focus.textContent = vp.enabled ? 'FOCUS' : 'focus';
+            const focusLbl = focus.querySelector('.vp-hdr-lbl');
+            if (focusLbl) focusLbl.textContent = vp.enabled ? 'FOCUS' : 'focus';
+            else focus.textContent = vp.enabled ? 'FOCUS' : 'focus';
             focus.title = vp.enabled
                 ? `Focus Mode ON · x=${vp.x.toFixed(2)}, y=${vp.y.toFixed(2)}, zoom=${vp.zoom.toFixed(2)}x`
                 : 'Focus Mode: 4:3 gaze crop';
@@ -1997,13 +2318,12 @@
         vpWindow.innerHTML = `
             <!-- Шапка -->
             <div class="vp-header" id="vp-header">
-                <button class="vp-btn vp-btn-ghost vp-btn-sm vp-focus-toggle" id="vp-toggle-focus" title="Focus Mode: 4:3 gaze crop">FOCUS</button>
+                <button class="vp-btn vp-btn-ghost vp-btn-sm vp-focus-toggle" id="vp-toggle-focus" title="Focus Mode: 4:3 gaze crop"><span class="vp-hdr-ico">🎯</span><span class="vp-hdr-lbl">FOCUS</span></button>
                 <button class="vp-btn vp-btn-ghost vp-btn-sm vp-focus-zoom-toggle" id="vp-toggle-focus-zoom" title="Focus Zoom 1.5x">1.5×</button>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" id="vp-toggle-autogaze" title="Auto-Gaze Reaction: Toggle model auto-responses when staring">👀 GAZE</button>
+                <button class="vp-btn vp-btn-ghost vp-btn-sm" id="vp-toggle-autogaze" title="Auto-Gaze Reaction: Toggle model auto-responses when staring"><span class="vp-hdr-ico">👀</span><span class="vp-hdr-lbl">GAZE</span></button>
                 <span class="vp-tag-label" id="vp-tag-label" title="Текущий кадр"></span>
                 <div class="vp-header-btns">
                     <button class="vp-btn vp-btn-ghost" id="vp-toggle-gallery"  title="Галерея">📚</button>
-                    <button class="vp-btn vp-btn-ghost" id="vp-toggle-settings" title="Настройки">⚙️</button>
                     <button class="vp-btn vp-btn-ghost" id="vp-minimize"        title="Свернуть">−</button>
                 </div>
             </div>
@@ -2035,7 +2355,7 @@
                     <button class="vp-btn vp-btn-ghost vp-btn-sm" id="vp-toggle-fx" title="Toggle visual effects">FX</button>
                 </div>
 
-                <div class="vp-timeline" id="vp-timeline" title="Click or drag to navigate" style="margin-bottom: 6px;">
+                <div class="vp-timeline" id="vp-timeline" title="Click or drag to navigate" style="margin-bottom: 2px;">
                     <div class="vp-timeline-track">
                         <div class="vp-timeline-progress" id="vp-timeline-progress"></div>
                         <div class="vp-timeline-marker" id="vp-timeline-marker"></div>
@@ -2076,6 +2396,7 @@
             });
             screenRo.observe(State.ui.screen);
         } catch (e) { /* ResizeObserver unavailable — keep static layout */ }
+        State.ui.header    = vpWindow.querySelector('#vp-header');
         State.ui.tagLabel  = vpWindow.querySelector('#vp-tag-label');
         State.ui.playerBar = vpWindow.querySelector('#vp-player-bar');
         State.ui.galleryBtn = vpWindow.querySelector('#vp-toggle-gallery');
@@ -2166,9 +2487,8 @@
     function setupUIEvents(vpWindow) {
         const $ = id => vpWindow.querySelector(id);
 
-        // Gallery / Settings toggles → gallery module.
+        // Gallery toggle → gallery module.
         $('#vp-toggle-gallery').addEventListener('click', () => window.VisualProjector?.gallery?.toggleMode?.());
-        $('#vp-toggle-settings').addEventListener('click', () => window.VisualProjector?.gallery?.toggleSettings?.());
 
         // Header Quick Actions
         $('#vp-paste-clipboard').addEventListener('click', () => window.VisualProjector?.gallery?.pasteFromClipboard?.());
@@ -2177,6 +2497,12 @@
         setupDragAndDrop(vpWindow);
 
         // === Player bar ===
+        $('#vp-player-info')?.addEventListener('click', () => {
+            if (State.sequence?.active) {
+                stopSequence('user-stop');
+                showToast('⏹ SEQ stopped', 'info');
+            }
+        });
         $('#vp-first').addEventListener('click', () => {
             if (State.playback.messages.length === 0) {
                 if (State.coverTag) {
@@ -2641,6 +2967,7 @@
         getGazeDwell: () => window.VP_FOCUS?.getGazeDwell?.() ?? 0,
         getGazeTrail: (limit) => window.VP_FOCUS?.getGazeTrail?.(limit) ?? [],
         updateProjectorUI, updatePlayerBar, syncPlaybackSpeedUI,
+        playSequence, stopSequence, getSequenceState,
         applyAssetCornerRadius,
         getProjectorSnapshot: buildProjectorSnapshot,
         applyProjectorSnapshot, persistProjectorState,

@@ -147,17 +147,17 @@
             }
             .vp-session-log-list {
                 flex:1; min-height:0; overflow:auto;
-                padding-top:10px; padding-bottom:10px;
-                padding-left:calc(10px + var(--vp-log-margin-left, 0px));
-                padding-right:calc(10px + var(--vp-log-margin-right, 0px));
-                display:flex; flex-direction:column; gap:10px;
+                padding-top:7px; padding-bottom:7px;
+                padding-left:calc(8px + var(--vp-log-margin-left, 0px));
+                padding-right:calc(8px + var(--vp-log-margin-right, 0px));
+                display:flex; flex-direction:column; gap:8px;
                 transition: padding-left .14s ease, padding-right .14s ease;
             }
             .vp-session-log.compact .vp-session-log-list {
-                padding-top:7px; padding-bottom:7px;
-                padding-left:calc(7px + var(--vp-log-margin-left, 0px));
-                padding-right:calc(7px + var(--vp-log-margin-right, 0px));
-                gap:7px;
+                padding-top:5px; padding-bottom:5px;
+                padding-left:calc(6px + var(--vp-log-margin-left, 0px));
+                padding-right:calc(6px + var(--vp-log-margin-right, 0px));
+                gap:5px;
             }
             .vp-session-log.compact .vp-session-msg-head { padding:4px 7px; }
             .vp-session-log.compact .vp-session-msg-body { padding:7px 8px; line-height:1.42; }
@@ -226,7 +226,7 @@
             .vp-session-msg.status-error { border-color:rgba(224,85,85,0.6); }
             .vp-session-msg.status-streaming { border-color:rgba(108,95,166,0.65); }
             .vp-session-msg-head {
-                display:flex; align-items:center; gap:8px; padding:6px 8px; background:rgba(0,0,0,0.16);
+                display:flex; align-items:center; gap:6px; padding:3px 8px; background:rgba(0,0,0,0.16);
                 color:var(--text-secondary,#a6adc8); font-size:10px; letter-spacing:.08em; text-transform:uppercase;
             }
             .vp-session-msg-avatar {
@@ -253,8 +253,11 @@
             .vp-session-msg-head .spacer { flex:1; }
             .vp-session-msg-btn {
                 border:0; background:transparent; color:var(--text-secondary,#a6adc8); cursor:pointer;
-                font-size:11px; padding:2px 5px; border-radius:4px;
+                font-size:10.5px; padding:1px 5px; border-radius:4px;
+                opacity:0.26; transition: opacity 0.14s ease, background 0.12s ease, color 0.12s ease;
             }
+            .vp-session-msg:hover .vp-session-msg-btn,
+            .vp-session-msg-btn:focus-visible { opacity:1; }
             .vp-session-msg-btn:hover { background:rgba(255,255,255,0.10); color:var(--text-primary,#cdd6f4); }
             .vp-manifest-pill { color:#89b4fa !important; font-weight:700; opacity:1 !important; }
             .vp-manifest-pill:hover { background:rgba(137,180,250,0.15) !important; }
@@ -293,7 +296,7 @@
                 user-select:text;
             }
             .vp-session-msg-body.is-editing:focus { background:rgba(255,255,255,0.025); }
-            .vp-session-input-panel { height:100%; display:flex; flex-direction:column; gap:8px; padding:8px; }
+            .vp-session-input-panel { height:100%; display:flex; flex-direction:column; gap:5px; padding:5px 6px; }
             .vp-session-participants {
                 flex:0 0 auto; display:flex; align-items:center; gap:6px; flex-wrap:wrap;
                 margin-left:var(--vp-input-margin-left, 0px);
@@ -341,9 +344,9 @@
             .vp-session-input-tool-chip small { opacity: 0.8; font-weight: 700; font-family: ui-monospace, monospace; }
 
             .vp-session-participant-picker {
-                position:absolute; z-index:25; min-width:230px; max-width:min(320px, calc(100vw - 32px));
-                background:var(--bg-secondary,#1e1e2e); border:1px solid rgba(255,255,255,0.10); border-radius:10px;
-                box-shadow:0 12px 36px rgba(0,0,0,0.38); padding:8px; display:flex; flex-direction:column; gap:6px;
+                position:fixed; z-index:39000; min-width:230px; max-width:min(320px, calc(100vw - 24px));
+                background:var(--bg-secondary,#1e1e2e); border:1px solid rgba(255,255,255,0.12); border-radius:10px;
+                box-shadow:0 12px 36px rgba(0,0,0,0.44); padding:8px; display:flex; flex-direction:column; gap:6px;
             }
             .vp-session-participant-picker-note { font-size:11px; color:var(--text-secondary,#a6adc8); line-height:1.4; }
             .vp-session-participant-picker-list { display:flex; flex-direction:column; gap:6px; overflow:auto; }
@@ -356,60 +359,149 @@
             .vp-session-participant-option .meta { display:block; margin-top:2px; font-size:10px; color:var(--text-secondary,#a6adc8); }
             .vp-session-participant-picker-actions { display:flex; gap:6px; justify-content:flex-end; padding-top:2px; }
             .vp-session-input-row {
-                flex:1; min-height:0; display:flex; gap:8px;
+                flex:1; min-height:0; display:flex; gap:5px;
                 margin-left:var(--vp-input-margin-left, 0px);
                 margin-right:var(--vp-input-margin-right, 0px);
                 transition: margin-left .14s ease, margin-right .14s ease;
             }
             .vp-session-input {
-                flex:1; min-width:0; min-height:54px; height:100%; resize:none; border-radius:8px; padding:9px 10px;
+                flex:1; min-width:0; min-height:44px; height:100%; resize:none; border-radius:6px; padding:6px 8px;
                 border:1px solid rgba(255,255,255,0.12); outline:none;
                 background:rgba(0,0,0,0.22); color:var(--text-primary,#cdd6f4);
-                font:var(--vp-input-font-size, 13px)/1.45 system-ui, sans-serif;
+                font:var(--vp-input-font-size, 13px)/1.42 system-ui, sans-serif;
             }
             .vp-session-input:focus { border-color:var(--accent,#6c5fa6); box-shadow:0 0 0 1px rgba(108,95,166,0.35); }
             .vp-session-input-actions {
-                flex:0 0 94px; display:flex; flex-direction:column; align-items:stretch; gap:6px;
+                flex:0 0 68px; display:flex; flex-direction:column; align-items:stretch; gap:4px;
             }
-            .vp-session-input-actions .vp-btn { width:100%; min-height:28px; padding:0 7px; }
+            .vp-session-input-actions .vp-btn { width:100%; height:24px; min-height:24px; padding:0 5px; font-size:11px; white-space:nowrap; }
             .vp-session-input-actions .spacer { flex:1; }
             .vp-session-scenario-bar {
-                display: flex; align-items: center; gap: 8px;
-                padding: 4px 8px; font-size: 11px; color: var(--text-secondary, #a6adc8);
-                min-height: 0; overflow: hidden; transition: min-height 0.2s ease, padding 0.2s ease;
+                display: none; align-items: center; gap: 6px;
+                padding: 0; font-size: 11px; color: var(--text-secondary, #a6adc8);
+                min-height: 0; overflow: hidden;
             }
-            .vp-session-scenario-bar.has-scenario { min-height: 26px; }
+            .vp-session-scenario-bar.has-scenario { display: flex; min-height: 20px; padding: 1px 2px 0; }
             .vp-session-scenario-indicator {
                 cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
-                padding: 2px 8px; border-radius: 999px;
+                padding: 1px 7px; border-radius: 999px;
                 background: rgba(108,95,166,0.18); border: 1px solid rgba(108,95,166,0.32);
-                color: var(--text-primary, #cdd6f4); font-size: 11px; font-weight: 600;
+                color: var(--text-primary, #cdd6f4); font-size: 10.5px; font-weight: 600;
                 transition: background 0.15s ease;
                 max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
             }
             .vp-session-scenario-indicator:hover { background: rgba(108,95,166,0.32); }
-            .vp-session-model { padding:10px; display:flex; flex-direction:column; gap:8px; font-size:12px; }
-            .vp-session-model-title { font-weight:700; margin-bottom:4px; display:flex; align-items:center; gap:6px; }
-            .vp-session-model label { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-            .vp-session-model input {
-                width:62%; border-radius:5px; border:1px solid rgba(255,255,255,0.12);
-                background:rgba(0,0,0,0.22); color:var(--text-primary,#cdd6f4); padding:5px 7px; font-size:12px;
+            .vp-session-model { padding:6px 8px; display:flex; flex-direction:column; gap:5px; font-size:11.5px; }
+            .vp-session-model-title { font-weight:700; margin-bottom:2px; display:flex; align-items:center; gap:6px; }
+            .vp-session-model label { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+            .vp-session-model input,
+            .vp-session-model select {
+                width:62%; height:24px; border-radius:4px; border:1px solid rgba(255,255,255,0.12);
+                background:rgba(0,0,0,0.22); color:var(--text-primary,#cdd6f4); padding:2px 6px; font-size:11.5px;
+                box-sizing:border-box;
             }
+            .vp-session-model input[type="checkbox"] { width:auto; height:auto; }
             .vp-session-model .check { justify-content:flex-start; }
-            .vp-session-model .check input { width:auto; }
-            .vp-session-model-note { color:var(--text-secondary,#a6adc8); font-size:11px; line-height:1.45; padding-top:4px; }
-            /* v26 Tools Manager */
-            .vp-session-tools-manager { margin-top:6px; }
+            .vp-session-model .check input { width:auto; height:auto; }
+            .vp-model-pair-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+            .vp-model-pair-row label { gap:6px; min-width:0; }
+            .vp-model-pair-row label span { white-space:nowrap; }
+            .vp-model-pair-row input { width:72px; min-width:0; flex:0 1 76px; }
+            .vp-session-model-note { color:var(--text-secondary,#a6adc8); font-size:10.5px; line-height:1.32; padding-top:0; }
+            /* Local llama-server router card */
+            .vp-llama-card {
+                border:1px solid rgba(255,255,255,0.09); border-radius:7px;
+                background:rgba(255,255,255,0.03); padding:6px 8px;
+                display:flex; flex-direction:column; gap:5px;
+            }
+            .vp-llama-head { display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap; }
+            .vp-llama-badge {
+                display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
+                padding:1px 7px; border-radius:999px; background:rgba(255,255,255,0.06);
+                border:1px solid rgba(255,255,255,0.10); color:var(--text-primary,#cdd6f4);
+            }
+            .vp-llama-badge .dot { width:7px; height:7px; border-radius:50%; background:#6c7086; }
+            .vp-llama-badge[data-status="ready"] .dot { background:#a6e3a1; box-shadow:0 0 6px rgba(166,227,161,0.55); }
+            .vp-llama-badge[data-status="starting"] .dot,
+            .vp-llama-badge[data-status="loading"] .dot,
+            .vp-llama-badge[data-status="stopping"] .dot { background:#f9e2af; box-shadow:0 0 6px rgba(249,226,175,0.55); }
+            .vp-llama-badge[data-status="error"] .dot { background:#f38ba8; box-shadow:0 0 6px rgba(243,139,168,0.55); }
+            .vp-llama-adv summary { cursor:pointer; font-size:11px; color:var(--text-secondary,#a6adc8); user-select:none; }
+            .vp-llama-adv-body { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+            .vp-llama-log {
+                margin:0; padding:6px 8px; max-height:130px; overflow:auto; border-radius:6px;
+                background:rgba(0,0,0,0.32); border:1px solid rgba(255,255,255,0.08);
+                font:10px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+                color:var(--text-secondary,#a6adc8); white-space:pre-wrap; word-break:break-word;
+            }
+            .vp-model-picker-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+            .vp-model-picker-controls { width:62%; display:flex; align-items:center; gap:4px; }
+            .vp-model-picker-controls select { flex:1; min-width:0; width:auto; }
+            .vp-model-picker-controls .vp-btn { flex:0 0 auto; padding:4px 7px; }
+            .vp-model-manual-row { display:flex; justify-content:flex-end; }
+            .vp-model-manual-row input { width:62%; }
+            .vp-ctx-counter {
+                color:var(--text-secondary,#a6adc8); font-size:11px;
+                font-variant-numeric:tabular-nums; white-space:nowrap;
+                padding:1px 5px; border-radius:5px;
+            }
+            .vp-ctx-counter.warn {
+                color:#f9e2af; background:rgba(249,226,175,0.14);
+                border:1px solid rgba(249,226,175,0.34); font-weight:700;
+            }
+            .vp-ctx-counter.danger {
+                color:#f38ba8; background:rgba(243,139,168,0.16);
+                border:1px solid rgba(243,139,168,0.40); font-weight:700;
+            }
+            /* Collapsible reasoning / thinking spoiler */
+            .vp-thinking-info {
+                margin: 0 0 6px 0;
+                border: 1px solid rgba(180, 148, 250, 0.22);
+                border-radius: 8px;
+                background: rgba(180, 148, 250, 0.06);
+                font-size: 11px;
+                overflow: hidden;
+            }
+            .vp-thinking-info summary {
+                padding: 4px 9px;
+                cursor: pointer;
+                user-select: none;
+                color: #cba6f7;
+                font-weight: 600;
+                background: rgba(180, 148, 250, 0.09);
+            }
+            .vp-thinking-info summary:hover { background: rgba(180, 148, 250, 0.16); }
+            .vp-thinking-info pre {
+                margin: 0;
+                padding: 8px 10px;
+                max-height: 240px;
+                overflow: auto;
+                background: rgba(0, 0, 0, 0.16);
+                color: var(--text-secondary, #a6adc8);
+                font: 11px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+                white-space: pre-wrap;
+                word-break: break-word;
+                border-top: 1px solid rgba(180, 148, 250, 0.12);
+            }
+            /* v26 Tools Manager (collapsible details) */
+            .vp-session-tools-manager {
+                margin-top:1px; border:1px solid rgba(255,255,255,0.08); border-radius:6px;
+                background:rgba(255,255,255,0.025); padding:4px 7px;
+            }
+            .vp-session-tools-head {
+                cursor:pointer; user-select:none; font-size:11px; color:var(--text-secondary,#a6adc8);
+                line-height:1.3;
+            }
             .vp-session-tools-head b { color:var(--text-primary,#cdd6f4); }
-            .vp-session-tools-list { max-height:170px; overflow-y:auto; display:flex; flex-direction:column; gap:3px; margin-top:4px; padding-right:2px; }
-            .vp-session-tool-row { display:flex; align-items:center; gap:8px; font-size:12px; padding:4px 7px; border-radius:7px; background:rgba(137,180,250,0.07); cursor:pointer; }
+            .vp-session-tools-list { max-height:155px; overflow-y:auto; display:flex; flex-direction:column; gap:2px; margin-top:5px; padding-right:2px; }
+            .vp-session-tool-row { display:flex; align-items:center; gap:6px; font-size:11px; padding:2px 6px; border-radius:5px; background:rgba(137,180,250,0.07); cursor:pointer; }
             .vp-session-tool-row:hover { background:rgba(137,180,250,0.13); }
             .vp-session-tool-row.off { opacity:0.55; }
             .vp-session-tool-row input { margin:0; flex:0 0 auto; }
             .vp-session-tool-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-            .vp-session-tool-tok { font-family:monospace; font-size:11px; opacity:0.7; flex:0 0 auto; }
-            .vp-session-model-actions { display:flex; flex-wrap:wrap; gap:6px; padding-top:2px; }
-            .vp-session-model-status { border:1px solid rgba(255,255,255,0.08); border-radius:7px; padding:7px 8px; background:rgba(255,255,255,0.035); color:var(--text-secondary,#a6adc8); font-size:11px; line-height:1.35; word-break:break-word; }
+            .vp-session-tool-tok { font-family:monospace; font-size:10.5px; opacity:0.7; flex:0 0 auto; }
+            .vp-session-model-actions { display:flex; flex-wrap:wrap; gap:4px; padding-top:1px; }
+            .vp-session-model-status { border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:5px 7px; background:rgba(255,255,255,0.035); color:var(--text-secondary,#a6adc8); font-size:10.5px; line-height:1.3; word-break:break-word; }
             .vp-session-model-status.ok { color:#b8f5c8; border-color:rgba(76,175,125,0.34); background:rgba(76,175,125,0.10); }
             .vp-session-model-status.err { color:#ffb0b0; border-color:rgba(224,85,85,0.40); background:rgba(224,85,85,0.10); }
             .vp-context-inspector-card .vp-shell-modal-body { display:flex; flex-direction:column; gap:8px; }
@@ -648,8 +740,11 @@
 
     function renderInputPanel(container, ctx = {}) {
         ensureState();
-        const local = ctx.getPanelState ? ctx.getPanelState({ marginLeft: S.session.input?.marginLeft || 0, marginRight: S.session.input?.marginRight || 0 })
-                                       : { marginLeft: S.session.input?.marginLeft || 0, marginRight: S.session.input?.marginRight || 0 };
+        const liveCtx = ctx?.setHeaderContent
+            ? ctx
+            : VP.shell?.getPanelContext?.(container.closest?.('.vp-shell-area')?.dataset?.areaId, 'input') || ctx;
+        const local = liveCtx.getPanelState ? liveCtx.getPanelState({ marginLeft: S.session.input?.marginLeft || 0, marginRight: S.session.input?.marginRight || 0 })
+                                           : { marginLeft: S.session.input?.marginLeft || 0, marginRight: S.session.input?.marginRight || 0 };
         clearContainer(container);
         const wrap = document.createElement('div');
         wrap.className = 'vp-session-input-panel';
@@ -687,17 +782,20 @@
             </div>`;
         }
 
+        const participantsBar = document.createElement('div');
+        participantsBar.className = 'vp-session-participants';
+        participantsBar.innerHTML = `
+            ${chipsHtml}
+            <button class="vp-session-participant-add" data-act="add-participant" title="Add participant">＋</button>
+            <span class="vp-hdr-spacer spacer"></span>
+            <button class="vp-session-input-tool-chip ${toolsEnabled ? 'active' : ''}" id="vp-input-toggle-tools" title="${toolsEnabled ? 'Tools are ON' : 'Tools are OFF'}">
+                <span class="vp-hdr-ico">${toolsEnabled ? '🔧' : '🔌'}</span>
+                <small>${toolCount}</small>
+            </button>
+            <button class="vp-session-scene-btn" data-act="scene" title="Model starts or continues the scene"><span class="vp-hdr-ico">🎬</span><span class="vp-hdr-lbl">Begin</span></button>
+        `;
+
         wrap.innerHTML = `
-            <div class="vp-session-participants">
-                ${chipsHtml}
-                <button class="vp-session-participant-add" data-act="add-participant">＋</button>
-                <span class="spacer"></span>
-                <button class="vp-session-input-tool-chip ${toolsEnabled ? 'active' : ''}" id="vp-input-toggle-tools" title="${toolsEnabled ? 'Tools are ON' : 'Tools are OFF'}">
-                    <span>${toolsEnabled ? '🔧' : '🔌'}</span>
-                    <small>${toolCount}</small>
-                </button>
-                <button class="vp-session-scene-btn" data-act="scene" title="Model starts or continues the scene">🎬 Begin</button>
-            </div>
             <div class="vp-session-input-row">
                 <textarea class="vp-session-input" name="messageInput" placeholder="${speakerName ? `Message (→ ${speakerName}) or type context for 🎬...` : 'Направить сцену / написать сообщение... (Ctrl+Enter to send)'}"></textarea>
                 <div class="vp-session-input-actions">
@@ -721,19 +819,19 @@
             });
         });
 
-        wrap.querySelectorAll('[data-speaker]').forEach(btn => {
+        participantsBar.querySelectorAll('[data-speaker]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 if (e.target.closest('[data-remove]')) return;
                 chatApi()?.setActiveSpeakerInteractive?.(btn.dataset.speaker);
             });
         });
-        wrap.querySelectorAll('[data-remove]').forEach(el => {
+        participantsBar.querySelectorAll('[data-remove]').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
                 chatApi()?.removeParticipantFromCurrentChatInteractive?.(el.dataset.remove);
             });
         });
-        const addBtn = wrap.querySelector('[data-act="add-participant"]');
+        const addBtn = participantsBar.querySelector('[data-act="add-participant"]');
         let closeParticipantPicker = () => {};
 
         const openProfilesPanel = () => {
@@ -786,7 +884,7 @@
                     <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="create-profile">＋ Profile</button>
                 </div>`;
 
-            const host = useGlobal ? document.body : wrap;
+            const host = document.body;
             let backdrop = null;
             let onDocMouseDown = null;
             let onEsc = null;
@@ -899,16 +997,18 @@
             });
 
             if (!useGlobal) {
-                const wrapRect = wrap.getBoundingClientRect();
                 const listMaxHeight = Math.max(96, Math.min(220, Math.max(belowSpace, aboveSpace) - 46));
                 list.style.maxHeight = `${listMaxHeight}px`;
-                picker.style.left = `${Math.max(0, addRect.left - wrapRect.left - 190)}px`;
-                picker.style.top = `${Math.max(0, addRect.bottom - wrapRect.top + 6)}px`;
+                picker.style.left = `${Math.max(8, Math.min(window.innerWidth - 260, addRect.left))}px`;
+                picker.style.top = `${Math.max(8, addRect.bottom + 6)}px`;
                 requestAnimationFrame(() => {
                     const pickerRect = picker.getBoundingClientRect();
+                    if (pickerRect.right > window.innerWidth - 8) {
+                        picker.style.left = `${Math.max(8, window.innerWidth - pickerRect.width - 8)}px`;
+                    }
                     const openAbove = pickerRect.bottom > window.innerHeight - 12 && aboveSpace > belowSpace;
                     if (openAbove) {
-                        picker.style.top = `${Math.max(0, addRect.top - wrapRect.top - pickerRect.height - 6)}px`;
+                        picker.style.top = `${Math.max(8, addRect.top - pickerRect.height - 6)}px`;
                     }
                 });
             } else {
@@ -956,10 +1056,10 @@
         wrap.querySelector('[data-act="regen"]').disabled = !!S.session.running;
 
         // ── 🎬 Begin / Continue Scene ──
-        const sceneBtn = wrap.querySelector('[data-act="scene"]');
+        const sceneBtn = participantsBar.querySelector('[data-act="scene"]');
         
         // ── Tools Quick Toggle ──
-        const toolsBtn = wrap.querySelector('#vp-input-toggle-tools');
+        const toolsBtn = participantsBar.querySelector('#vp-input-toggle-tools');
         toolsBtn?.addEventListener('click', () => {
             const currentMode = S.modelConfig.toolsMode;
             const nextMode = (currentMode === 'native') ? 'off' : 'native';
@@ -984,7 +1084,10 @@
 
         const hasMessages = (chatApi()?.getActiveChatMessages?.() || []).some(m => m.role === 'assistant' || m.role === 'user');
         const sceneLabel = hasMessages ? 'Cont.' : 'Begin';
-        sceneBtn.textContent = speakerName ? `🎬 ${sceneLabel} (${speakerName})` : `🎬 ${sceneLabel}`;
+        const fullSceneText = speakerName ? `${sceneLabel} (${speakerName})` : sceneLabel;
+        const sceneLbl = sceneBtn.querySelector('.vp-hdr-lbl');
+        if (sceneLbl) sceneLbl.textContent = fullSceneText;
+        else sceneBtn.textContent = `🎬 ${fullSceneText}`;
         sceneBtn.title = hasMessages
             ? `Continue scene as ${speakerName || 'active speaker'} — model picks up from current context`
             : `Begin scene as ${speakerName || 'active speaker'} — model starts from current context`;
@@ -1017,6 +1120,11 @@
                 chatApi()?.openChatEditorInteractive?.();
             });
             scenarioBar.appendChild(indicator);
+        }
+        if (liveCtx?.setHeaderContent) {
+            liveCtx.setHeaderContent(participantsBar);
+        } else {
+            wrap.prepend(participantsBar);
         }
         container.appendChild(wrap);
     }
@@ -1183,13 +1291,16 @@
 
     function renderLogPanel(container, ctx = {}) {
         ensureState();
+        const liveCtx = ctx?.setHeaderContent
+            ? ctx
+            : VP.shell?.getPanelContext?.(container.closest?.('.vp-shell-area')?.dataset?.areaId, 'log') || ctx;
         
         const messages = getActiveMessages();
 
         if (activeInlineMessageEditCleanup) {
             activeInlineMessageEditCleanup();
         }
-        const local = ctx.getPanelState ? ctx.getPanelState({
+        const local = liveCtx.getPanelState ? liveCtx.getPanelState({
             marginLeft: S.session.view.marginLeft || 0,
             marginRight: S.session.view.marginRight || 0,
             bubbleAlign: S.session.view.bubbleAlign || 'full',
@@ -1244,19 +1355,24 @@
         wrap.style.setProperty('--vp-avatar-size', `${Math.max(14, Math.min(64, Number(S.session.view.avatarSize) || 22))}px`);
         wrap.style.setProperty('--vp-log-margin-left', `${Math.max(0, Math.min(280, Number(local.marginLeft) || 0))}px`);
         wrap.style.setProperty('--vp-log-margin-right', `${Math.max(0, Math.min(280, Number(local.marginRight) || 0))}px`);
-        wrap.innerHTML = `
-            <div class="vp-session-log-toolbar">
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="toggle-raw">${S.session.view.showRaw ? 'Clean' : 'Raw'}</button>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="inspect">🧪 Inspect</button>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="events-mode">Events: ${(S.session.view.sceneEventMode || 'compact').replace(/^./, c => c.toUpperCase())}</button>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="regen">↻ Regen</button>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="stop">■ Stop</button>
-                <span style="color:var(--text-secondary,#a6adc8);font-size:11px;">${messages.length} msg · ~${estimateTextTokens(messages.map(msgText).join('\n'))} tok</span>
-                <span class="spacer"></span>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="bottom">↓ Bottom</button>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="clear">Clear</button>
-            </div>
-            <div class="vp-session-log-list"></div>`;
+
+        const showRaw = !!S.session.view.showRaw;
+        const evModeCap = (S.session.view.sceneEventMode || 'compact').replace(/^./, c => c.toUpperCase());
+        const toolbar = document.createElement('div');
+        toolbar.className = liveCtx?.setHeaderContent ? 'vp-hdr-bar' : 'vp-session-log-toolbar';
+        toolbar.innerHTML = `
+            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="toggle-raw" title="${showRaw ? 'Switch to Clean view (hide VP tags)' : 'Switch to Raw view (show VP tags)'}"><span class="vp-hdr-ico">${showRaw ? '✨' : '📝'}</span><span class="vp-hdr-lbl">${showRaw ? 'Clean' : 'Raw'}</span></button>
+            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="inspect" title="Context Inspector"><span class="vp-hdr-ico">🧪</span><span class="vp-hdr-lbl">Inspect</span></button>
+            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="events-mode" title="Scene events: ${evModeCap} (click to cycle)"><span class="vp-hdr-ico">🎭</span><span class="vp-hdr-lbl">Events: ${evModeCap}</span></button>
+            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="regen" title="Regenerate last response"><span class="vp-hdr-ico">↻</span><span class="vp-hdr-lbl">Regen</span></button>
+            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="stop" title="Stop generation"><span class="vp-hdr-ico">■</span><span class="vp-hdr-lbl">Stop</span></button>
+            <span class="vp-ctx-counter" data-role="ctx-counter"></span>
+            <span class="vp-hdr-spacer spacer"></span>
+            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="bottom" title="Scroll to bottom"><span class="vp-hdr-ico">↓</span><span class="vp-hdr-lbl">Bottom</span></button>
+            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="clear" title="Clear session log"><span class="vp-hdr-ico">🗑</span><span class="vp-hdr-lbl">Clear</span></button>
+        `;
+
+        wrap.innerHTML = `<div class="vp-session-log-list"></div>`;
         const list = wrap.querySelector('.vp-session-log-list');
         if (!messages.length) {
             list.innerHTML = `<div class="vp-session-empty"><div style="font-size:28px;margin-bottom:8px;">💬</div><b>Session log</b><br>Здесь появятся сообщения локальной сессии. Это красивый лог/консоль, не центр сцены.</div>`;
@@ -1394,25 +1510,80 @@
                 containerToAppend.appendChild(item);
             }
         }
-        wrap.querySelector('[data-act="toggle-raw"]').addEventListener('click', () => {
+        toolbar.querySelector('[data-act="toggle-raw"]').addEventListener('click', () => {
             S.session.view.showRaw = !S.session.view.showRaw;
             persistSession();
             renderRegisteredPanels();
         });
-        wrap.querySelector('[data-act="inspect"]').addEventListener('click', () => showContextInspector(container));
-        wrap.querySelector('[data-act="regen"]').addEventListener('click', regenerateLast);
-        wrap.querySelector('[data-act="stop"]').addEventListener('click', stop);
-        wrap.querySelector('[data-act="stop"]').disabled = !S.session.running;
-        wrap.querySelector('[data-act="events-mode"]').addEventListener('click', () => {
+        toolbar.querySelector('[data-act="inspect"]').addEventListener('click', () => showContextInspector(container));
+        toolbar.querySelector('[data-act="regen"]').addEventListener('click', regenerateLast);
+        toolbar.querySelector('[data-act="stop"]').addEventListener('click', stop);
+        toolbar.querySelector('[data-act="stop"]').disabled = !S.session.running;
+        toolbar.querySelector('[data-act="events-mode"]').addEventListener('click', () => {
             const modes = ['compact', 'minimal', 'expanded'];
             const cur = S.session.view.sceneEventMode || 'compact';
             S.session.view.sceneEventMode = modes[(modes.indexOf(cur) + 1) % modes.length] || 'compact';
             persistSession();
             renderRegisteredPanels();
         });
-        wrap.querySelector('[data-act="bottom"]').addEventListener('click', () => { list.scrollTop = list.scrollHeight; });
-        wrap.querySelector('[data-act="clear"]').addEventListener('click', clearSession);
+        toolbar.querySelector('[data-act="bottom"]').addEventListener('click', () => { list.scrollTop = list.scrollHeight; });
+        toolbar.querySelector('[data-act="clear"]').addEventListener('click', clearSession);
+
+        if (liveCtx?.setHeaderContent) {
+            liveCtx.setHeaderContent(toolbar);
+        } else {
+            wrap.prepend(toolbar);
+        }
         container.appendChild(wrap);
+
+        // Live context counter: used / max tok with >=80% warning highlight
+        const ctxCounter = toolbar.querySelector('[data-role="ctx-counter"]');
+        if (ctxCounter) {
+            const estTok = estimateTextTokens(messages.map(msgText).join('\n'));
+            let lastUsageMsg = null;
+            for (let i = messages.length - 1; i >= 0; i--) {
+                if (messages[i]?.usage) { lastUsageMsg = messages[i]; break; }
+            }
+            const paintCtxCounter = () => {
+                if (!ctxCounter.isConnected) return false;
+                const u = lastUsageMsg?.usage || null;
+                const promptT = Number(u?.prompt_tokens) || 0;
+                const compT = Number(u?.completion_tokens) || 0;
+                const exactUsed = u ? ((promptT + compT) || Number(u.total_tokens) || 0) : 0;
+                const usedVal = exactUsed > 0 ? exactUsed : estTok;
+                const maxCtx = Number(window.VP_LLAMA?.getActiveContextSize?.()) || 0;
+                const fmt = (n) => Number(n).toLocaleString('en-US');
+
+                ctxCounter.classList.remove('warn', 'danger');
+                const prefix = exactUsed > 0 ? '' : '~';
+                if (maxCtx > 0) {
+                    const pct = Math.round((usedVal / maxCtx) * 100);
+                    const pctSuffix = pct >= 80 ? ` (${pct}%)` : '';
+                    ctxCounter.textContent = `${messages.length} msg · ${prefix}${fmt(usedVal)} / ${fmt(maxCtx)} tok${pctSuffix}`;
+                    if (pct >= 92) ctxCounter.classList.add('danger');
+                    else if (pct >= 80) ctxCounter.classList.add('warn');
+                    const parts = [
+                        exactUsed > 0 ? `Prompt: ${fmt(promptT)} + Completion: ${fmt(compT)} = ${fmt(exactUsed)} tok` : `Estimated text: ~${fmt(estTok)} tok (send a message for exact usage)`,
+                        `Context window (n_ctx): ${fmt(maxCtx)} tok (${pct}%)`,
+                    ];
+                    if (u?.tps) parts.push(`Speed: ${u.tps} tok/s`);
+                    ctxCounter.title = parts.join('\n');
+                } else {
+                    ctxCounter.textContent = `${messages.length} msg · ${prefix}${fmt(usedVal)} tok`;
+                    ctxCounter.title = exactUsed > 0
+                        ? `Prompt: ${fmt(promptT)} + Completion: ${fmt(compT)} = ${fmt(exactUsed)} tok${u?.tps ? `\nSpeed: ${u.tps} tok/s` : ''}`
+                        : `Estimated text tokens (~${fmt(estTok)} tok)`;
+                }
+                liveCtx?.syncHeaderSlot?.();
+                return true;
+            };
+            paintCtxCounter();
+            if (window.VP_LLAMA?.onChange) {
+                const unsub = window.VP_LLAMA.onChange(() => {
+                    if (!paintCtxCounter()) unsub();
+                });
+            }
+        }
         requestAnimationFrame(() => {
             if (wasAtBottom) list.scrollTop = list.scrollHeight;
             else list.scrollTop = prevScrollTop;
@@ -1641,41 +1812,102 @@
         ensureState();
         clearContainer(container);
         const cfg = S.modelConfig;
+        if (!cfg.llama || typeof cfg.llama !== 'object') {
+            cfg.llama = { ...(window.VP_LLAMA?.DEFAULT_LLAMA || { binPath: 'bin/llama.cpp/llama-server.exe', presetPath: 'bin/llama.cpp/models.ini', port: 1234, modelsMax: 1, autoStart: false }) };
+        }
         const wrap = document.createElement('div');
         wrap.className = 'vp-session-model';
         wrap.innerHTML = `
-            <div class="vp-session-model-title">🤖 Local OpenAI-compatible model</div>
+            <div class="vp-llama-card" data-role="llama-card">
+                <div class="vp-llama-head">
+                    <span class="vp-llama-badge" data-role="llama-badge" data-status="offline">
+                        <span class="dot"></span>
+                        <span data-role="llama-badge-text">Offline</span>
+                    </span>
+                    <div style="display:flex;gap:4px;align-items:center;">
+                        <button class="vp-btn vp-btn-sm" data-act="llama-toggle" type="button">▶ Start Local LLM</button>
+                    </div>
+                </div>
+                <label class="check" style="font-size:10.5px;color:var(--text-secondary,#a6adc8);">
+                    <input type="checkbox" data-llama="autoStart">
+                    <span>Автостарт llama-server при запуске</span>
+                </label>
+                <details class="vp-llama-adv">
+                    <summary>⚙ Настройки и лог сервера</summary>
+                    <div class="vp-llama-adv-body">
+                        <label>Binary <input type="text" data-llama="binPath" placeholder="bin/llama.cpp/llama-server.exe"></label>
+                        <label>Preset INI <input type="text" data-llama="presetPath" placeholder="bin/llama.cpp/models.ini"></label>
+                        <label>Port <input type="number" data-llama="port" min="1" max="65535" step="1"></label>
+                        <label>Max loaded <input type="number" data-llama="modelsMax" min="1" max="8" step="1"></label>
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <span class="vp-session-model-note" style="padding:0">Stdout / stderr:</span>
+                            <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="llama-clear-log" type="button">Clear log</button>
+                        </div>
+                        <pre class="vp-llama-log" data-role="llama-log">(no output yet)</pre>
+                    </div>
+                </details>
+            </div>
+
             <label>Endpoint <input name="endpoint" data-k="endpoint" placeholder="http://127.0.0.1:1234/v1/chat/completions"></label>
-            <label>Model <input name="model" data-k="model" placeholder="local-model" list="vp-model-options"></label>
-            <datalist id="vp-model-options"></datalist>
+
+            <div class="vp-model-picker-row">
+                <span>Model</span>
+                <div class="vp-model-picker-controls">
+                    <select data-role="model-select" title="Choose model from /v1/models"></select>
+                    <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="refresh-models" type="button" title="Обновить список моделей (/v1/models)">🔄</button>
+                    <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="load-model" type="button" title="Загрузить выбранную модель в VRAM (POST /models/load)">▶</button>
+                    <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="unload-model" type="button" title="Выгрузить активную модель из VRAM (POST /models/unload)">⏏</button>
+                </div>
+            </div>
+            <div class="vp-model-manual-row" data-role="model-manual-row" style="display:none;">
+                <input name="model" data-k="model" placeholder="model-id (ручной ввод)">
+            </div>
+            <div class="vp-session-model-note" data-role="model-ctx-note" style="display:none;"></div>
+
+            <label>Thinking
+                <select name="thinkingMode" data-k="thinkingMode" title="Подмешивает reasoning_effort в /v1/chat/completions">
+                    <option value="off">Off (none)</option>
+                    <option value="low">Low</option>
+                    <option value="high">High</option>
+                    <option value="default">Default (не слать)</option>
+                </select>
+            </label>
+
             <label>API key <input name="apiKey" data-k="apiKey" type="password" placeholder="optional"></label>
-            <label>Temperature <input name="temperature" data-k="temperature" type="number" min="0" max="2" step="0.05"></label>
-            <label>Max tokens <input name="maxTokens" data-k="maxTokens" type="number" min="1" step="1"></label>
+
+            <div class="vp-model-pair-row">
+                <label title="Sampling temperature (0–2)"><span>Temp</span><input name="temperature" data-k="temperature" type="number" min="0" max="2" step="0.05"></label>
+                <label title="Max output tokens"><span>Max tok</span><input name="maxTokens" data-k="maxTokens" type="number" min="1" step="1"></label>
+            </div>
+
             <label>Tools mode
                 <select name="toolsMode" data-k="toolsMode">
                     <option value="off">Off</option>
                     <option value="native">Native (tool_calls)</option>
-                    <!-- v26: 'text-tags' was never implemented (loop honors only 'native'); option hidden, buildServicesCard kept in code for a possible revival -->
                 </select>
             </label>
-            <div class="vp-session-model-note" data-role="tools-mode-hint">Tools let the model perceive the world: roll dice, search gallery, recall scenes. Actions still use [IMG:] tags.</div>
-            <div class="vp-session-tools-manager" data-role="tools-manager">
-                <div class="vp-session-model-note vp-session-tools-head">🧰 Tools: <b data-role="tools-count">–</b> on · ≈<span data-role="tools-tokens">0</span> tok in every request (native)</div>
+            <div class="vp-session-model-note" data-role="tools-mode-hint"></div>
+            <details class="vp-session-tools-manager" data-role="tools-manager">
+                <summary class="vp-session-tools-head">🧰 Tools: <b data-role="tools-count">–</b> on · ≈<span data-role="tools-tokens">0</span> tok</summary>
                 <div class="vp-session-tools-list" data-role="tools-list"></div>
+            </details>
+
+            <div class="vp-model-pair-row">
+                <label title="Max tool-call iterations per turn"><span>Tool loops</span><input name="toolLoopLimit" data-k="toolLoopLimit" type="number" min="1" max="10" step="1"></label>
+                <label class="check" style="justify-content:flex-end;" title="После [TAB:…]/[CAT:…] перехода модель получает наблюдение мира и 1 continuation-генерацию">
+                    <input name="agenticLoop" data-k="agenticLoop" type="checkbox">
+                    <span>Agentic loop</span>
+                </label>
             </div>
-            <label>Tool loop limit <input name="toolLoopLimit" data-k="toolLoopLimit" type="number" min="1" max="10" step="1"></label>
-            <label><span>Agentic loop (scene transitions)</span><input name="agenticLoop" data-k="agenticLoop" type="checkbox" title="v24: после [TAB:…]/[CAT:…] перехода модель мгновенно получает наблюдение мира и ОДНУ continuation-генерацию (глубина 1, без каскадов). Вторая генерация = дороже по времени!"></label>
-            <div class="vp-session-model-note">Agentic loop: after the model enters/leaves scenes ([TAB:]/[CAT:]), it immediately SEES the result and continues once more in the same turn. Costs one extra generation only on transitions.</div>
+
             <div class="vp-session-model-actions">
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="preset-lmstudio">LM Studio</button>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="preset-localhost">localhost</button>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="test">Test</button>
-                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="models">Load models</button>
+                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="preset-llamacpp" type="button">llama.cpp</button>
+                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="preset-lmstudio" type="button">LM Studio</button>
+                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="preset-localhost" type="button">localhost</button>
+                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="test" type="button">Test</button>
+                <button class="vp-btn vp-btn-ghost vp-btn-sm" data-act="models" type="button">Load models</button>
             </div>
-            <div class="vp-session-model-status" data-role="status">Ready. LM Studio default: <code>http://127.0.0.1:1234/v1/chat/completions</code></div>
-            <div class="vp-session-model-note">
-                Tip: if <code>localhost</code> acts weird in WebView, use <code>127.0.0.1</code>. Model settings are saved through the current storage backend.
-            </div>`;
+            <div class="vp-session-model-status" data-role="status">Ready · <code>http://127.0.0.1:1234/v1/chat/completions</code></div>`;
 
         const status = wrap.querySelector('[data-role="status"]');
         const setStatus = (text, type = 'info') => {
@@ -1685,41 +1917,20 @@
         };
         const endpointInput = wrap.querySelector('[data-k="endpoint"]');
         const modelInput = wrap.querySelector('[data-k="model"]');
-        const modelOptions = wrap.querySelector('#vp-model-options');
+        const modelSelect = wrap.querySelector('[data-role="model-select"]');
+        const modelManualRow = wrap.querySelector('[data-role="model-manual-row"]');
+        const modelCtxNote = wrap.querySelector('[data-role="model-ctx-note"]');
+        const llamaBadge = wrap.querySelector('[data-role="llama-badge"]');
+        const llamaBadgeText = wrap.querySelector('[data-role="llama-badge-text"]');
+        const llamaToggleBtn = wrap.querySelector('[data-act="llama-toggle"]');
+        const llamaLogEl = wrap.querySelector('[data-role="llama-log"]');
+        const loadModelBtn = wrap.querySelector('[data-act="load-model"]');
+        const unloadModelBtn = wrap.querySelector('[data-act="unload-model"]');
 
-        function endpointToModelsUrl(endpoint) {
-            let url = String(endpoint || '').trim();
-            if (!url) return '';
-            url = url.replace(/\/chat\/completions\/?$/i, '/models');
-            url = url.replace(/\/completions\/?$/i, '/models');
-            if (!/\/models\/?$/i.test(url)) {
-                url = url.replace(/\/$/, '') + '/models';
-            }
-            return url;
-        }
+        const MANUAL_SENTINEL = '__vp_manual__';
+        let forceManualInput = false;
 
-        function currentHeaders() {
-            const headers = { 'Content-Type': 'application/json' };
-            const key = String(cfg.apiKey || '').trim();
-            if (key) headers.Authorization = key.toLowerCase().startsWith('bearer ') ? key : `Bearer ${key}`;
-            return headers;
-        }
-
-        async function fetchModels() {
-            const modelsUrl = endpointToModelsUrl(cfg.endpoint || endpointInput.value);
-            if (!modelsUrl) throw new Error('Endpoint is empty');
-            const response = await fetch(modelsUrl, { method: 'GET', headers: currentHeaders() });
-            if (!response.ok) {
-                const text = await response.text().catch(() => '');
-                throw new Error(`HTTP ${response.status}: ${text.slice(0, 180)}`);
-            }
-            const data = await response.json();
-            const list = Array.isArray(data.data) ? data.data.map(x => x.id || x.name).filter(Boolean)
-                : Array.isArray(data.models) ? data.models.map(x => x.id || x.name || x).filter(Boolean)
-                : [];
-            return list;
-        }
-
+        // Bind generic modelConfig fields
         wrap.querySelectorAll('[data-k]').forEach(input => {
             const k = input.dataset.k;
             if (input.type === 'checkbox') input.checked = !!cfg[k];
@@ -1729,27 +1940,248 @@
                 else if (input.type === 'number') cfg[k] = Number(input.value);
                 else cfg[k] = input.value;
                 persistModel();
+                if (k === 'model') syncModelPicker(window.VP_LLAMA?.getState?.());
             });
         });
 
+        // Bind cfg.llama.* fields
+        wrap.querySelectorAll('[data-llama]').forEach(input => {
+            const k = input.dataset.llama;
+            const cur = cfg.llama[k];
+            if (input.type === 'checkbox') input.checked = !!cur;
+            else input.value = cur ?? '';
+            input.addEventListener('change', () => {
+                if (input.type === 'checkbox') cfg.llama[k] = input.checked;
+                else if (input.type === 'number') cfg.llama[k] = parseInt(input.value, 10) || (k === 'port' ? 1234 : 1);
+                else cfg.llama[k] = String(input.value || '').trim();
+                persistModel();
+            });
+        });
+
+        function formatModelOptionLabel(m) {
+            const icons = { loaded: '🟢', loading: '⏳', unloaded: '⚪', sleeping: '💤', failed: '🔴' };
+            const ic = icons[m.status] || '⚪';
+            const tags = [];
+            if (m.status === 'loaded') tags.push('loaded');
+            else if (m.status === 'loading') tags.push('loading…');
+            else if (m.status === 'failed') tags.push('failed');
+            else if (m.status === 'sleeping') tags.push('sleeping');
+            if (m.isEmbedding) tags.push('embed');
+            return `${ic} ${m.id}${tags.length ? ` (${tags.join(', ')})` : ''}`;
+        }
+
+        function syncModelPicker(snap) {
+            if (!modelSelect) return;
+            const models = Array.isArray(snap?.models) ? snap.models : [];
+            const curVal = String(cfg.model || '').trim();
+            const hasCurInList = models.some(m => m.id === curVal);
+
+            modelSelect.innerHTML = '';
+            if (models.length) {
+                models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = formatModelOptionLabel(m);
+                    modelSelect.appendChild(opt);
+                });
+                if (curVal && !hasCurInList) {
+                    const customOpt = document.createElement('option');
+                    customOpt.value = curVal;
+                    customOpt.textContent = `✏️ ${curVal} (manual)`;
+                    modelSelect.appendChild(customOpt);
+                }
+            } else {
+                const opt = document.createElement('option');
+                opt.value = curVal || MANUAL_SENTINEL;
+                opt.textContent = curVal ? `${curVal} (server offline)` : '— (no models) —';
+                modelSelect.appendChild(opt);
+            }
+            const manualOpt = document.createElement('option');
+            manualOpt.value = MANUAL_SENTINEL;
+            manualOpt.textContent = '✏️ Ввести вручную…';
+            modelSelect.appendChild(manualOpt);
+
+            const showManual = forceManualInput || !models.length || (curVal && !hasCurInList);
+            modelSelect.value = forceManualInput ? MANUAL_SENTINEL : (curVal || MANUAL_SENTINEL);
+            if (modelManualRow) modelManualRow.style.display = showManual ? '' : 'none';
+            if (modelInput && document.activeElement !== modelInput) modelInput.value = curVal;
+
+            // Load/Unload buttons only meaningful when router mode is active
+            const isRouter = !!snap?.isRouter && snap?.status !== 'offline';
+            if (loadModelBtn) {
+                loadModelBtn.style.display = isRouter ? '' : 'none';
+                loadModelBtn.disabled = !curVal || snap?.status === 'loading';
+            }
+            if (unloadModelBtn) {
+                unloadModelBtn.style.display = isRouter ? '' : 'none';
+                unloadModelBtn.disabled = !snap?.loadedModelId;
+            }
+
+            // Show live fit-allocated n_ctx when known
+            const activeCtx = Number(snap?.ctxByModel?.[curVal] || snap?.activeCtx) || 0;
+            if (modelCtxNote) {
+                if (activeCtx > 0) {
+                    modelCtxNote.style.display = '';
+                    modelCtxNote.textContent = `Контекст (n_ctx): ${activeCtx.toLocaleString('en-US')} tok`;
+                } else {
+                    modelCtxNote.style.display = 'none';
+                }
+            }
+        }
+
+        function syncLlamaCard(snap) {
+            if (!snap || !wrap.isConnected) return false;
+            const st = snap.status || 'offline';
+            if (llamaBadge) llamaBadge.dataset.status = st;
+            if (llamaBadgeText) {
+                const labels = {
+                    offline: 'Offline',
+                    starting: 'Starting…',
+                    loading: snap.loadedModelId ? `Loading ${snap.loadedModelId}…` : 'Loading…',
+                    ready: snap.managed ? 'Ready' : 'Ready (external)',
+                    stopping: 'Stopping…',
+                    error: 'Error',
+                };
+                llamaBadgeText.textContent = labels[st] || st;
+            }
+            if (llamaToggleBtn) {
+                if (st === 'starting' || st === 'stopping') {
+                    llamaToggleBtn.disabled = true;
+                    llamaToggleBtn.textContent = st === 'starting' ? '⏳ Starting…' : '⏳ Stopping…';
+                } else if (st === 'offline' || st === 'error') {
+                    llamaToggleBtn.disabled = false;
+                    llamaToggleBtn.textContent = '▶ Start Local LLM';
+                } else if (snap.managed) {
+                    llamaToggleBtn.disabled = false;
+                    llamaToggleBtn.textContent = '■ Stop Local LLM';
+                } else {
+                    llamaToggleBtn.disabled = false;
+                    llamaToggleBtn.textContent = '🔄 Refresh';
+                }
+            }
+            if (llamaLogEl && window.VP_LLAMA?.getLogs) {
+                const lines = window.VP_LLAMA.getLogs();
+                llamaLogEl.textContent = lines.length ? lines.join('\n') : '(no output yet)';
+                llamaLogEl.scrollTop = llamaLogEl.scrollHeight;
+            }
+            syncModelPicker(snap);
+            return true;
+        }
+
+        modelSelect?.addEventListener('change', () => {
+            if (modelSelect.value === MANUAL_SENTINEL) {
+                forceManualInput = true;
+                if (modelManualRow) modelManualRow.style.display = '';
+                modelInput?.focus();
+                return;
+            }
+            forceManualInput = false;
+            cfg.model = modelSelect.value;
+            if (modelInput) modelInput.value = cfg.model;
+            if (modelManualRow) modelManualRow.style.display = 'none';
+            persistModel();
+            syncModelPicker(window.VP_LLAMA?.getState?.());
+        });
+
+        async function refreshModelsUI(showToast = false) {
+            setStatus('Fetching /v1/models...', 'info');
+            const res = window.VP_LLAMA?.refreshModels
+                ? await window.VP_LLAMA.refreshModels({ silent: false })
+                : { ok: false, error: 'VP_LLAMA unavailable', models: [] };
+            if (!res.ok) {
+                setStatus(`Error: ${res.error || 'Server unreachable'}`, 'err');
+                if (showToast) VP.showToast?.('Model server unreachable', 'error');
+                return res;
+            }
+            const chatModels = res.models.filter(m => !m.isEmbedding);
+            if (chatModels.length && (!cfg.model || cfg.model === 'local-model')) {
+                cfg.model = chatModels[0].id;
+                if (modelInput) modelInput.value = cfg.model;
+                persistModel();
+            }
+            syncModelPicker(window.VP_LLAMA.getState());
+            setStatus(res.models.length ? `OK — ${res.models.length} model(s) found` : 'OK — server responded, model list is empty', 'ok');
+            if (showToast) VP.showToast?.('Model server OK', 'success');
+            return res;
+        }
+
+        llamaToggleBtn?.addEventListener('click', async () => {
+            const rt = window.VP_LLAMA;
+            if (!rt) return;
+            const snap = rt.getState();
+            if (snap.status === 'offline' || snap.status === 'error') {
+                setStatus('Starting local llama-server…', 'info');
+                const res = await rt.start();
+                if (res.ok) {
+                    const port = rt.getConfig().port;
+                    if (!cfg.endpoint || cfg.endpoint.includes('localhost:1234')) {
+                        cfg.endpoint = `http://127.0.0.1:${port}/v1/chat/completions`;
+                        if (endpointInput) endpointInput.value = cfg.endpoint;
+                        persistModel();
+                    }
+                    const list = rt.getState().models.filter(m => !m.isEmbedding);
+                    if (list.length && (!cfg.model || cfg.model === 'local-model')) {
+                        cfg.model = list[0].id;
+                        if (modelInput) modelInput.value = cfg.model;
+                        persistModel();
+                    }
+                    setStatus(res.alreadyRunning ? 'Connected to running llama-server' : 'Local llama-server started', 'ok');
+                    VP.showToast?.('Local LLM ready', 'success');
+                } else {
+                    setStatus(`Start failed: ${res.error || 'unknown error'}`, 'err');
+                    VP.showToast?.(`llama-server error: ${String(res.error || '').slice(0, 100)}`, 'error');
+                }
+            } else if (snap.managed) {
+                setStatus('Stopping local llama-server…', 'info');
+                await rt.stop();
+                setStatus('Local llama-server stopped', 'info');
+                VP.showToast?.('Local LLM stopped', 'info');
+            } else {
+                await refreshModelsUI(true);
+            }
+        });
+
+        wrap.querySelector('[data-act="llama-clear-log"]')?.addEventListener('click', () => {
+            window.VP_LLAMA?.clearLogs?.();
+        });
+        wrap.querySelector('[data-act="refresh-models"]')?.addEventListener('click', () => refreshModelsUI(false));
+        loadModelBtn?.addEventListener('click', async () => {
+            const id = String(cfg.model || '').trim();
+            if (!id || !window.VP_LLAMA?.loadModel) return;
+            try {
+                setStatus(`Loading ${id} into VRAM…`, 'info');
+                await window.VP_LLAMA.loadModel(id);
+                setStatus(`Loading requested: ${id}`, 'ok');
+            } catch (err) {
+                setStatus(`Load error: ${err.message || err}`, 'err');
+                VP.showToast?.(`Load error: ${err.message || err}`, 'error');
+            }
+        });
+        unloadModelBtn?.addEventListener('click', async () => {
+            const id = window.VP_LLAMA?.getState?.()?.loadedModelId;
+            if (!id || !window.VP_LLAMA?.unloadModel) return;
+            try {
+                setStatus(`Unloading ${id}…`, 'info');
+                await window.VP_LLAMA.unloadModel(id);
+                setStatus(`Unloaded ${id} (VRAM freed)`, 'ok');
+                VP.showToast?.(`Unloaded ${id}`, 'info');
+            } catch (err) {
+                setStatus(`Unload error: ${err.message || err}`, 'err');
+            }
+        });
+
         // Tools mode status hint
-        const toolsStatus = wrap.querySelector('[data-role="status"]');
         const toolsHint = wrap.querySelector('[data-role="tools-mode-hint"]');
         function updateToolsHint() {
             const mode = cfg.toolsMode || 'off';
             const toolCount = VP.tools?.list?.({ enabledOnly: true })?.length || 0;
             if (mode === 'off') {
-                toolsStatus.textContent = 'Tools: off. Model cannot call perception tools.';
                 if (toolsHint) toolsHint.textContent = 'Disabled. The model will not see any tool definitions.';
             } else if (mode === 'native') {
-                toolsStatus.textContent = `Native tools: ${toolCount} registered. Model uses OpenAI tool_calls protocol.`;
                 if (toolsHint) toolsHint.textContent = `Native OpenAI tool_calls. ${toolCount} tool(s) attached to each request. Requires a model that supports function calling.`;
             } else {
-                toolsStatus.textContent = `Text-tags mode: ${toolCount} services listed in [SERVICES] block. Model invokes via text.`;
                 if (toolsHint) toolsHint.textContent = `Compact [SERVICES] card injected into the prompt. ${toolCount} service(s) listed. Works with any model, but less reliable.`;
             }
-            toolsStatus.classList.remove('ok', 'err', 'info');
-            toolsStatus.classList.add(toolCount > 0 ? 'ok' : 'info');
         }
         const toolsSelect = wrap.querySelector('[data-k="toolsMode"]');
         if (toolsSelect) {
@@ -1758,13 +2190,10 @@
                 persistModel();
                 updateToolsHint();
             });
-            // Studio 2.5.4: Instant update
             updateToolsHint();
         }
 
         // ── v26 Tools Manager: per-tool toggles + honest token weight ──
-        // (owner: option B — docs/tools-management-audit.md). Registry flags are
-        // runtime-only; cfg.disabledTools[] persists in modelConfig.
         const toolsListHost = wrap.querySelector('[data-role="tools-list"]');
         const toolTokenEstimate = (t) => Math.ceil((JSON.stringify(t.schema || {}).length + String(t.description || '').length + String(t.name || '').length) / 4);
         function renderToolsManager() {
@@ -1797,9 +2226,17 @@
             persistModel();
             VP.showToast?.(`Tool ${name}: ${on ? 'enabled' : 'disabled'} (saved)`, 'info');
             renderToolsManager();
-            updateToolsHint(); // refresh "N tools attached" line with the new enabled count
+            updateToolsHint();
         });
 
+        wrap.querySelector('[data-act="preset-llamacpp"]').addEventListener('click', () => {
+            const port = cfg.llama?.port || 1234;
+            cfg.endpoint = `http://127.0.0.1:${port}/v1/chat/completions`;
+            endpointInput.value = cfg.endpoint;
+            persistModel();
+            setStatus(`llama.cpp preset applied (port ${port})`, 'ok');
+            refreshModelsUI(false);
+        });
         wrap.querySelector('[data-act="preset-lmstudio"]').addEventListener('click', () => {
             cfg.endpoint = 'http://127.0.0.1:1234/v1/chat/completions';
             cfg.model = cfg.model || 'local-model';
@@ -1814,41 +2251,22 @@
             persistModel();
             setStatus('localhost preset applied', 'ok');
         });
-        wrap.querySelector('[data-act="test"]').addEventListener('click', async () => {
-            try {
-                setStatus('Testing /v1/models...', 'info');
-                const models = await fetchModels();
-                setStatus(models.length ? `OK — ${models.length} model(s) found` : 'OK — server responded, model list is empty', 'ok');
-                VP.showToast?.('Model server OK', 'success');
-            } catch (err) {
-                console.error('[VP Session] model test failed:', err);
-                setStatus(`Error: ${err.message || err}`, 'err');
-                VP.showToast?.('Model server test failed', 'error');
-            }
-        });
-        wrap.querySelector('[data-act="models"]').addEventListener('click', async () => {
-            try {
-                setStatus('Loading models...', 'info');
-                const models = await fetchModels();
-                modelOptions.innerHTML = '';
-                models.forEach(id => {
-                    const opt = document.createElement('option');
-                    opt.value = id;
-                    modelOptions.appendChild(opt);
-                });
-                if (models.length && (!cfg.model || cfg.model === 'local-model')) {
-                    cfg.model = models[0];
-                    modelInput.value = cfg.model;
-                    persistModel();
-                }
-                setStatus(models.length ? `Loaded: ${models.join(', ')}` : 'No models returned', models.length ? 'ok' : 'info');
-            } catch (err) {
-                console.error('[VP Session] load models failed:', err);
-                setStatus(`Error: ${err.message || err}`, 'err');
-            }
-        });
+        wrap.querySelector('[data-act="test"]').addEventListener('click', () => refreshModelsUI(true));
+        wrap.querySelector('[data-act="models"]').addEventListener('click', () => refreshModelsUI(false));
 
         container.appendChild(wrap);
+
+        // Initial paint + live subscription (auto-unsubscribes when panel unmounts)
+        if (window.VP_LLAMA) {
+            syncLlamaCard(window.VP_LLAMA.getState());
+            const unsub = window.VP_LLAMA.onChange((snap) => {
+                if (!syncLlamaCard(snap)) unsub();
+            });
+            // Quietly refresh list on panel open if server might already be up
+            if (window.VP_LLAMA.getState().status === 'offline' || !window.VP_LLAMA.getState().models.length) {
+                window.VP_LLAMA.probe().catch(() => {});
+            }
+        }
     }
 
         return {
